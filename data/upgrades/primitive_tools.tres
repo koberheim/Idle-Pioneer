@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="UpgradeDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/upgrade_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"primitive_tools"
+display_name = "Primitive Tools"
+description = "Better axes and picks increase extraction efficiency across every colony."
+gold_cost = 50
+resource_costs = Array[Resource]([])
+prerequisite_ids = Array[StringName]([])
+effect = &"global_production_multiplier"
+magnitude = 1.25
