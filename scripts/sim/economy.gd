@@ -25,6 +25,10 @@ func add_gold(amount: float) -> void:
 	Game.meta.lifetime_gold_earned += amount
 	gold_changed.emit(Game.run.gold)
 
+	# PLACEHOLDER earning method for Influence (rework: typed colonist
+	# roster) - see BalanceDef.influence_earn_rate_per_gold's doc comment.
+	Game.colonists.earn_influence_from_gold(amount)
+
 
 ## Deducts `amount` if (and only if) that much gold is available. Returns false
 ## and changes nothing on insufficient funds - same atomicity contract as

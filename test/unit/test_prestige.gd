@@ -148,9 +148,9 @@ func test_navigation_reduces_a_colonys_round_trip_time() -> void:
 	assert_almost_eq(colony.round_trip_seconds(), 12.0 / 1.12, 0.0001)
 
 
-func test_settlement_discounts_the_next_colonist_cost() -> void:
+func test_settlement_discounts_the_next_colonist_recruit_cost() -> void:
 	Game.meta.upgrades[&"settlement"] = 1  # 0.93x
-	assert_almost_eq(Game.colonists.next_colonist_cost(), 25.0 * 0.93, 0.0001)
+	assert_almost_eq(Game.colonists.next_recruit_cost(), 25.0 * 0.93, 0.0001)
 
 
 func test_settlement_discounts_the_next_colony_slot_cost() -> void:

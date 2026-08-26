@@ -13,7 +13,6 @@ func before_each() -> void:
 
 func after_each() -> void:
 	Game.colonies.clear()
-	Game.colonists.clear_assignments()
 	Game.run = null
 
 
@@ -43,15 +42,15 @@ func test_tick_fans_out_to_every_registered_colony() -> void:
 	Game.colonies.register(capital)
 	Game.colonies.register(outpost)
 
-	Game.economy.add_gold(1000.0)
-	Game.colonists.buy_colonist()
-	Game.colonists.buy_colonist()
-	Game.colonists.assign(&"tidewater_landing", 1)
-	Game.colonists.assign(&"cape_harbour", 1)
+	Game.run.influence = 100.0
+	var a: Colonist = Game.colonists.recruit(Colonist.Type.RESOURCE)
+	var b: Colonist = Game.colonists.recruit(Colonist.Type.RESOURCE)
+	Game.colonists.assign(a.id, &"tidewater_landing")
+	Game.colonists.assign(b.id, &"cape_harbour")
 
 	Game.colonies.tick(5.0)
 
-	# rate = base 1.0 x colonist bonus (1 + 0.1*1) = 1.1/s x 5s = 5.5
+	# rate = base 1.0 x colonist primary bonus (1 + 0.1*level 1) = 1.1/s x 5s = 5.5
 	assert_almost_eq(Game.inventory.get_amount(&"timber"), 5.5, 0.0001, "capital should have produced")
 	assert_almost_eq(outpost.local_stock.get(&"cod", 0.0), 5.5, 0.0001, "outpost should have produced")
 

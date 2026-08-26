@@ -8,8 +8,10 @@
 ##
 ## All the actual formulas live in Balance (scripts/core/balance.gd) - this
 ## class just holds the state (which levels have been bought) and asks
-## Balance to combine it with ColonyDef's base stats and Game.colonists' live
-## count. Retuning any of this never means touching Colony.
+## Balance to combine it with ColonyDef's base stats and whichever colonist
+## Game.colonists has assigned to each of this colony's three type slots
+## (rework task: typed colonist roster). Retuning any of this never means
+## touching Colony.
 ##
 ## `colony_id` (this specific founded instance, e.g. "slot_3") and `tier_id`
 ## (which ColonyDef it draws its resource/base stats from, e.g. &"cape_harbour")
@@ -91,8 +93,13 @@ func distance() -> float:
 	return distance_cells
 
 
-func colonists_assigned() -> int:
-	return Game.colonists.assigned_to(colony_id)
+## The level of this colony's assigned colonist for `type` (0 if that slot
+## is empty) - rework: typed colonist roster. Replaces the old headcount
+## (colonists_assigned()) now that a colony has one specific slot per type
+## rather than an arbitrary assigned count.
+func _colonist_level(type: Colonist.Type) -> int:
+	var c: Colonist = Game.colonists.colonist_at(colony_id, type)
+	return c.level if c != null else 0
 
 
 ## Units per second this colony currently produces. Real even with zero
@@ -104,7 +111,7 @@ func production_rate() -> float:
 	return Balance.colony_production_rate(
 		def.base_production_rate,
 		production_level,
-		colonists_assigned(),
+		_colonist_level(Colonist.Type.RESOURCE),
 		# Two independent multipliers, combined here rather than in Balance:
 		# Progression's run-scoped upgrade (resets every run) and Prestige's
 		# Industry branch (permanent, §8). Balance.colony_production_rate()
@@ -119,7 +126,9 @@ func cargo_capacity() -> float:
 	var def: ColonyDef = Db.colony(tier_id)
 	if def == null:
 		return 0.0
-	return Balance.colony_cargo_capacity(def.base_cargo, cargo_level, colonists_assigned(), Game.prestige.cargo_multiplier())
+	return Balance.colony_cargo_capacity(
+		def.base_cargo, cargo_level, _colonist_level(Colonist.Type.CARGO), Game.prestige.cargo_multiplier()
+	)
 
 
 ## Full round-trip travel time in seconds for a Route serving this colony.
@@ -128,7 +137,7 @@ func round_trip_seconds() -> float:
 	if def == null:
 		return 0.0
 	return Balance.route_round_trip_seconds(
-		distance(), route_type == RouteType.SEA, def.base_speed, speed_level, colonists_assigned(),
+		distance(), route_type == RouteType.SEA, def.base_speed, speed_level, _colonist_level(Colonist.Type.SPEED),
 		Game.prestige.speed_multiplier()
 	)
 

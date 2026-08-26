@@ -4,9 +4,14 @@
 
 [resource]
 script = ExtResource("1")
-colonist_base_cost = 25.0
-colonist_cost_growth = 1.15
-colonist_bonus_per_colonist = 0.1
+colonist_recruit_base_cost = 25.0
+colonist_recruit_cost_growth = 1.15
+colonist_upgrade_base_cost = 20.0
+colonist_upgrade_cost_growth = 1.2
+colonist_primary_bonus_per_level = 0.1
+colonist_secondary_unlock_level = 3
+colonist_secondary_bonus_per_level = 0.05
+influence_earn_rate_per_gold = 0.05
 production_level_base_cost = 40.0
 production_level_cost_growth = 1.13
 production_level_bonus = 0.25

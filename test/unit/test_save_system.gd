@@ -254,6 +254,26 @@ func test_save_then_load_restores_liberty_and_prestige_upgrade_levels() -> void:
 	assert_eq(Game.prestige.industry_level(), 2)
 
 
+## Rework: typed colonist roster. Proves Influence, every colonist's type
+## and level, and its assignment all survive a save/load intact.
+func test_save_then_load_restores_the_colonist_roster_and_influence() -> void:
+	Game.run.influence = 500.0
+	var c: Colonist = Game.colonists.recruit(Colonist.Type.CARGO)
+	Game.colonists.upgrade(c.id)
+	Game.colonists.assign(c.id, &"slot_0")
+
+	SaveSystem.save()
+	Game.run = null
+
+	SaveSystem.load()
+	var restored: Colonist = Game.colonists.get_colonist(c.id)
+	assert_not_null(restored)
+	assert_eq(restored.type, Colonist.Type.CARGO)
+	assert_eq(restored.level, 2)
+	assert_eq(restored.assigned_colony_id, &"slot_0")
+	assert_gt(Game.colonists.influence(), 0.0, "leftover Influence after recruiting/upgrading should survive too")
+
+
 func test_save_then_load_restores_resource_routing() -> void:
 	Game.routing.set_mode(&"timber", Game.routing.SELL)
 	SaveSystem.save()

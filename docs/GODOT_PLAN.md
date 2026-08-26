@@ -119,6 +119,17 @@ Read `docs/GODOT_MIGRATION_ANALYSIS.md`'s account of what actually broke in Unit
 
 Found while reviewing what was still missing after the map rework: buying and assigning colonists (docs/GAME_DESIGN.md §4's "central tension of the whole game") had a fully built, tested backend (`Game.colonists`) but no way to touch it from the actual game screen - the Colonies tab covered founding and upgrades, but not the colonist pool sitting right next to them. Added a colonist count/buy row at the top of that tab, and a per-colony assign/unassign control on every founded colony's row.
 
+### Colonists, redesigned: typed, individual, and on a new currency
+
+Direct request, replacing the flat colonist pool above entirely rather than sitting alongside it - confirmed directly before building:
+
+- **A new currency, Influence, separate from gold** - how it's actually meant to be earned is still undecided. Built with a clearly-labeled placeholder earning method (a small fraction of every gold gain also becomes Influence) so recruiting/upgrading/assigning colonists is genuinely testable now rather than blocked on that decision; trivial to rip out and replace with the real design later, since it's one field and one line.
+- **Colonists are individual and typed now, not a headcount.** Three types - Resource, Cargo, Speed - matching a colony's own three tracks exactly. Each colonist is recruited on its own (cost grows with how many you own total - no cap, but expensive, as asked for), starts at level 1, and can be upgraded on its own (cost grows with *that colonist's* level, independent of the rest of your roster).
+- **A colony has exactly one slot per type** - never two Resource colonists working the same colony. Assigning fills the matching slot only; a second colonist of a type already staffed there is rejected.
+- **Each colony's production/cargo/speed formulas now read the level of whichever colonist is actually assigned to that specific slot**, replacing the old flat "+10% per colonist assigned, no matter to what" bonus. An empty slot means no bonus for that track, not broken - a colony still works fine fully unstaffed, unchanged from before.
+- **Secondary effects (meant to eventually reach into crafting and beyond, per the request) are a placeholder framework only, on purpose** - a colonist above a certain level implies a nonzero number via one `Balance` formula, but nothing in the game reads it yet. Confirmed directly: real secondary effects aren't designed yet, and this pass shouldn't invent them.
+- **The colonist roster lives directly on the save state now** (no separate in-memory registry to remember to clear on a prestige reset, unlike colonies/routes/crafting stations) - swapping in a fresh run already empties it for free, since there's nothing left to hold onto.
+
 ---
 
 ## Environment (verified this session)

@@ -91,15 +91,14 @@ func new_run(map_id: StringName, seed_value: int = -1) -> void:
 	run = fresh
 
 	# Not everything run-scoped lives inside the RunState object itself -
-	# Colonies holds live Colony instances in memory, and Colonists holds
-	# colonist-to-site assignments in memory, neither of which the `run = fresh`
-	# swap above touches on its own. Both need clearing explicitly here, or a
-	# new run would start with the previous run's colonies and colonist
-	# assignments still active - exactly the "prestige didn't reset X" bug
-	# this class's own doc comment warns about. Found and fixed while adding
-	# the colonist pool, not something that had come up yet.
+	# Colonies holds live Colony instances in memory, which the `run = fresh`
+	# swap above doesn't touch on its own. Needs clearing explicitly here, or
+	# a new run would start with the previous run's colonies still active -
+	# exactly the "prestige didn't reset X" bug this class's own doc comment
+	# warns about. (Colonists no longer needs this - the typed roster lives
+	# directly on RunState now, rework: typed colonist roster, so the
+	# `run = fresh` swap above already resets it for free.)
 	colonies.clear()
-	colonists.clear_assignments()
 	crafting_stations.clear()
 	routes.clear()
 

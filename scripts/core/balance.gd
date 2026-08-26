@@ -29,11 +29,20 @@ func _geometric_cost(base: float, growth: float, count: int) -> float:
 	return base * pow(growth, count)
 
 
-## `prestige_discount_multiplier` is Settlement's effect (Prestige.
-## cost_discount_multiplier()) - defaults to 1.0 (no discount) so every
-## existing caller/test that hasn't bought Settlement yet is unaffected.
-func next_colonist_cost(colonists_owned: int, prestige_discount_multiplier: float = 1.0) -> float:
-	return _geometric_cost(_def.colonist_base_cost, _def.colonist_cost_growth, colonists_owned) * prestige_discount_multiplier
+## Cost of recruiting the next colonist (any type) - "no cap owned, but
+## expensive" (rework: typed colonist roster). `prestige_discount_multiplier`
+## is Settlement's effect (Prestige.cost_discount_multiplier()) - defaults to
+## 1.0 (no discount) so every existing caller/test that hasn't bought
+## Settlement yet is unaffected.
+func next_colonist_recruit_cost(colonists_owned: int, prestige_discount_multiplier: float = 1.0) -> float:
+	return _geometric_cost(_def.colonist_recruit_base_cost, _def.colonist_recruit_cost_growth, colonists_owned) * prestige_discount_multiplier
+
+
+## Cost of raising one specific colonist from `current_level` to the next -
+## scales with that colonist's own level, independent of how many colonists
+## are owned overall. Same Settlement-discount convention as recruiting.
+func next_colonist_upgrade_cost(current_level: int, prestige_discount_multiplier: float = 1.0) -> float:
+	return _geometric_cost(_def.colonist_upgrade_base_cost, _def.colonist_upgrade_cost_growth, current_level) * prestige_discount_multiplier
 
 
 func next_production_level_cost(current_level: int) -> float:
@@ -48,52 +57,67 @@ func next_speed_level_cost(current_level: int) -> float:
 	return _geometric_cost(_def.speed_level_base_cost, _def.speed_level_cost_growth, current_level)
 
 
-## A colonist's bonus applies identically to all three colony tracks right
-## now - see BalanceDef.colonist_bonus_per_colonist's doc comment for why
-## that's a placeholder, not a real design decision.
-func _colonist_multiplier(colonists_assigned: int) -> float:
-	return 1.0 + _def.colonist_bonus_per_colonist * float(colonists_assigned)
+## A colonist's primary effect, scaled by its own level (rework: typed
+## colonist roster - replaces the old flat per-headcount bonus). `level` is
+## 0 when no colonist of the relevant type is assigned to a colony, which
+## correctly yields a neutral 1.0 multiplier - a colony still works fine
+## unstaffed, staffing is a bonus on top (docs/GODOT_PLAN.md's design
+## realignment section).
+func colonist_primary_multiplier(level: int) -> float:
+	return 1.0 + _def.colonist_primary_bonus_per_level * float(level)
+
+
+## PLACEHOLDER FRAMEWORK ONLY - see BalanceDef.colonist_secondary_unlock_level's
+## doc comment. Nothing calls this yet; it exists so the data model has room
+## for a real secondary-effect design later without a restructure.
+func colonist_secondary_modifier(level: int) -> float:
+	if level < _def.colonist_secondary_unlock_level:
+		return 0.0
+	return _def.colonist_secondary_bonus_per_level * float(level - _def.colonist_secondary_unlock_level + 1)
 
 
 ## Units/second a colony produces. Colonies have a real base rate with zero
 ## colonists assigned - staffing is a bonus on top, not a requirement to
 ## produce anything at all (docs/GODOT_PLAN.md's design realignment section -
 ## this is a deliberate correction to §4's "every colonist is either
-## producing or converting" read literally).
+## producing or converting" read literally). `resource_colonist_level` is 0
+## if no Resource-type colonist is assigned to this colony.
 func colony_production_rate(
-	base_rate: float, production_level: int, colonists_assigned: int, prestige_multiplier: float
+	base_rate: float, production_level: int, resource_colonist_level: int, prestige_multiplier: float
 ) -> float:
 	var level_multiplier: float = 1.0 + _def.production_level_bonus * float(production_level)
-	return base_rate * level_multiplier * _colonist_multiplier(colonists_assigned) * prestige_multiplier
+	return base_rate * level_multiplier * colonist_primary_multiplier(resource_colonist_level) * prestige_multiplier
 
 
 ## Cargo capacity - a colony's own base_cargo, its cargo upgrade level, and
-## its assigned colonists. Land vs. sea no longer affects this (see
-## route_round_trip_seconds for where it does apply). `prestige_cargo_multiplier`
-## is Navigation's cargo effect (Prestige.cargo_multiplier()) - defaults to
-## 1.0 so every existing caller/test is unaffected until Navigation is bought.
+## its assigned Cargo-type colonist's level (0 if none). Land vs. sea no
+## longer affects this (see route_round_trip_seconds for where it does
+## apply). `prestige_cargo_multiplier` is Navigation's cargo effect
+## (Prestige.cargo_multiplier()) - defaults to 1.0 so every existing
+## caller/test is unaffected until Navigation is bought.
 func colony_cargo_capacity(
-	base_cargo: float, cargo_level: int, colonists_assigned: int, prestige_cargo_multiplier: float = 1.0
+	base_cargo: float, cargo_level: int, cargo_colonist_level: int, prestige_cargo_multiplier: float = 1.0
 ) -> float:
 	var level_multiplier: float = 1.0 + _def.cargo_level_bonus * float(cargo_level)
-	return base_cargo * level_multiplier * _colonist_multiplier(colonists_assigned) * prestige_cargo_multiplier
+	return base_cargo * level_multiplier * colonist_primary_multiplier(cargo_colonist_level) * prestige_cargo_multiplier
 
 
 ## Full round-trip travel time in seconds. `is_sea` picks the per-distance
 ## time factor (land vs. sea, docs/GAME_DESIGN.md §5's per-colony roll); the
-## colony's own base_speed, speed upgrade level, and assigned colonists all
-## reduce it further. `prestige_speed_multiplier` is Navigation's speed
-## effect (Prestige.speed_multiplier()) - defaults to 1.0 so every existing
+## colony's own base_speed, speed upgrade level, and its assigned Speed-type
+## colonist's level (0 if none) all reduce it further.
+## `prestige_speed_multiplier` is Navigation's speed effect
+## (Prestige.speed_multiplier()) - defaults to 1.0 so every existing
 ## caller/test is unaffected until Navigation is bought.
 func route_round_trip_seconds(
-	distance: float, is_sea: bool, base_speed: float, speed_level: int, colonists_assigned: int,
+	distance: float, is_sea: bool, base_speed: float, speed_level: int, speed_colonist_level: int,
 	prestige_speed_multiplier: float = 1.0
 ) -> float:
 	var time_factor: float = _def.route_time_factor_sea if is_sea else _def.route_time_factor_land
 	var speed_multiplier: float = (
 		base_speed
 		* (1.0 + _def.speed_level_bonus * float(speed_level))
-		* _colonist_multiplier(colonists_assigned)
+		* colonist_primary_multiplier(speed_colonist_level)
 		* prestige_speed_multiplier
 	)
 	if speed_multiplier <= 0.0:
@@ -116,6 +140,11 @@ func prestige_liberty_payout(lifetime_gold_earned_this_run: float) -> int:
 
 func offline_catch_up_cap_seconds() -> float:
 	return _def.offline_catch_up_cap_seconds
+
+
+## PLACEHOLDER - see BalanceDef.influence_earn_rate_per_gold's doc comment.
+func influence_earn_rate_per_gold() -> float:
+	return _def.influence_earn_rate_per_gold
 
 
 func map_width() -> int:

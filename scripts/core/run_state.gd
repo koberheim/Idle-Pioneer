@@ -60,10 +60,24 @@ var started_at_unix: int = 0
 ## is the separate, permanent, never-reset total across every run.
 var lifetime_gold_earned_this_run: float = 0.0
 
-## How many colonists have been bought this run (docs/GAME_DESIGN.md §4 - the
-## shared workforce split between gathering and crafting). Colonists owns the
-## behaviour (buying, assigning); this is just where the total is persisted.
-var colonists_owned: int = 0
+## Currency spent recruiting/upgrading colonists (rework: typed colonist
+## roster - docs/GAME_DESIGN.md §4's "central tension," now with real shape:
+## Resource/Cargo/Speed colonists, one of each per colony). Separate from
+## gold; how it's earned is still undecided - see Balance's
+## influence_earn_rate_per_gold placeholder. Resets each run, same as gold.
+var influence: float = 0.0
+
+## One entry per owned colonist (Colonist.to_dict()'s own shape - id, type,
+## level, assigned_colony_id). Colonists owns all behaviour that reads or
+## writes this; RunState just persists it, same as `inventory` or `gold`.
+var colonist_roster: Array[Dictionary] = []
+
+## Hands out each new colonist's stable per-run id (Colonists.recruit()) -
+## only ever increments, never reused, so an id stays unique even after the
+## colonist it named is long gone (there's no "delete a colonist" action,
+## but this is cheap insurance against ever adding one and forgetting this
+## constraint).
+var next_colonist_id: int = 1
 
 ## StringName -> float. Central resource stock (task R1 owns the behaviour;
 ## this is just where it's persisted).
@@ -123,7 +137,9 @@ func to_dict() -> Dictionary:
 		"elapsed_seconds": elapsed_seconds,
 		"gold": gold,
 		"lifetime_gold_earned_this_run": lifetime_gold_earned_this_run,
-		"colonists_owned": colonists_owned,
+		"influence": influence,
+		"colonist_roster": colonist_roster,
+		"next_colonist_id": next_colonist_id,
 		"inventory": _stringname_float_dict_to_json(inventory),
 		"colonies": colonies.map(_colony_to_dict),
 		"upgrades_purchased": upgrades_purchased.map(func(id: StringName) -> String: return String(id)),
@@ -152,7 +168,14 @@ static func from_dict(d: Dictionary) -> RunState:
 	s.elapsed_seconds = float(d.get("elapsed_seconds", 0.0))
 	s.gold = float(d.get("gold", 0.0))
 	s.lifetime_gold_earned_this_run = float(d.get("lifetime_gold_earned_this_run", 0.0))
-	s.colonists_owned = int(d.get("colonists_owned", 0))
+	s.influence = float(d.get("influence", 0.0))
+
+	var colonist_roster: Array[Dictionary] = []
+	for entry: Variant in (d.get("colonist_roster", []) as Array):
+		colonist_roster.append(entry as Dictionary)
+	s.colonist_roster = colonist_roster
+
+	s.next_colonist_id = int(d.get("next_colonist_id", 1))
 	s.inventory = _json_to_stringname_float_dict(d.get("inventory", {}))
 
 	var colonies: Array[Dictionary] = []

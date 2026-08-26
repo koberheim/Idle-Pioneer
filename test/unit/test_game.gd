@@ -11,7 +11,6 @@ func before_each() -> void:
 	Game.run = null
 	Game.meta = MetaState.new()
 	Game.colonies.clear()
-	Game.colonists.clear_assignments()
 	Game.routes.clear()
 
 
@@ -19,7 +18,6 @@ func after_each() -> void:
 	Game.run = null
 	Game.meta = MetaState.new()
 	Game.colonies.clear()
-	Game.colonists.clear_assignments()
 	Game.routes.clear()
 
 
@@ -48,11 +46,12 @@ func test_two_new_run_calls_produce_independent_state() -> void:
 
 
 ## Found while building the colonist pool: new_run() replaced `Game.run`
-## wholesale, but Colonies (live Colony instances) and Colonists (colonist-to-
-## site assignments) both live in memory outside RunState, and neither was
-## being cleared - a second run would start with the first run's colonies
-## and colonist assignments still active. Fixed in game.gd's new_run(); this
-## test covers the fix.
+## wholesale, but Colonies (live Colony instances) lives in memory outside
+## RunState and wasn't being cleared - a second run would start with the
+## first run's colonies still active. Fixed in game.gd's new_run(); this
+## test covers the fix. (Colonists no longer needs a parallel check - the
+## typed roster lives directly on RunState now, rework: typed colonist
+## roster, so the `run = fresh` swap already resets it for free.)
 ##
 ## A fresh run always has exactly the Capital (bootstrapped automatically -
 ## see game.gd's new_run(), rework task: live simulation), so "cleared"
@@ -61,16 +60,16 @@ func test_two_new_run_calls_produce_independent_state() -> void:
 func test_new_run_clears_leftover_colonies_and_colonist_assignments() -> void:
 	Game.new_run(&"mvp_coast")
 	Game.colonies.register(Colony.new(&"cape_harbour"))
-	Game.economy.add_gold(100.0)
-	Game.colonists.buy_colonist()
-	Game.colonists.assign(&"slot_0", 1)
+	Game.run.influence = 100.0
+	var c: Colonist = Game.colonists.recruit(Colonist.Type.RESOURCE)
+	Game.colonists.assign(c.id, &"slot_0")
 
 	Game.new_run(&"mvp_coast")
 
 	var remaining: Array[Colony] = Game.colonies.all()
 	assert_eq(remaining.size(), 1, "only the freshly-bootstrapped Capital should remain")
 	assert_true(remaining[0].is_capital)
-	assert_eq(Game.colonists.total_assigned(), 0, "leftover assignments should be cleared")
+	assert_eq(Game.colonists.colonists_owned(), 0, "leftover colonists should be cleared")
 
 
 ## The Capital is free and always founded from the start (docs/GAME_DESIGN.md

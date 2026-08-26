@@ -16,15 +16,41 @@ class_name BalanceDef
 extends Resource
 
 @export_group("Colonists")
-## §6: colonist_cost = base * growth^colonists_owned.
-@export var colonist_base_cost: float = 25.0
-@export var colonist_cost_growth: float = 1.15
+## Cost of recruiting the next colonist (any type): base * growth^colonists_owned -
+## "no cap on how many you can own, but expensive" (rework: typed colonist
+## roster). Reuses the original flat-pool's numbers as a starting point;
+## retune once a real run's pacing has been played.
+@export var colonist_recruit_base_cost: float = 25.0
+@export var colonist_recruit_cost_growth: float = 1.15
 
-## PLACEHOLDER - deliberately not designed yet ("we'll develop later," per
-## conversation). A flat multiplier bonus applied per colonist assigned to a
-## colony, identically across all three upgrade tracks below, until a real
-## colonist-bonus design replaces this with something more considered.
-@export var colonist_bonus_per_colonist: float = 0.1
+## Cost of raising one specific colonist by a level: base * growth^current_level -
+## upgrading a veteran costs more than leveling a rookie, independent of how
+## many colonists you own overall.
+@export var colonist_upgrade_base_cost: float = 20.0
+@export var colonist_upgrade_cost_growth: float = 1.2
+
+## A colonist's primary effect (matching its type - Resource/Cargo/Speed)
+## scales with its own level: multiplier = 1 + bonus * level. Replaces the
+## old flat colonist_bonus_per_colonist (which scaled with a headcount, not
+## a level) now that colonists are individual and leveled, not a count.
+@export var colonist_primary_bonus_per_level: float = 0.1
+
+## PLACEHOLDER FRAMEWORK ONLY - deliberately inert (confirmed directly: no
+## real secondary effects designed yet). A colonist past this level implies
+## a nonzero secondary-modifier number via colonist_secondary_bonus_per_level,
+## but nothing in the game reads it - not wired into crafting, not wired
+## anywhere. Exists so the data model has room for it without a later
+## restructure; do not treat this as a real, balanced number.
+@export var colonist_secondary_unlock_level: int = 3
+@export var colonist_secondary_bonus_per_level: float = 0.05
+
+## PLACEHOLDER earning method for Influence (rework: typed colonist roster) -
+## how this currency is actually meant to be earned is explicitly undecided.
+## For now, every gold gain also earns this fraction of it as Influence
+## (see Economy.add_gold()), so recruiting/upgrading/assigning colonists is
+## actually testable end to end. Trivial to rip out once the real design
+## for earning Influence exists - it's this one field and one call site.
+@export var influence_earn_rate_per_gold: float = 0.05
 
 @export_group("Colony Production Upgrade")
 ## Cost of the next production level: base * growth^current_level.

@@ -15,7 +15,12 @@ func _make_populated_run_state() -> RunState:
 	s.elapsed_seconds = 123.5
 	s.gold = 87.0
 	s.lifetime_gold_earned_this_run = 5400.0
-	s.colonists_owned = 6
+	s.influence = 42.5
+	s.colonist_roster = [
+		{"id": "colonist_1", "type": "resource", "level": 3, "assigned_colony_id": "slot_1"},
+		{"id": "colonist_2", "type": "speed", "level": 1, "assigned_colony_id": ""},
+	]
+	s.next_colonist_id = 3
 	s.inventory = {&"timber": 12.0, &"clay": 3.0}
 	s.colonies = [
 		{"colony_id": &"slot_0", "tier_id": &"tidewater_landing", "slot_index": 0, "production_level": 2, "cargo_level": 0, "speed_level": 1, "local_stock": {&"timber": 4.0}},
@@ -45,7 +50,9 @@ func test_to_dict_from_dict_round_trip_preserves_all_fields() -> void:
 	assert_eq(restored.elapsed_seconds, original.elapsed_seconds)
 	assert_eq(restored.gold, original.gold)
 	assert_eq(restored.lifetime_gold_earned_this_run, original.lifetime_gold_earned_this_run)
-	assert_eq(restored.colonists_owned, original.colonists_owned)
+	assert_eq(restored.influence, original.influence)
+	assert_eq(restored.colonist_roster, original.colonist_roster)
+	assert_eq(restored.next_colonist_id, original.next_colonist_id)
 	assert_eq(restored.inventory, original.inventory)
 	assert_eq(restored.colonies, original.colonies)
 	assert_eq(restored.upgrades_purchased, original.upgrades_purchased)
@@ -74,6 +81,8 @@ func test_round_trip_through_actual_json_string_preserves_int_fields() -> void:
 	assert_eq(restored.colonies_founded, 3)
 	assert_typeof(restored.started_at_unix, TYPE_INT)
 	assert_eq(restored.started_at_unix, 1700000000)
+	assert_typeof(restored.next_colonist_id, TYPE_INT)
+	assert_eq(restored.next_colonist_id, 3)
 
 
 func test_inventory_keys_are_stringnames_after_round_trip() -> void:
@@ -92,7 +101,9 @@ func test_fresh_run_state_has_sane_defaults() -> void:
 	assert_eq(s.elapsed_seconds, 0.0)
 	assert_eq(s.gold, 0.0)
 	assert_eq(s.lifetime_gold_earned_this_run, 0.0)
-	assert_eq(s.colonists_owned, 0)
+	assert_eq(s.influence, 0.0)
+	assert_eq(s.colonist_roster, [] as Array[Dictionary])
+	assert_eq(s.next_colonist_id, 1)
 	assert_eq(s.inventory, {})
 	assert_eq(s.colonies, [] as Array[Dictionary])
 	assert_eq(s.upgrades_purchased, [] as Array[StringName])

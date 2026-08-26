@@ -12,7 +12,6 @@ func before_each() -> void:
 
 
 func after_each() -> void:
-	Game.colonists.clear_assignments()
 	Game.run = null
 
 
@@ -51,14 +50,25 @@ func test_collect_empties_and_returns_local_stock() -> void:
 	assert_eq(colony.local_stock, {}, "collect() must empty local_stock")
 
 
-func test_colonists_boost_production_on_top_of_the_base_rate() -> void:
+func test_a_resource_colonist_boosts_production_on_top_of_the_base_rate() -> void:
 	var colony := Colony.new(&"cape_harbour")
-	Game.colonists.buy_colonist()
-	Game.colonists.assign(&"cape_harbour", 1)
+	Game.run.influence = 100.0
+	var colonist: Colonist = Game.colonists.recruit(Colonist.Type.RESOURCE)
+	Game.colonists.assign(colonist.id, &"cape_harbour")
 
-	# Balance's placeholder colonist bonus is +10%/colonist: 1.0 x 1.1 = 1.1/s
+	# Colonist primary bonus is +10%/level, starts at level 1: 1.0 x 1.1 = 1.1/s
 	colony.tick(2.0)
 	assert_almost_eq(colony.local_stock.get(&"cod", 0.0), 2.2, 0.0001)
+
+
+func test_a_cargo_or_speed_colonist_does_not_affect_production() -> void:
+	var colony := Colony.new(&"cape_harbour")
+	Game.run.influence = 1000.0
+	var cargo_colonist: Colonist = Game.colonists.recruit(Colonist.Type.CARGO)
+	Game.colonists.assign(cargo_colonist.id, &"cape_harbour")
+
+	colony.tick(2.0)  # still just the base rate - no Resource colonist assigned
+	assert_almost_eq(colony.local_stock.get(&"cod", 0.0), 2.0, 0.0001)
 
 
 func test_production_level_increases_output_by_the_documented_rate() -> void:

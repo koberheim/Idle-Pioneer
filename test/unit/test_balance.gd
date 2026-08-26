@@ -6,9 +6,24 @@
 extends GutTest
 
 
-func test_colonist_cost_matches_the_documented_curve() -> void:
-	assert_almost_eq(Balance.next_colonist_cost(0), 25.0, 0.0001)
-	assert_almost_eq(Balance.next_colonist_cost(1), 28.75, 0.01)  # 25 * 1.15
+func test_colonist_recruit_cost_matches_the_documented_curve() -> void:
+	assert_almost_eq(Balance.next_colonist_recruit_cost(0), 25.0, 0.0001)
+	assert_almost_eq(Balance.next_colonist_recruit_cost(1), 28.75, 0.01)  # 25 * 1.15
+
+
+func test_colonist_upgrade_cost_matches_the_documented_curve() -> void:
+	assert_almost_eq(Balance.next_colonist_upgrade_cost(0), 20.0, 0.0001)
+	assert_almost_eq(Balance.next_colonist_upgrade_cost(1), 24.0, 0.01)  # 20 * 1.2
+
+
+func test_colonist_secondary_modifier_is_zero_below_the_unlock_level() -> void:
+	assert_almost_eq(Balance.colonist_secondary_modifier(1), 0.0, 0.0001)
+	assert_almost_eq(Balance.colonist_secondary_modifier(2), 0.0, 0.0001)
+
+
+func test_colonist_secondary_modifier_is_nonzero_at_and_above_the_unlock_level() -> void:
+	assert_gt(Balance.colonist_secondary_modifier(3), 0.0)
+	assert_gt(Balance.colonist_secondary_modifier(4), Balance.colonist_secondary_modifier(3))
 
 
 func test_production_level_cost_grows_geometrically() -> void:
@@ -35,7 +50,7 @@ func test_production_rate_scales_with_level() -> void:
 	assert_almost_eq(Balance.colony_production_rate(1.0, 2, 0, 1.0), 1.5, 0.0001)
 
 
-func test_production_rate_scales_with_colonists() -> void:
+func test_production_rate_scales_with_resource_colonist_level() -> void:
 	# 1.0 * (1 + 0.1*3) = 1.3
 	assert_almost_eq(Balance.colony_production_rate(1.0, 0, 3, 1.0), 1.3, 0.0001)
 
@@ -48,7 +63,7 @@ func test_cargo_capacity_with_no_bonuses_is_just_the_base_value() -> void:
 	assert_almost_eq(Balance.colony_cargo_capacity(20.0, 0, 0), 20.0, 0.0001)
 
 
-func test_cargo_capacity_scales_with_level_and_colonists() -> void:
+func test_cargo_capacity_scales_with_level_and_cargo_colonist_level() -> void:
 	# 20 * (1 + 0.5*1) * (1 + 0.1*2) = 20 * 1.5 * 1.2 = 36
 	assert_almost_eq(Balance.colony_cargo_capacity(20.0, 1, 2), 36.0, 0.0001)
 
@@ -66,7 +81,7 @@ func test_round_trip_seconds_decreases_with_speed_level() -> void:
 	assert_almost_eq(Balance.route_round_trip_seconds(1, false, 1.0, 2, 0), 6.0, 0.0001)
 
 
-func test_round_trip_seconds_decreases_with_colonists() -> void:
+func test_round_trip_seconds_decreases_with_speed_colonist_level() -> void:
 	# 12 / (1 + 0.1*2) = 10.0
 	assert_almost_eq(Balance.route_round_trip_seconds(1, false, 1.0, 0, 2), 10.0, 0.0001)
 
