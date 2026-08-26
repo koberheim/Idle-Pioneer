@@ -141,6 +141,14 @@ func _evaluate_directory(dir_path: String) -> Dictionary:
 		else:
 			seen_ids[id] = path
 
+		# Content types that define their own domain rules (e.g. RecipeDef.is_valid()
+		# rejecting a recipe with no inputs - see docs/GODOT_MIGRATION_ANALYSIS.md §B2
+		# for the Unity bug this exists to catch) get checked here too, so a definition
+		# with a working is_valid() can never be silently loaded anyway.
+		if def.has_method("is_valid") and not (def.call("is_valid") as bool):
+			problems.append("%s: failed content validation (is_valid() returned false)" % path)
+			entry_ok = false
+
 		if entry_ok:
 			valid[StringName(id)] = def
 

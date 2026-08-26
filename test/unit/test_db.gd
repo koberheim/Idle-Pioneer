@@ -84,3 +84,18 @@ func test_missing_directory_yields_empty_result_not_a_crash() -> void:
 	var result: Dictionary = Db._evaluate_directory(FIXTURES + "does_not_exist/")
 	assert_eq((result.valid as Dictionary).size(), 0)
 	assert_eq((result.problems as Array).size(), 0)
+
+
+## Proves Db actually catches the Unity §B2 bug (a recipe with no inputs) rather
+## than RecipeDef.is_valid() existing as dead code nobody calls - see
+## docs/CONVENTIONS.md "No system without a caller."
+func test_recipe_with_empty_inputs_is_rejected_by_db() -> void:
+	var result: Dictionary = Db._evaluate_directory(FIXTURES + "db_invalid_recipe/")
+	assert_eq((result.valid as Dictionary).size(), 0, "an invalid recipe must not be loaded")
+
+	var problems: Array = result.problems
+	var has_validation_problem := false
+	for p: String in problems:
+		if p.contains("failed content validation"):
+			has_validation_problem = true
+	assert_true(has_validation_problem, "expected a content-validation problem, got: %s" % [problems])

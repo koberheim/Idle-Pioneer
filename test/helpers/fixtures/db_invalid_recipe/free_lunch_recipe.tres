@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="RecipeDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/recipe_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"free_lunch_recipe"
+display_name = "Free Lunch"
+inputs = []
+output_id = &"gold_bars"
+output_amount = 999
