@@ -57,6 +57,8 @@ func declare_independence() -> int:
 	var awarded: int = projected_liberty_payout()
 	var map_id: StringName = Game.run.map_id
 
+	_update_stats(lifetime_gold_earned_this_run(), Time.get_unix_time_from_system() - Game.run.started_at_unix)
+
 	Game.meta.liberty += awarded
 	Game.meta.lifetime_liberty_earned += awarded
 	Game.meta.runs_completed += 1
@@ -66,6 +68,20 @@ func declare_independence() -> int:
 	declared_independence.emit(awarded)
 	liberty_changed.emit(Game.meta.liberty)
 	return awarded
+
+
+## Updates Game.meta.stats (docs/GAME_DESIGN.md §9) with this run's results,
+## keeping whichever is better - never overwritten downward by a weaker run.
+func _update_stats(run_gold: float, run_seconds: int) -> void:
+	var stats: Dictionary = Game.meta.stats
+	if run_gold > float(stats.get("best_run_gold", 0.0)):
+		stats["best_run_gold"] = run_gold
+
+	var fastest: int = int(stats.get("fastest_run_seconds", 0))
+	if fastest <= 0 or (run_seconds > 0 and run_seconds < fastest):
+		stats["fastest_run_seconds"] = run_seconds
+
+	Game.meta.stats = stats
 
 
 func industry_level() -> int:

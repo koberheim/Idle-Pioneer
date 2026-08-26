@@ -21,6 +21,24 @@ var upgrades: Dictionary = {}
 var lifetime_gold_earned: float = 0.0
 var runs_completed: int = 0
 
+## Every recipe id ever successfully crafted at least once, across every run
+## (docs/GAME_DESIGN.md §9). There's no recipe-unlock-gating mechanic built
+## yet (§7's "unlock alongside their source colony" isn't implemented) -
+## "unlocked" is read pragmatically as "the player has made this at least
+## once," recorded by Crafting.craft_recipe() on a successful craft.
+var recipes_ever_unlocked: Array[StringName] = []
+
+## Best/fastest across every run so far (docs/GAME_DESIGN.md §9). Updated by
+## Prestige.declare_independence() using this run's lifetime earnings and the
+## real wall-clock time since RunState.started_at_unix - there's no simulated
+## elapsed-time clock running yet (see docs/GODOT_PLAN.md's design
+## realignment section), so wall-clock is the only elapsed-time signal that
+## actually exists right now.
+var stats: Dictionary = {
+	"best_run_gold": 0.0,
+	"fastest_run_seconds": 0,
+}
+
 
 func to_dict() -> Dictionary:
 	return {
@@ -29,6 +47,11 @@ func to_dict() -> Dictionary:
 		"upgrades": _stringname_int_dict_to_json(upgrades),
 		"lifetime_gold_earned": lifetime_gold_earned,
 		"runs_completed": runs_completed,
+		"recipes_ever_unlocked": recipes_ever_unlocked.map(func(id: StringName) -> String: return String(id)),
+		"stats": {
+			"best_run_gold": float(stats.get("best_run_gold", 0.0)),
+			"fastest_run_seconds": int(stats.get("fastest_run_seconds", 0)),
+		},
 	}
 
 
@@ -41,6 +64,18 @@ static func from_dict(d: Dictionary) -> MetaState:
 	s.upgrades = _json_to_stringname_int_dict(d.get("upgrades", {}))
 	s.lifetime_gold_earned = float(d.get("lifetime_gold_earned", 0.0))
 	s.runs_completed = int(d.get("runs_completed", 0))
+
+	var recipes: Array[StringName] = []
+	for entry: Variant in (d.get("recipes_ever_unlocked", []) as Array):
+		recipes.append(StringName(entry as String))
+	s.recipes_ever_unlocked = recipes
+
+	var stats_data: Dictionary = d.get("stats", {})
+	s.stats = {
+		"best_run_gold": float(stats_data.get("best_run_gold", 0.0)),
+		"fastest_run_seconds": int(stats_data.get("fastest_run_seconds", 0)),
+	}
+
 	return s
 
 

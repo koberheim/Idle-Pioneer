@@ -74,6 +74,19 @@ func test_declare_independence_emits_declared_independence() -> void:
 	assert_signal_emitted_with_parameters(Game.prestige, "declared_independence", [6])
 
 
+func test_declare_independence_records_best_run_gold() -> void:
+	Game.economy.add_gold(2_000_000_000.0)
+	Game.prestige.declare_independence()
+	assert_almost_eq(Game.meta.stats["best_run_gold"], 2_000_000_000.0, 0.0001)
+
+
+func test_declare_independence_does_not_lower_an_existing_best_run_gold() -> void:
+	Game.meta.stats["best_run_gold"] = 5_000_000_000.0
+	Game.economy.add_gold(2_000_000_000.0)
+	Game.prestige.declare_independence()
+	assert_almost_eq(Game.meta.stats["best_run_gold"], 5_000_000_000.0, 0.0001, "a weaker run must not overwrite a better one")
+
+
 func test_purchase_industry_deducts_liberty_and_increases_level() -> void:
 	Game.meta.liberty = 10
 	var ok: bool = Game.prestige.purchase_industry()

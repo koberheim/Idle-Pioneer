@@ -174,7 +174,7 @@ func _advance_leg(budget: float, on_arrive: Callable) -> float:
 
 func _arrive_at_hub() -> void:
 	for id: StringName in cargo.keys():
-		Game.inventory.add(id, cargo[id])
+		Game.routing.deliver(id, cargo[id])
 	delivered.emit(cargo)
 	cargo = {}
 	leg_elapsed = 0.0

@@ -248,6 +248,38 @@ func test_save_then_load_restores_liberty_and_prestige_upgrade_levels() -> void:
 	assert_eq(Game.prestige.industry_level(), 2)
 
 
+func test_save_then_load_restores_resource_routing() -> void:
+	Game.routing.set_mode(&"timber", Game.routing.SELL)
+	SaveSystem.save()
+	Game.run = null
+
+	SaveSystem.load()
+	assert_eq(Game.routing.mode_for(&"timber"), Game.routing.SELL)
+	assert_eq(Game.routing.mode_for(&"cod"), Game.routing.RESERVE, "an unset resource should still default correctly")
+
+
+func test_save_then_load_restores_started_at_unix() -> void:
+	var stamped: int = Game.run.started_at_unix
+	SaveSystem.save()
+	Game.run = null
+
+	SaveSystem.load()
+	assert_eq(Game.run.started_at_unix, stamped)
+
+
+func test_save_then_load_restores_recipes_ever_unlocked_and_stats() -> void:
+	Game.inventory.add(&"timber", 2.0)
+	Crafting.craft(&"lumber_recipe")
+	Game.meta.stats["best_run_gold"] = 4200.0
+	SaveSystem.save()
+	Game.run = null
+	Game.meta = MetaState.new()
+
+	SaveSystem.load()
+	assert_has(Game.meta.recipes_ever_unlocked, &"lumber_recipe")
+	assert_almost_eq(Game.meta.stats["best_run_gold"], 4200.0, 0.0001)
+
+
 func test_save_then_load_with_no_workshops_restores_an_empty_list() -> void:
 	SaveSystem.save()
 	Game.run = null

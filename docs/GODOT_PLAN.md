@@ -68,6 +68,15 @@ Built docs/GAME_DESIGN.md §8 for real, replacing the earlier unwired "doubloons
 - **Branch costs use the same `base × growth^level` shape every other cost curve in this project already uses**, tuned to land close to the document's example table rather than hardcoding that table verbatim - consistent with the standing instruction to keep every number easily retunable from one place (Balance/the inspector) rather than baked into a lookup table.
 - Not yet touched: the rest of §9's save shape (recipes_ever_unlocked, stats, warehouse, routing) - that's task #34's job, not this one's.
 
+### Rest of the save shape: Sell/Reserve routing, run history, "gold" stays "gold"
+
+Closes out §9. One naming decision and one real gameplay decision came up doing this:
+
+- **The document renames "gold" to "coin" throughout - explicitly not adopted.** Direct instruction: keep calling it gold. Every field, comment, and formula in this codebase still says gold; nothing was renamed.
+- **Sell vs. Reserve is now a real mechanic, not just a save field.** Every resource arriving at the Capital - whether produced there directly or shipped in - now passes through a single routing decision: sell it immediately for gold, or reserve it in storage for crafting. This is genuinely new behavior, not a rename; a dedicated question was asked before building it, given how much it changes.
+- **Default is Reserve, not the document's own stated Sell default** - a deliberate choice, answered directly: goods keep piling up in storage exactly as they did before this system existed, unless the player explicitly marks a specific resource to auto-sell. Nothing about existing play changes unless the player opts in.
+- **Run history now has somewhere real to live**: which recipes have ever been crafted at least once, and the best gold total and fastest time across every run, all in the permanent save layer, updated automatically when a run ends. There's no recipe-unlock-gating mechanic yet, so "ever unlocked" is read as "ever crafted" - the closest honest match to what the document means until real recipe gating exists. "Fastest run" is measured by real-world clock time (`started_at_unix` to now), since nothing drives a simulated elapsed-time clock yet - see the continuous-crafting section above.
+
 ---
 
 ## Environment (verified this session)

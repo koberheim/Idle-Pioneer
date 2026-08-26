@@ -6,6 +6,7 @@ func _make_populated_run_state() -> RunState:
 	var s := RunState.new()
 	s.map_id = &"mvp_coast"
 	s.map_seed = 0
+	s.started_at_unix = 1700000000
 	s.elapsed_seconds = 123.5
 	s.gold = 87.0
 	s.lifetime_gold_earned_this_run = 5400.0
@@ -20,6 +21,7 @@ func _make_populated_run_state() -> RunState:
 	s.workshops = [
 		{"recipe_id": &"salt_cod_recipe", "auto_craft": true, "cycle_accumulated": 1.25},
 	]
+	s.resource_routing = {&"timber": &"sell", &"cod": &"reserve"}
 	return s
 
 
@@ -29,6 +31,7 @@ func test_to_dict_from_dict_round_trip_preserves_all_fields() -> void:
 
 	assert_eq(restored.map_id, original.map_id)
 	assert_eq(restored.map_seed, original.map_seed)
+	assert_eq(restored.started_at_unix, original.started_at_unix)
 	assert_eq(restored.elapsed_seconds, original.elapsed_seconds)
 	assert_eq(restored.gold, original.gold)
 	assert_eq(restored.lifetime_gold_earned_this_run, original.lifetime_gold_earned_this_run)
@@ -38,6 +41,7 @@ func test_to_dict_from_dict_round_trip_preserves_all_fields() -> void:
 	assert_eq(restored.upgrades_purchased, original.upgrades_purchased)
 	assert_eq(restored.colonies_founded, original.colonies_founded)
 	assert_eq(restored.workshops, original.workshops)
+	assert_eq(restored.resource_routing, original.resource_routing)
 
 
 ## The real regression risk (docs/GODOT_PLAN.md Phase 8, task G1): JSON has no
@@ -57,6 +61,8 @@ func test_round_trip_through_actual_json_string_preserves_int_fields() -> void:
 	assert_eq(restored.map_seed, 42)
 	assert_typeof(restored.colonies_founded, TYPE_INT)
 	assert_eq(restored.colonies_founded, 3)
+	assert_typeof(restored.started_at_unix, TYPE_INT)
+	assert_eq(restored.started_at_unix, 1700000000)
 
 
 func test_inventory_keys_are_stringnames_after_round_trip() -> void:
@@ -69,6 +75,7 @@ func test_fresh_run_state_has_sane_defaults() -> void:
 	var s := RunState.new()
 	assert_eq(s.map_id, &"")
 	assert_eq(s.map_seed, 0)
+	assert_eq(s.started_at_unix, 0)
 	assert_eq(s.elapsed_seconds, 0.0)
 	assert_eq(s.gold, 0.0)
 	assert_eq(s.lifetime_gold_earned_this_run, 0.0)
@@ -78,6 +85,7 @@ func test_fresh_run_state_has_sane_defaults() -> void:
 	assert_eq(s.upgrades_purchased, [] as Array[StringName])
 	assert_eq(s.colonies_founded, 0)
 	assert_eq(s.workshops, [] as Array[Dictionary])
+	assert_eq(s.resource_routing, {})
 
 
 func test_from_dict_of_empty_dictionary_does_not_crash() -> void:

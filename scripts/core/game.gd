@@ -24,6 +24,7 @@ signal run_ended
 @onready var colonists: Node = $Colonists
 @onready var crafting_stations: Node = $CraftingStations
 @onready var prestige: Node = $Prestige
+@onready var routing: Node = $Routing
 
 var meta: MetaState = MetaState.new()
 var run: RunState = null
@@ -47,6 +48,7 @@ func new_run(map_id: StringName) -> void:
 
 	var fresh := RunState.new()
 	fresh.map_id = map_id
+	fresh.started_at_unix = Time.get_unix_time_from_system()
 	run = fresh
 
 	# Not everything run-scoped lives inside the RunState object itself -

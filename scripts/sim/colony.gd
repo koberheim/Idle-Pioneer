@@ -141,10 +141,11 @@ func purchase_speed_level() -> bool:
 
 
 ## Advances production by `delta` seconds. The Capital (distance 0) delivers
-## straight into central inventory - docs/GAME_DESIGN.md §13 open question 1
-## answered "yes, the Capital produces," matching its distance-0/instant-
-## delivery framing. Every other colony accumulates in local_stock until a
-## Route collects it.
+## straight through Routing (sold for gold or added to central inventory,
+## per that resource's Sell/Reserve setting) - docs/GAME_DESIGN.md §13 open
+## question 1 answered "yes, the Capital produces," matching its
+## distance-0/instant-delivery framing. Every other colony accumulates in
+## local_stock until a Route collects it.
 func tick(delta: float) -> void:
 	var amount: float = production_rate() * delta
 	if amount <= 0.0:
@@ -155,7 +156,7 @@ func tick(delta: float) -> void:
 		return
 
 	if is_capital:
-		Game.inventory.add(res_id, amount)
+		Game.routing.deliver(res_id, amount)
 	else:
 		local_stock[res_id] = float(local_stock.get(res_id, 0.0)) + amount
 

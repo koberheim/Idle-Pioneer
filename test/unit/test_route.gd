@@ -128,6 +128,21 @@ func test_progress_climbs_monotonically_across_the_outbound_leg() -> void:
 	assert_lt(p2, 1.0)
 
 
+## Proves hub arrival goes through Routing, not straight to inventory - a
+## resource routed SELL should turn into gold instead of piling up in
+## storage.
+func test_arrival_at_hub_sells_instead_of_stocking_when_routed_sell() -> void:
+	Game.routing.set_mode(&"cod", Game.routing.SELL)
+	_land_origin.local_stock[&"cod"] = 7.0
+	var route := Route.new(_land_origin, _capital)
+
+	route.tick(0.001)  # depart
+	route.tick(route.leg_duration() + 1.0)  # overshoot - arrive
+
+	assert_almost_eq(Game.inventory.get_amount(&"cod"), 0.0, 0.0001)
+	assert_almost_eq(Game.economy.gold, 28.0, 0.0001)  # 7 cod x base_value 4.0
+
+
 func test_arrival_at_hub_adds_cargo_to_central_inventory_and_emits_delivered() -> void:
 	_land_origin.local_stock[&"cod"] = 7.0
 	var route := Route.new(_land_origin, _capital)

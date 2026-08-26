@@ -6,10 +6,12 @@ extends GutTest
 
 func before_each() -> void:
 	Game.new_run(&"mvp_coast")
+	Game.meta = MetaState.new()
 
 
 func after_each() -> void:
 	Game.run = null
+	Game.meta = MetaState.new()
 
 
 func _make_ingredient(resource_id: StringName, amount: int) -> RecipeIngredient:
@@ -106,3 +108,25 @@ func test_duplicate_ingredient_rows_are_aggregated_not_double_counted() -> void:
 	assert_true(ok)
 	assert_almost_eq(Game.inventory.get_amount(&"timber"), 0.0, 0.0001, "all 4 should be consumed, not left over")
 	assert_almost_eq(Game.inventory.get_amount(&"lumber"), 1.0, 0.0001)
+
+
+func test_a_successful_craft_records_the_recipe_as_ever_unlocked() -> void:
+	Game.inventory.add(&"timber", 2.0)
+	Crafting.craft(&"lumber_recipe")
+	assert_has(Game.meta.recipes_ever_unlocked, &"lumber_recipe")
+
+
+func test_a_failed_craft_does_not_record_the_recipe_as_unlocked() -> void:
+	Crafting.craft(&"lumber_recipe")  # no timber - fails
+	assert_does_not_have(Game.meta.recipes_ever_unlocked, &"lumber_recipe")
+
+
+func test_crafting_the_same_recipe_twice_does_not_duplicate_the_record() -> void:
+	Game.inventory.add(&"timber", 4.0)
+	Crafting.craft(&"lumber_recipe")
+	Crafting.craft(&"lumber_recipe")
+	var count: int = 0
+	for id: StringName in Game.meta.recipes_ever_unlocked:
+		if id == &"lumber_recipe":
+			count += 1
+	assert_eq(count, 1)

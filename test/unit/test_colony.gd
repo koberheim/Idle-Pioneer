@@ -154,6 +154,18 @@ func test_non_capital_route_type_is_settable_for_deterministic_tests() -> void:
 	assert_eq(colony.route_type, Colony.RouteType.SEA)
 
 
+## Proves the Capital's production actually goes through Routing, not
+## straight to inventory - a resource routed SELL should turn into gold
+## instead of piling up in storage.
+func test_capital_production_sells_instead_of_stocking_when_routed_sell() -> void:
+	Game.routing.set_mode(&"timber", Game.routing.SELL)
+	var gold_before: float = Game.economy.gold  # before_each already granted 1000
+	var capital := Colony.new(&"tidewater_landing")
+	capital.tick(2.0)  # 2.0 timber x base_value 1.0 = 2.0 gold
+	assert_almost_eq(Game.inventory.get_amount(&"timber"), 0.0, 0.0001)
+	assert_almost_eq(Game.economy.gold, gold_before + 2.0, 0.0001)
+
+
 func test_unknown_colony_id_is_a_safe_no_op() -> void:
 	var colony := Colony.new(&"does_not_exist")
 	colony.tick(100.0)

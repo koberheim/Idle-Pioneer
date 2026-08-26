@@ -20,6 +20,13 @@ var map_seed: int = 0
 var elapsed_seconds: float = 0.0
 var gold: float = 0.0
 
+## Unix time this run began - Game.new_run() stamps it. What the "fastest
+## run" stat (Game.meta.stats) is measured against, since nothing drives a
+## real elapsed-time clock yet (see docs/GODOT_PLAN.md's design realignment
+## section on continuous crafting/offline catch-up) - wall-clock time is the
+## only elapsed-time signal that actually exists right now.
+var started_at_unix: int = 0
+
 ## Total gold ever earned this run, never decreasing even as gold is spent -
 ## what §8's prestige gate/payout actually reads (lifetime_coin_this_run),
 ## as opposed to current on-hand `gold` above. Resets to 0 with every new
@@ -58,11 +65,21 @@ var colonies_founded: int = 0
 ## {"recipe_id": StringName, "auto_craft": bool, "cycle_accumulated": float}
 var workshops: Array[Dictionary] = []
 
+## StringName (resource id) -> StringName ("sell" or "reserve") - per-resource
+## routing at the Capital (docs/GAME_DESIGN.md §2/§9). Game.routing owns the
+## behaviour and the SELL/RESERVE constants; this is just where it's
+## persisted. A resource with no entry here defaults to RESERVE (see
+## Routing.mode_for) - goods pile up in storage exactly like before this
+## system existed, unless the player explicitly opts a resource into
+## auto-selling.
+var resource_routing: Dictionary = {}
+
 
 func to_dict() -> Dictionary:
 	return {
 		"map_id": String(map_id),
 		"map_seed": map_seed,
+		"started_at_unix": started_at_unix,
 		"elapsed_seconds": elapsed_seconds,
 		"gold": gold,
 		"lifetime_gold_earned_this_run": lifetime_gold_earned_this_run,
@@ -72,6 +89,7 @@ func to_dict() -> Dictionary:
 		"upgrades_purchased": upgrades_purchased.map(func(id: StringName) -> String: return String(id)),
 		"colonies_founded": colonies_founded,
 		"workshops": workshops.map(_workshop_to_dict),
+		"resource_routing": _stringname_string_dict_to_json(resource_routing),
 	}
 
 
@@ -82,6 +100,7 @@ static func from_dict(d: Dictionary) -> RunState:
 	# explicitly wherever the field is meant to be an int (see docs/GODOT_PLAN.md
 	# Phase 8, task G1's stated regression risk).
 	s.map_seed = int(d.get("map_seed", 0))
+	s.started_at_unix = int(d.get("started_at_unix", 0))
 	s.elapsed_seconds = float(d.get("elapsed_seconds", 0.0))
 	s.gold = float(d.get("gold", 0.0))
 	s.lifetime_gold_earned_this_run = float(d.get("lifetime_gold_earned_this_run", 0.0))
@@ -105,6 +124,8 @@ static func from_dict(d: Dictionary) -> RunState:
 		workshops.append(_workshop_from_dict(entry as Dictionary))
 	s.workshops = workshops
 
+	s.resource_routing = _json_to_stringname_string_dict(d.get("resource_routing", {}))
+
 	return s
 
 
@@ -119,6 +140,20 @@ static func _json_to_stringname_float_dict(source: Dictionary) -> Dictionary:
 	var out: Dictionary = {}
 	for key: String in source.keys():
 		out[StringName(key)] = float(source[key])
+	return out
+
+
+static func _stringname_string_dict_to_json(source: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	for key: StringName in source.keys():
+		out[String(key)] = String(source[key])
+	return out
+
+
+static func _json_to_stringname_string_dict(source: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	for key: String in source.keys():
+		out[StringName(key)] = StringName(source[key])
 	return out
 
 
