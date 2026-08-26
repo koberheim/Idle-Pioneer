@@ -100,6 +100,14 @@ func all_resources() -> Array[ResourceDef]:
 	return out
 
 
+## Silent existence check - unlike resource(id), this never push_errors. For
+## callers (e.g. task R1's Inventory) that want to report their own, more
+## specific "unknown id" message without also triggering Db's generic one for
+## the same call.
+func has_resource(id: StringName) -> bool:
+	return _resources.has(id)
+
+
 ## The MVP's one map (task M5 - see the MAP_PATH doc comment above), loaded
 ## once and cached. Returns null (with a push_error already emitted by
 ## MapLoader) if the file is missing or malformed.
