@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="ResourceDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/resource_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"timber"
+display_name = "Timber"
+category = 2
+base_value = 1.0
+is_processed = false
+description = ""
