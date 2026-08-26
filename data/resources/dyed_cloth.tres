@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="ResourceDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/resource_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"dyed_cloth"
+display_name = "Dyed Cloth"
+category = 4
+base_value = 2700.0
+is_processed = true
+description = "Woven cloth set with deep indigo blue - a luxury weave."

@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="RecipeDef" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/recipe_def.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/data/recipe_ingredient.gd" id="2"]
+
+[sub_resource type="Resource" id="Ingredient_PigIron"]
+script = ExtResource("2")
+resource_id = &"pig_iron"
+amount = 3
+
+[sub_resource type="Resource" id="Ingredient_Planks"]
+script = ExtResource("2")
+resource_id = &"planks"
+amount = 1
+
+[resource]
+script = ExtResource("1")
+id = &"tools_recipe"
+display_name = "Tools"
+inputs = Array[ExtResource("2")]([SubResource("Ingredient_PigIron"), SubResource("Ingredient_Planks")])
+output_id = &"tools"
+output_amount = 1
+craft_seconds = 6.0

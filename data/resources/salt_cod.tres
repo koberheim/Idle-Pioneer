@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="ResourceDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/resource_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"salt_cod"
+display_name = "Salt Cod"
+category = 8
+base_value = 18.0
+is_processed = true
+description = "Cured and packed in barrels - it will keep for the crossing."

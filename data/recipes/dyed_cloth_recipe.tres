@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="RecipeDef" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/recipe_def.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/data/recipe_ingredient.gd" id="2"]
+
+[sub_resource type="Resource" id="Ingredient_Cloth"]
+script = ExtResource("2")
+resource_id = &"cloth"
+amount = 2
+
+[sub_resource type="Resource" id="Ingredient_Indigo"]
+script = ExtResource("2")
+resource_id = &"indigo"
+amount = 2
+
+[resource]
+script = ExtResource("1")
+id = &"dyed_cloth_recipe"
+display_name = "Dyed Cloth"
+inputs = Array[ExtResource("2")]([SubResource("Ingredient_Cloth"), SubResource("Ingredient_Indigo")])
+output_id = &"dyed_cloth"
+output_amount = 1
+craft_seconds = 5.5

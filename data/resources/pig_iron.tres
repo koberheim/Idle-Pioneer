@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="ResourceDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/resource_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"pig_iron"
+display_name = "Pig Iron"
+category = 3
+base_value = 520.0
+is_processed = true
+description = "Smelted from ore in the Hollow's own furnace."

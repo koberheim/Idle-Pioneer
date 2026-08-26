@@ -300,3 +300,76 @@ func test_multiple_capitals_is_reported() -> void:
 		if p.contains("more than one colony"):
 			has_it = true
 	assert_true(has_it, "expected a multiple-capitals problem, got: %s" % [problems])
+
+
+## Rework: real 10 recipes (docs/GAME_DESIGN.md §7).
+func test_all_ten_new_recipes_are_loaded() -> void:
+	for id: StringName in [
+		&"planks_recipe", &"salt_cod_recipe", &"cigars_recipe", &"cloth_recipe",
+		&"pig_iron_recipe", &"barrels_recipe", &"dyed_cloth_recipe", &"tools_recipe",
+		&"rum_recipe", &"muskets_recipe",
+	]:
+		assert_not_null(Db.recipe(id), "missing recipe: %s" % id)
+
+
+func test_recipe_sale_prices_match_the_design_doc_table() -> void:
+	var expected: Dictionary = {
+		&"planks": 4.0, &"salt_cod": 18.0, &"cigars": 70.0, &"cloth": 230.0,
+		&"pig_iron": 520.0, &"barrels": 1400.0, &"dyed_cloth": 2700.0,
+		&"tools": 4800.0, &"rum": 14000.0, &"muskets": 38000.0,
+	}
+	for id: StringName in expected.keys():
+		var def: ResourceDef = Db.resource(id)
+		assert_not_null(def, "missing crafted good: %s" % id)
+		assert_almost_eq(def.base_value, expected[id], 0.01, "%s sale price mismatch" % id)
+
+
+func test_barrels_recipe_consumes_crafted_goods_not_just_raw_ones() -> void:
+	# Recipes 6-10 chain from other recipes' outputs (docs/GAME_DESIGN.md §7's
+	# "the first genuinely interesting economic decision in the game").
+	var recipe: RecipeDef = Db.recipe(&"barrels_recipe")
+	var input_ids: Array[StringName] = []
+	for ing: RecipeIngredient in recipe.inputs:
+		input_ids.append(ing.resource_id)
+	assert_has(input_ids, &"planks")
+	assert_has(input_ids, &"pig_iron")
+	assert_true(Db.resource(&"planks").is_processed)
+	assert_true(Db.resource(&"pig_iron").is_processed)
+
+
+## Proves the full raw-ore-to-Muskets chain actually works end to end through
+## the crafting system as it exists today (on-demand, task P4) - Muskets is
+## four crafting steps deep (Iron Ore -> Pig Iron -> Tools -> Muskets, plus
+## Timber -> Planks feeding both Tools and Muskets), and this is the real
+## content, not a synthetic fixture.
+##
+## Requirements worked out from the recipes themselves: 1 Muskets needs
+## 2 Tools + 2 Planks. Each Tools needs 3 Pig Iron + 1 Planks, so 2 Tools need
+## 6 Pig Iron + 2 Planks - plus the 2 Planks Muskets consumes directly, that's
+## 4 Planks (= 8 Timber) and 6 Pig Iron (= 12 Iron Ore) in total.
+func test_full_musket_chain_crafts_end_to_end() -> void:
+	Game.new_run(&"mvp_coast")
+
+	Game.inventory.add(&"timber", 8.0)
+	Game.inventory.add(&"iron_ore", 12.0)
+
+	for i: int in range(4):
+		assert_true(Crafting.craft(&"planks_recipe"), "planks batch %d" % i)
+	assert_almost_eq(Game.inventory.get_amount(&"planks"), 4.0, 0.0001)
+
+	for i: int in range(6):
+		assert_true(Crafting.craft(&"pig_iron_recipe"), "pig iron batch %d" % i)
+	assert_almost_eq(Game.inventory.get_amount(&"pig_iron"), 6.0, 0.0001)
+
+	assert_true(Crafting.craft(&"tools_recipe"))
+	assert_true(Crafting.craft(&"tools_recipe"))
+	assert_almost_eq(Game.inventory.get_amount(&"tools"), 2.0, 0.0001)
+	assert_almost_eq(Game.inventory.get_amount(&"pig_iron"), 0.0, 0.0001)
+	assert_almost_eq(Game.inventory.get_amount(&"planks"), 2.0, 0.0001, "2 planks left over for muskets")
+
+	assert_true(Crafting.craft(&"muskets_recipe"))
+	assert_almost_eq(Game.inventory.get_amount(&"muskets"), 1.0, 0.0001)
+	assert_almost_eq(Game.inventory.get_amount(&"tools"), 0.0, 0.0001)
+	assert_almost_eq(Game.inventory.get_amount(&"planks"), 0.0, 0.0001)
+
+	Game.run = null

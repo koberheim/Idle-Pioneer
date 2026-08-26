@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="RecipeDef" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/recipe_def.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/data/recipe_ingredient.gd" id="2"]
+
+[sub_resource type="Resource" id="Ingredient_SugarCane"]
+script = ExtResource("2")
+resource_id = &"sugar_cane"
+amount = 4
+
+[sub_resource type="Resource" id="Ingredient_Barrels"]
+script = ExtResource("2")
+resource_id = &"barrels"
+amount = 1
+
+[resource]
+script = ExtResource("1")
+id = &"rum_recipe"
+display_name = "Rum"
+inputs = Array[ExtResource("2")]([SubResource("Ingredient_SugarCane"), SubResource("Ingredient_Barrels")])
+output_id = &"rum"
+output_amount = 1
+craft_seconds = 7.0
