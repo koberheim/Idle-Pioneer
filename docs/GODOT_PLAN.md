@@ -6,6 +6,35 @@ Companion to [`GODOT_MIGRATION_ANALYSIS.md`](./GODOT_MIGRATION_ANALYSIS.md) (Ses
 
 `docs/DESIGN.md` does not exist in this repo. The design intent used here is reconstructed in Phase 2 of the analysis, drawn from `Assets/DOCS_GAME_DESIGN.md.txt`, `RESEARCH_TREE_DESIGN.md`, `RESEARCH_SYSTEM_SETUP.md`, and the code itself.
 
+---
+
+## ⚠ DESIGN REALIGNMENT (later in the project) — read this before anything below
+
+A full, locked design document arrived after most of Phases 1–8 below were already built and tested: **[`docs/GAME_DESIGN.md`](./GAME_DESIGN.md)**, "Colonial Idle." It is now **the authoritative game design**. Everything below it in this file is the *original* plan, built from Unity-archaeology and reasonable inference before that document existed. Most of it still holds up. Some of it doesn't, and the parts that don't are called out explicitly here rather than silently rewritten in place, so the history of *why* is preserved.
+
+### What's confirmed correct by the new document (no change needed)
+
+- **The two-tier save split** (a permanent part that survives a reset, and a resettable part that doesn't) — `GAME_DESIGN.md` §9 mandates exactly this shape and calls it "the architectural decision that cannot be retrofitted. Build it this way from the first commit." That's precisely what Phase 6 below argued for and what was already built. No change to the *approach* — only to the specific fields inside each half (see below).
+- **The exact-math approach to catching up idle production after time away** (task P1's `ProductionCycle`) is not just compatible with `GAME_DESIGN.md` §10's offline catch-up requirement — it's strictly better than the coarse-stepping fallback the document describes, and already satisfies the document's own correctness requirement ("the simulation must be correct at any step size") by construction, since it uses division instead of a loop.
+- **Saving to a temp file and swapping it in**, ids stored as text names rather than numbers, and recipes able to consume other recipes' outputs (already true of the recipe system as built, though never exercised) all carry forward unchanged.
+- All foundational tooling (project setup, git, the automated test harness) is completely unaffected.
+
+### What conflicts and needs rework
+
+1. **The land/water map system does not exist in the new design, and building it further should stop.** `GAME_DESIGN.md` explicitly lists "Procedural map generation" under "Deliberately Out of Scope for v1" with the note *"the reason the original project stalled — do not revisit."* It also rules out "any real map rendering" for v1 — a plain list is the whole interface. Instead, land vs. sea is a coin-flip rolled per colony at the start of a run (§5, "Route Type"), not a real place derived from geography. This directly supersedes Phase 5 below and tasks M1–M3/M5 in Phase 8, all of which were built and fully tested against a hand-drawn coastline map. That work is not wrong, and it stays in the project's history — it's just no longer the direction. See the open question at the end of this section for what to do with it.
+2. **Colonies are a fixed, named table of exactly eight, in a fixed order, each with one specific resource, price, and one-time unlock cost** (§5) — not a flexible, freely-placed system. The existing colony/region data model was built for the old flexible approach and needs to be rebuilt around this table.
+3. **Colonists are an entirely new concept, not built at all yet.** In the new design, colonists are a single shared, limited workforce the player assigns either to gathering raw goods or to crafting — and that trade-off is called out as *the* central tension of the whole game (§4). Nothing like this exists in the project yet; it's not a tweak, it's a new mechanic.
+4. **Shipping rules are different and more specific.** A shipment departs once its cargo hold is full, or after 30 seconds, whichever comes first (§6) — not the distance-and-two-leg-journey model that was built and tested.
+5. **Crafting needs to run continuously and automatically**, the same way production does — staffed by colonists, sped up by workshop upgrades, and pausing/resuming itself when ingredients run out (§6). What was built instead is an on-demand "craft one batch right now" action, closer to a button press than a running process.
+6. **The prestige system needs real, specific content**, not just the general framework that exists today. `GAME_DESIGN.md` names the permanent currency "Liberty," gives an exact payout formula, and specifies three named upgrade paths (Industry, Navigation, Settlement) each with their own per-level costs and effects (§8) — replacing the one generic placeholder upgrade built so far. Worth noting: Liberty is exactly the mechanic flagged as the most likely (but never-built) prestige gate in the original Unity project archaeology — this document confirms that guess.
+7. **The save file's actual contents need to match the new shape** in `GAME_DESIGN.md` §9 — coin instead of gold, colonists, workshops, per-colony shipping status, and so on. The two-tier *structure* is right (see above); the fields inside it are not yet.
+
+### Open question this raises
+
+The items above touch a meaningful fraction of what was already built and tested (roughly the whole "Production" task block, most of the game-state and save work, and all of the map work). Before any of it gets reworked, the person running this project needs to decide: rebuild the affected pieces in place keeping what still fits, treat this as a bigger reset of the gameplay layer, and what to do with the now-unused map code (keep as dormant reference, or remove it). That conversation happened outside this document — check the session log around the point this section was added for the decision that was made, since a future session picking this file up cold won't have seen it otherwise.
+
+---
+
 ## Environment (verified this session)
 
 | Thing | Status |
