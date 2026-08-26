@@ -24,9 +24,10 @@ var gold: float = 0.0
 ## this is just where it's persisted).
 var inventory: Dictionary = {}
 
-## Per-colony save state. Shape is provisional - finalised once ColonyProduction
-## exists (task P2) and SaveSystem needs the real fields (task S1). Each entry:
-## {"region_id": StringName, "local_stock": Dictionary[StringName, float]}
+## Per-colony save state - finalised in task S1 alongside SaveSystem, which is
+## what actually converts between this and live Colony objects (task P2).
+## Each entry: {"region_id": StringName, "is_hub": bool,
+## "local_stock": Dictionary[StringName, float], "cycle_accumulated": float}
 var colonies: Array[Dictionary] = []
 
 var upgrades_purchased: Array[StringName] = []
@@ -89,12 +90,16 @@ static func _colony_to_dict(colony: Dictionary) -> Dictionary:
 	var local_stock: Dictionary = colony.get("local_stock", {})
 	return {
 		"region_id": String(colony.get("region_id", &"")),
+		"is_hub": bool(colony.get("is_hub", false)),
 		"local_stock": _stringname_float_dict_to_json(local_stock),
+		"cycle_accumulated": float(colony.get("cycle_accumulated", 0.0)),
 	}
 
 
 static func _colony_from_dict(d: Dictionary) -> Dictionary:
 	return {
 		"region_id": StringName(d.get("region_id", "")),
+		"is_hub": bool(d.get("is_hub", false)),
 		"local_stock": _json_to_stringname_float_dict(d.get("local_stock", {})),
+		"cycle_accumulated": float(d.get("cycle_accumulated", 0.0)),
 	}
