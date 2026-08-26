@@ -86,6 +86,13 @@ Every subsystem above (colonies, shipping, crafting) had a correct, well-tested 
 - **A fresh run now starts with the Capital already founded automatically** - it's free and always present per the document's own colony table; nothing should have to found it by hand.
 - **Reopening the game after time has passed now fast-forwards correctly**, using the save file's own timestamp - capped at a configurable maximum (24 hours by default) so a very long or tampered gap can't produce an unbounded result. This is the direct payoff of building crafting and shipping to handle arbitrarily large time jumps safely - the one big catch-up call simply reuses the same tick methods play already uses, with no separate "offline" code path to keep in sync.
 
+### Founding new colonies (a real action, not just a cost formula)
+
+Found and fixed a real leftover bug while building this: there was already a cost formula for "the next colony," but it was a generic exponential curve from before the real 8-colony table existed (task #26) - it no longer matched any of the colonies' actual individually-priced costs, and nothing outside its own tests ever called it. Replaced it with the real thing: each colony's cost now comes from its own authored price, discounted by Settlement same as before.
+
+- **Founding is a real action now**: spend the colony's real gold cost, and it's registered and simulated immediately - production, shipping, everything from the sections above just starts working for it, with no separate wiring needed.
+- **Colonies must be founded in the fixed order the document's table lays out** - you can't skip ahead to a farther, pricier colony before the one before it exists. This wasn't stated outright as a rule; it's a judgment call reusing the same `order` field the colony table already had for distance, rather than inventing a separate "which sites are available" mechanic that isn't in the locked design.
+
 ---
 
 ## Environment (verified this session)

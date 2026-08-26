@@ -106,21 +106,19 @@ func test_sell_of_unknown_resource_fails_cleanly() -> void:
 	assert_eq(Game.economy.gold, 0.0)
 
 
-func test_next_colony_cost_at_zero_founded_is_the_base_cost() -> void:
-	Game.run.colonies_founded = 0
-	assert_almost_eq(Game.economy.next_colony_cost(), 100.0, 0.0001)
+func test_colony_cost_matches_the_colonys_own_unlock_cost() -> void:
+	# data/colonies/cape_harbour.tres: unlock_cost 250.0
+	assert_almost_eq(Game.economy.colony_cost(&"cape_harbour"), 250.0, 0.0001)
 
 
-func test_next_colony_cost_follows_the_exponential_curve() -> void:
-	Game.run.colonies_founded = 2
-	# 100 * 2.5^2 = 625
-	assert_almost_eq(Game.economy.next_colony_cost(), 625.0, 0.01)
+func test_colony_cost_of_an_unknown_id_is_zero() -> void:
+	assert_eq(Game.economy.colony_cost(&"does_not_exist"), 0.0)
 
 
 func test_operations_without_an_active_run_are_safe_no_ops() -> void:
 	Game.run = null
 	assert_eq(Game.economy.gold, 0.0)
 	assert_false(Game.economy.try_spend(10.0))
-	assert_eq(Game.economy.next_colony_cost(), 100.0)
+	assert_almost_eq(Game.economy.colony_cost(&"cape_harbour"), 250.0, 0.0001)
 	# add_gold() should not crash even with no run to write into.
 	Game.economy.add_gold(10.0)

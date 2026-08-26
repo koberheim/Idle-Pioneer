@@ -1,12 +1,9 @@
-## Child of Game. Gold, selling resources for gold, and the exponential colony
-## cost curve (task R2). Reads/writes Game.run directly, same discipline as
-## Inventory (task R1) - no cached local state.
+## Child of Game. Gold and selling resources for gold (task R2). Reads/writes
+## Game.run directly, same discipline as Inventory (task R1) - no cached
+## local state.
 extends Node
 
 signal gold_changed(total: float)
-
-const BASE_COLONY_COST: float = 100.0
-const COLONY_COST_MULTIPLIER: float = 2.5
 
 ## Read-only - gold changes only through add_gold()/try_spend()/sell(), so
 ## every change reliably emits gold_changed and updates lifetime_gold_earned.
@@ -80,11 +77,19 @@ func sell_value(id: StringName, amount: float) -> float:
 	return def.base_value * amount
 
 
-## Exponential cost curve for founding the next colony: base * mult^founded,
-## discounted by Settlement's prestige effect (§8 - "-7% colonist and colony
-## cost per level").
-## Matches the real Unity formula (EconomyManager.nextColonyCost) and Phase 7's
-## MVP spec.
-func next_colony_cost() -> float:
-	var founded: int = Game.run.colonies_founded if Game.run != null else 0
-	return BASE_COLONY_COST * pow(COLONY_COST_MULTIPLIER, founded) * Game.prestige.cost_discount_multiplier()
+## Gold cost of founding `colony_id`, using its own real unlock_cost
+## (docs/GAME_DESIGN.md §5's colony table - each colony has an individually
+## authored cost, not a generic formula), discounted by Settlement's
+## prestige effect (§8 - "-7% colonist and colony cost per level"). Returns
+## 0.0 for an unknown id.
+##
+## Replaces an earlier generic exponential curve (base * mult^founded) left
+## over from before the real colony table existed (task #26) - that formula
+## no longer matched any of the actual per-colony costs and had no caller
+## outside its own tests, so it was replaced rather than kept alongside a
+## second, real cost source.
+func colony_cost(colony_id: StringName) -> float:
+	var def: ColonyDef = Db.colony(colony_id)
+	if def == null:
+		return 0.0
+	return def.unlock_cost * Game.prestige.cost_discount_multiplier()

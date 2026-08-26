@@ -154,4 +154,4 @@ func test_settlement_discounts_the_next_colonist_cost() -> void:
 
 func test_settlement_discounts_the_next_colony_cost() -> void:
 	Game.meta.upgrades[&"settlement"] = 1  # 0.93x
-	assert_almost_eq(Game.economy.next_colony_cost(), 100.0 * 0.93, 0.0001)
+	assert_almost_eq(Game.economy.colony_cost(&"cape_harbour"), 250.0 * 0.93, 0.0001)
