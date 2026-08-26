@@ -16,6 +16,9 @@ func _make_populated_run_state() -> RunState:
 	]
 	s.upgrades_purchased = [&"primitive_tools"]
 	s.colonies_founded = 2
+	s.workshops = [
+		{"recipe_id": &"salt_cod_recipe", "auto_craft": true, "cycle_accumulated": 1.25},
+	]
 	return s
 
 
@@ -32,6 +35,7 @@ func test_to_dict_from_dict_round_trip_preserves_all_fields() -> void:
 	assert_eq(restored.colonies, original.colonies)
 	assert_eq(restored.upgrades_purchased, original.upgrades_purchased)
 	assert_eq(restored.colonies_founded, original.colonies_founded)
+	assert_eq(restored.workshops, original.workshops)
 
 
 ## The real regression risk (docs/GODOT_PLAN.md Phase 8, task G1): JSON has no
@@ -70,6 +74,7 @@ func test_fresh_run_state_has_sane_defaults() -> void:
 	assert_eq(s.colonies, [] as Array[Dictionary])
 	assert_eq(s.upgrades_purchased, [] as Array[StringName])
 	assert_eq(s.colonies_founded, 0)
+	assert_eq(s.workshops, [] as Array[Dictionary])
 
 
 func test_from_dict_of_empty_dictionary_does_not_crash() -> void:

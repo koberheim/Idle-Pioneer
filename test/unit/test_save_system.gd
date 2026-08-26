@@ -11,6 +11,7 @@ func before_each() -> void:
 	Game.new_run(&"mvp_coast")
 	Game.meta = MetaState.new()
 	Game.colonies.clear()
+	Game.crafting_stations.clear()
 
 
 func after_each() -> void:
@@ -18,6 +19,7 @@ func after_each() -> void:
 	Game.run = null
 	Game.meta = MetaState.new()
 	Game.colonies.clear()
+	Game.crafting_stations.clear()
 
 
 func test_has_save_is_false_with_no_file() -> void:
@@ -200,3 +202,31 @@ func test_save_then_load_with_no_colonies_restores_an_empty_list() -> void:
 
 	SaveSystem.load()
 	assert_eq(Game.colonies.all(), [] as Array[Colony])
+
+
+## Proves an auto-craft toggle and a long-running craft's in-progress timer
+## both survive a save/load - the exact scenario the "runs while offline,
+## potentially hours/days" requirement depends on: the game must remember
+## where a slow craft was, not just whether auto-craft was on.
+func test_save_then_load_restores_auto_craft_toggle_and_cycle_progress() -> void:
+	var station: CraftingStation = Game.crafting_stations.get_or_create(&"salt_cod_recipe")
+	station.auto_craft = true
+	station.cycle.accumulated = 1.75
+
+	SaveSystem.save()
+	Game.run = null
+	Game.crafting_stations.clear()
+
+	SaveSystem.load()
+	var restored: CraftingStation = Game.crafting_stations.get_existing(&"salt_cod_recipe")
+	assert_not_null(restored)
+	assert_true(restored.auto_craft)
+	assert_almost_eq(restored.cycle.accumulated, 1.75, 0.0001)
+
+
+func test_save_then_load_with_no_workshops_restores_an_empty_list() -> void:
+	SaveSystem.save()
+	Game.run = null
+
+	SaveSystem.load()
+	assert_eq(Game.crafting_stations.all(), [] as Array[CraftingStation])

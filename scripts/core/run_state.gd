@@ -43,6 +43,14 @@ var colonies: Array[Dictionary] = []
 var upgrades_purchased: Array[StringName] = []
 var colonies_founded: int = 0
 
+## Per-recipe auto-craft save state (rework task: continuous crafting).
+## Field names match docs/GAME_DESIGN.md §9's own "workshops" example, minus
+## "colonists"/"level" - those belong to a colonist-driven crafting-speed
+## formula that hasn't been asked for or designed yet (see CraftingStation's
+## class doc). Each entry:
+## {"recipe_id": StringName, "auto_craft": bool, "cycle_accumulated": float}
+var workshops: Array[Dictionary] = []
+
 
 func to_dict() -> Dictionary:
 	return {
@@ -55,6 +63,7 @@ func to_dict() -> Dictionary:
 		"colonies": colonies.map(_colony_to_dict),
 		"upgrades_purchased": upgrades_purchased.map(func(id: StringName) -> String: return String(id)),
 		"colonies_founded": colonies_founded,
+		"workshops": workshops.map(_workshop_to_dict),
 	}
 
 
@@ -81,6 +90,12 @@ static func from_dict(d: Dictionary) -> RunState:
 	s.upgrades_purchased = upgrades
 
 	s.colonies_founded = int(d.get("colonies_founded", 0))
+
+	var workshops: Array[Dictionary] = []
+	for entry: Variant in (d.get("workshops", []) as Array):
+		workshops.append(_workshop_from_dict(entry as Dictionary))
+	s.workshops = workshops
+
 	return s
 
 
@@ -119,4 +134,20 @@ static func _colony_from_dict(d: Dictionary) -> Dictionary:
 		"speed_level": int(d.get("speed_level", 0)),
 		"route_type": 1 if String(d.get("route_type", "land")) == "sea" else 0,
 		"local_stock": _json_to_stringname_float_dict(d.get("local_stock", {})),
+	}
+
+
+static func _workshop_to_dict(workshop: Dictionary) -> Dictionary:
+	return {
+		"recipe_id": String(workshop.get("recipe_id", &"")),
+		"auto_craft": bool(workshop.get("auto_craft", false)),
+		"cycle_accumulated": float(workshop.get("cycle_accumulated", 0.0)),
+	}
+
+
+static func _workshop_from_dict(d: Dictionary) -> Dictionary:
+	return {
+		"recipe_id": StringName(d.get("recipe_id", "")),
+		"auto_craft": bool(d.get("auto_craft", false)),
+		"cycle_accumulated": float(d.get("cycle_accumulated", 0.0)),
 	}

@@ -46,6 +46,17 @@ This isn't a simplification of something the document already said; it's a delib
 - **Colonists assigned to a colony boost all three tracks together** (production, cargo, and speed) — not just production. The exact colonist-to-bonus formula is explicitly left as a placeholder ("we'll develop later") — built as a single, clearly-labeled, easy-to-retune number in Balance, not a real design decision yet.
 - **Land vs. sea (the per-colony roll) is scoped down to affect only travel time**, not cargo capacity, now that cargo has its own dedicated per-colony base-and-upgrade track. This is a judgment call made to resolve an otherwise-unspecified interaction, not something said outright — flagged here so it can be revisited.
 
+### Continuous crafting, offline catch-up, and a shipping bug found along the way
+
+Direct request: crafting needs to run continuously in the background (not just an instant click), craft times will grow to hours/days for later recipes, it must keep progressing while the game is closed, and the player needs both a manual "craft one now" action and an auto-craft toggle per recipe.
+
+- **Manual craft stays exactly as it was** — click, get one batch instantly if the ingredients are there. Untouched.
+- **New: an auto-craft toggle per recipe.** When on, a background timer (using that recipe's own craft time) produces one batch per completed cycle, for as long as ingredients hold out. Built using the same exact-math catch-up technique already proven for colony production, so a single call can resolve a multi-hour or multi-day gap instantly rather than looping through it second by second.
+- **When ingredients run out mid-catch-up, the station pauses rather than losing progress** — the unspent time is handed back to the timer, so once the missing ingredient shows up again, crafting resumes right where it left off instead of waiting out a whole fresh cycle first.
+- Both the toggle and the in-progress timer are saved and restored correctly, so a long craft resumes exactly where it was after closing and reopening the game.
+- **Not done in this pass:** an actual real-time "keeps running while the app is closed" feature. That requires a live game clock plus reading elapsed real-world time on startup, and nothing in the project drives *any* system (colonies, shipping, crafting) in real time yet — there's no running game loop at all currently, for anything. Crafting (and shipping, below) are now built to handle that correctly whenever that clock gets wired up, but the wiring itself is separate, larger work.
+- **Found while building this, and fixed since it's the identical problem:** shipping only ever advanced one leg of one trip per call, so fast-forwarding it through a long gap would have badly under-counted deliveries. Fixed to complete as many full round trips as the elapsed time and available cargo allow, the same way crafting now does.
+
 ---
 
 ## Environment (verified this session)

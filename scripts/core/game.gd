@@ -22,6 +22,7 @@ signal run_ended
 @onready var colonies: Node = $Colonies
 @onready var progression: Node = $Progression
 @onready var colonists: Node = $Colonists
+@onready var crafting_stations: Node = $CraftingStations
 
 var meta: MetaState = MetaState.new()
 var run: RunState = null
@@ -57,5 +58,6 @@ func new_run(map_id: StringName) -> void:
 	# the colonist pool, not something that had come up yet.
 	colonies.clear()
 	colonists.clear_assignments()
+	crafting_stations.clear()
 
 	run_started.emit()

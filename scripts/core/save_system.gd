@@ -48,6 +48,7 @@ func save() -> bool:
 	# captured into it right before writing, so RunState never needs to know
 	# about the Colony class the rest of the time.
 	Game.run.colonies = _capture_colonies()
+	Game.run.workshops = _capture_workshops()
 
 	var payload: Dictionary = {
 		"save_version": CURRENT_SAVE_VERSION,
@@ -118,9 +119,11 @@ func load() -> bool:
 	if run_data is Dictionary:
 		Game.run = RunState.from_dict(run_data)
 		_restore_colonies(Game.run.colonies)
+		_restore_workshops(Game.run.workshops)
 	else:
 		Game.run = null
 		Game.colonies.clear()
+		Game.crafting_stations.clear()
 
 	return true
 
@@ -155,6 +158,29 @@ func _restore_colonies(snapshots: Array[Dictionary]) -> void:
 		colony.route_type = snapshot.get("route_type", Colony.RouteType.LAND) as Colony.RouteType
 		colony.local_stock = (snapshot.get("local_stock", {}) as Dictionary).duplicate()
 		Game.colonies.register(colony)
+
+
+## Snapshots every auto-craft station that's been created this run (see
+## CraftingStations.get_or_create) - a recipe never touched by the player
+## simply has no station and needs nothing saved.
+func _capture_workshops() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for station: CraftingStation in Game.crafting_stations.all():
+		out.append({
+			"recipe_id": station.recipe_id,
+			"auto_craft": station.auto_craft,
+			"cycle_accumulated": station.cycle.accumulated,
+		})
+	return out
+
+
+func _restore_workshops(snapshots: Array[Dictionary]) -> void:
+	Game.crafting_stations.clear()
+	for snapshot: Dictionary in snapshots:
+		var recipe_id: StringName = snapshot.get("recipe_id", &"")
+		var station: CraftingStation = Game.crafting_stations.get_or_create(recipe_id)
+		station.auto_craft = bool(snapshot.get("auto_craft", false))
+		station.cycle.accumulated = float(snapshot.get("cycle_accumulated", 0.0))
 
 
 ## No migrations exist yet - version 1 is the only shape that has ever

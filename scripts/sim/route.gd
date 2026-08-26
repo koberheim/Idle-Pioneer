@@ -35,6 +35,11 @@ var state: State = State.AT_ORIGIN
 var cargo: Dictionary = {}  # StringName -> float, only non-empty while traveling
 var leg_elapsed: float = 0.0
 
+## Safety cap on how many state-steps a single tick() call will take (see
+## tick()'s doc below) - not a realistic limit, just a guard against an
+## unforeseen bug turning a large delta into a true infinite loop.
+const MAX_STEPS_PER_TICK: int = 200000
+
 
 func _init(p_origin: Colony, p_destination: Colony) -> void:
 	origin = p_origin
@@ -61,17 +66,41 @@ func progress() -> float:
 	return clampf(leg_elapsed / duration, 0.0, 1.0)
 
 
-## Advances the route by `delta` seconds: at the origin, tries to load and
-## depart every call (see the class doc - no waiting, ever); mid-journey,
-## advances toward arrival.
+## Advances the route by `delta` seconds. Loops through as many departures,
+## arrivals, and legs as `delta` and the available cargo allow - not just
+## one - so a large delta (e.g. catching up several hours or days of offline
+## time in one call) correctly completes every round trip that time and
+## cargo actually cover, rather than completing at most one leg transition
+## and silently dropping the rest. Each step reports how much of the budget
+## it actually spent; the loop stops the moment a step spends nothing (e.g.
+## idle at the origin with nothing left to load).
 func tick(delta: float) -> void:
+	var remaining: float = delta
+	var steps: int = 0
+	while remaining > 0.0 and steps < MAX_STEPS_PER_TICK:
+		steps += 1
+		var state_before: State = state
+		var consumed: float = _step(remaining)
+		remaining -= consumed
+		if state == state_before and consumed <= 0.0:
+			break  # genuinely stuck - AT_ORIGIN with nothing to load
+
+
+## Advances at most one state transition, capped at `budget` seconds. Returns
+## how much of `budget` was actually spent - 0.0 for a departure (departing
+## itself takes no simulated time; the loop above keeps going with the same
+## budget so the newly-started leg gets to use it) and 0.0 when no progress
+## was possible at all.
+func _step(budget: float) -> float:
 	match state:
 		State.AT_ORIGIN:
 			_try_depart()
+			return 0.0
 		State.TRAVELING_TO_HUB:
-			_advance_leg(delta, _arrive_at_hub)
+			return _advance_leg(budget, _arrive_at_hub)
 		State.TRAVELING_TO_ORIGIN:
-			_advance_leg(delta, _arrive_at_origin)
+			return _advance_leg(budget, _arrive_at_origin)
+	return 0.0
 
 
 func _try_depart() -> void:
@@ -124,15 +153,23 @@ func _by_value_descending(a: StringName, b: StringName) -> bool:
 	return value_a > value_b
 
 
-func _advance_leg(delta: float, on_arrive: Callable) -> void:
+## Advances the current leg by at most `budget` seconds, stopping exactly at
+## arrival rather than overshooting into the next leg - overshoot is the
+## caller's (tick()'s) job to redistribute on its next loop iteration, since
+## on_arrive() can change state (and therefore what "the current leg" even
+## means) out from under a single call here. Returns how much time was spent.
+func _advance_leg(budget: float, on_arrive: Callable) -> float:
 	var duration: float = leg_duration()
 	if duration <= 0.0:
 		on_arrive.call()
-		return
-	leg_elapsed += delta
+		return 0.0
+	var remaining_on_leg: float = duration - leg_elapsed
+	var spent: float = minf(budget, remaining_on_leg)
+	leg_elapsed += spent
 	if leg_elapsed >= duration:
 		leg_elapsed = duration
 		on_arrive.call()
+	return spent
 
 
 func _arrive_at_hub() -> void:

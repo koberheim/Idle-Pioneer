@@ -144,8 +144,14 @@ func test_arrival_at_hub_adds_cargo_to_central_inventory_and_emits_delivered() -
 func test_progress_resets_at_the_start_of_the_return_leg() -> void:
 	_land_origin.local_stock[&"cod"] = 7.0
 	var route := Route.new(_land_origin, _capital)
-	route.tick(0.001)
-	route.tick(route.leg_duration() + 1.0)
+	# A tiny departure tick, then exactly the remaining leg time - not an
+	# overshoot. tick() now correctly spends any overshoot on the next leg
+	# too (the large-delta fix), so an overshoot here would no longer land
+	# exactly at the start of the return leg. Use
+	# test_full_round_trip_returns_to_at_origin_ready_for_more_cargo and the
+	# dedicated large-delta tests below for that behaviour.
+	route.tick(0.000001)
+	route.tick(route.leg_duration())
 	assert_almost_eq(route.progress(), 0.0, 0.0001)
 
 
@@ -176,3 +182,31 @@ func test_route_cycles_continuously_without_waiting_between_trips() -> void:
 	route.tick(0.001)  # should depart again immediately, no idle gap
 	assert_eq(route.state, Route.State.TRAVELING_TO_HUB)
 	assert_almost_eq(route.cargo.get(&"cod", 0.0), 3.0, 0.0001)
+
+
+## The offline-catch-up fix: a single huge tick() must complete every round
+## trip the elapsed time and cargo actually cover, not just the first leg
+## transition. Plenty of cod (300) so cargo is never the limiting factor -
+## isolates the time-looping fix from the ingredient-halt behaviour that
+## CraftingStation's equivalent tests cover separately.
+func test_tick_completes_many_round_trips_in_one_large_delta() -> void:
+	_land_origin.local_stock[&"cod"] = 200.0  # exactly 10 loads of capacity (20)
+	var route := Route.new(_land_origin, _capital)
+	var round_trip: float = route.leg_duration() * 2.0  # 12.0s
+
+	route.tick(round_trip * 10.0)  # exactly 10 full round trips' worth of time
+
+	assert_almost_eq(Game.inventory.get_amount(&"cod"), 200.0, 0.0001, "10 deliveries of 20 cod each")
+	assert_eq(route.state, Route.State.AT_ORIGIN, "all 10 round trips should have completed and returned")
+	assert_almost_eq(_land_origin.local_stock.get(&"cod", 0.0), 0.0, 0.0001)
+
+
+func test_tick_with_a_large_delta_stops_cleanly_once_cargo_runs_out() -> void:
+	_land_origin.local_stock[&"cod"] = 25.0  # one full 20-load, then a partial 5
+	var route := Route.new(_land_origin, _capital)
+	var round_trip: float = route.leg_duration() * 2.0
+
+	route.tick(round_trip * 5.0)  # far more time than the remaining cargo needs
+
+	assert_almost_eq(Game.inventory.get_amount(&"cod"), 25.0, 0.0001, "all cargo eventually delivered")
+	assert_eq(route.state, Route.State.AT_ORIGIN, "nothing left to carry - back home and idle")
