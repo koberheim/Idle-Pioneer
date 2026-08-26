@@ -10,7 +10,6 @@ id = &"northern_traces"
 display_name = "Northern Traces"
 resource_id = &"furs"
 order = 7
-unlock_cost = 1100000000.0
 is_capital = false
 
 base_production_rate = 1.0

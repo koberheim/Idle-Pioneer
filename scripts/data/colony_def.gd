@@ -1,10 +1,13 @@
-## Content definition for one of the game's eight fixed colonies (see
-## docs/GAME_DESIGN.md §5 - "Colonies"). This replaces RegionDef for content
-## going forward: the design is a fixed, named, ordered table (eight specific
-## places, each with one specific resource, at a fixed one-time cost), not a
-## flexible placement system. RegionDef and the land/water map it depended on
-## are left in place unused rather than deleted - see docs/GODOT_PLAN.md's
-## design realignment section for why.
+## Content definition for one of the game's eight colony *tiers* (see
+## docs/GAME_DESIGN.md §5 - "Colonies"). Originally one .tres per specific
+## named place; rework task "randomized map" repurposed these as templates
+## instead - "what a colony producing this resource looks like" - reused
+## once per resource on the value curve, then cycled again (a second, a
+## third time...) as a run founds more colonies than there are tiers. Every
+## per-INSTANCE fact (where a founded colony actually sits, how far that is,
+## whether it's coastal) now lives on the generated colony slot
+## (RunState.colony_slots) and the runtime Colony object instead - see
+## Colony's class doc.
 ##
 ## Selling price lives on ResourceDef, not here - a colony has one resource,
 ## so duplicating a price field on both would just be two sources of truth for
@@ -27,15 +30,12 @@ extends Resource
 ## Which raw good this colony produces - a ResourceDef id.
 @export var resource_id: StringName = &""
 
-## Fixed play order, 0-7. Tidewater Landing (the Capital) is always 0.
-## Doubles as the "distance" figure in docs/GAME_DESIGN.md §5/§6 - the design
-## table gives every colony a distance equal to its position in the list, so
-## there is no separate distance field to drift out of sync with order.
+## This tier's position on the value curve, 0-7 (Tidewater Landing/timber is
+## always 0). Used only to pick which tier a colony slot cycles to next
+## (Colonies.found()) - no longer doubles as physical distance (rework task
+## "randomized map": that's real, generated, and lives on the colony slot
+## instead - see Colony's class doc).
 @export var order: int = 0
-
-## One-time coin cost to found this colony - a fixed number from the table
-## (§5), not a computed curve. Zero for the Capital, which starts founded.
-@export var unlock_cost: float = 0.0
 
 ## True only for Tidewater Landing. The Capital is where every other
 ## colony's goods arrive, where selling and crafting happen, and it starts
@@ -59,7 +59,7 @@ extends Resource
 func is_valid() -> bool:
 	if id == &"" or resource_id == &"":
 		return false
-	if order < 0 or unlock_cost < 0.0:
+	if order < 0:
 		return false
 	if base_production_rate <= 0.0 or base_cargo <= 0.0 or base_speed <= 0.0:
 		return false

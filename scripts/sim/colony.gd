@@ -7,17 +7,33 @@
 ## tree) and not a Resource (this is not authored content - ColonyDef is).
 ##
 ## All the actual formulas live in Balance (scripts/core/balance.gd) - this
-## class just holds the state (which levels have been bought, the rolled
-## route type) and asks Balance to combine it with ColonyDef's base stats and
-## Game.colonists' live count. Retuning any of this never means touching
-## Colony.
+## class just holds the state (which levels have been bought) and asks
+## Balance to combine it with ColonyDef's base stats and Game.colonists' live
+## count. Retuning any of this never means touching Colony.
+##
+## `colony_id` (this specific founded instance, e.g. "slot_3") and `tier_id`
+## (which ColonyDef it draws its resource/base stats from, e.g. &"cape_harbour")
+## are separate now (rework task: randomized map) - a tier can be reused by
+## more than one colony once a run cycles past 7 non-Capital tiers. Where
+## this colony actually sits (`distance_cells`, `is_coastal`) comes from its
+## generated colony slot (RunState.colony_slots), not from the tier - two
+## colonies sharing a tier can be at completely different distances.
 class_name Colony
 extends RefCounted
 
 enum RouteType { LAND, SEA }
 
+## Per-run instance id - what Routes/Colonists/save data key this colony by.
+## Defaults to `tier_id` when not given, so a bare `Colony.new(&"cape_harbour")`
+## (the shape nearly every existing test uses) still works exactly as before
+## for anything that doesn't care about multi-instance distinctness.
 var colony_id: StringName
+
+## Which ColonyDef this colony draws its resource and base stats from.
+var tier_id: StringName
+
 var is_capital: bool
+var slot_index: int = 0
 
 ## Independent gold-bought upgrade levels (docs/GODOT_PLAN.md's design
 ## realignment section - three separate tracks, not one generic level).
@@ -25,42 +41,54 @@ var production_level: int = 0
 var cargo_level: int = 0
 var speed_level: int = 0
 
-## Rolled once per colony at creation - "each colony rolls land or sea,
-## 50/50" (§5). Public and mutable (not just constructor-set) so tests can
-## pin a specific value instead of fighting real randomness; a fresh Colony
-## still rolls for itself by default. Now affects travel time only (Route
-## reads this) - cargo capacity comes entirely from this colony's own base
-## stat and cargo_level instead.
-var route_type: RouteType = RouteType.LAND
+## Whether this colony's generated map cell is coastal (rework task:
+## randomized map) - real geography now, not a 50/50 roll. Public and
+## mutable, same as before, so tests can pin a value directly instead of
+## fighting randomness. The Capital is always coastal by construction
+## (MapGenerator.place_capital only ever picks a coastal continent cell), so
+## defaults to that for a Capital instance; false otherwise until real
+## placement data is applied.
+var is_coastal: bool = false
+
+## Full round-trip travel time only cares whether THIS end is coastal -
+## PlacementRules.route_kind's "both ends coastal -> sea" rule collapses to
+## that once the Capital is guaranteed coastal (see is_coastal's doc).
+var route_type: RouteType:
+	get: return RouteType.SEA if is_coastal else RouteType.LAND
+
+## Real distance from the Capital on the generated map, in grid cells - set
+## once at placement (Colonies.found()) or restore (SaveSystem), read by
+## distance(). Public and mutable for the same testing reason as is_coastal.
+var distance_cells: float = 0.0
 
 ## StringName -> float. Only populated for a non-Capital colony - see tick().
 var local_stock: Dictionary = {}
 
 
-func _init(p_colony_id: StringName) -> void:
-	colony_id = p_colony_id
+func _init(p_tier_id: StringName, p_colony_id: StringName = &"") -> void:
+	tier_id = p_tier_id
+	colony_id = p_colony_id if p_colony_id != &"" else p_tier_id
 
-	var def: ColonyDef = Db.colony(colony_id)
+	var def: ColonyDef = Db.colony(tier_id)
 	if def == null:
-		push_error("Colony: unknown colony id '%s' - production will be a no-op" % colony_id)
+		push_error("Colony: unknown tier id '%s' - production will be a no-op" % tier_id)
 		is_capital = false
 		return
 
 	is_capital = def.is_capital
-	route_type = RouteType.LAND if is_capital or randf() < 0.5 else RouteType.SEA
+	is_coastal = is_capital
 
 
 func resource_id() -> StringName:
-	var def: ColonyDef = Db.colony(colony_id)
+	var def: ColonyDef = Db.colony(tier_id)
 	return def.resource_id if def != null else &""
 
 
-## This colony's position in the fixed play order, 0-7 - doubles as
-## "distance" in every §6 formula that needs it (ColonyDef's class doc
-## explains why there's no separate field).
-func distance() -> int:
-	var def: ColonyDef = Db.colony(colony_id)
-	return def.order if def != null else 0
+## Real distance from the Capital, in grid cells (rework task: randomized
+## map) - previously a 0-7 index doubling as ColonyDef.order; now a real
+## generated number, independent of which tier this colony is.
+func distance() -> float:
+	return distance_cells
 
 
 func colonists_assigned() -> int:
@@ -70,7 +98,7 @@ func colonists_assigned() -> int:
 ## Units per second this colony currently produces. Real even with zero
 ## colonists assigned - see the class doc.
 func production_rate() -> float:
-	var def: ColonyDef = Db.colony(colony_id)
+	var def: ColonyDef = Db.colony(tier_id)
 	if def == null:
 		return 0.0
 	return Balance.colony_production_rate(
@@ -88,7 +116,7 @@ func production_rate() -> float:
 
 ## Cargo capacity for a Route serving this colony.
 func cargo_capacity() -> float:
-	var def: ColonyDef = Db.colony(colony_id)
+	var def: ColonyDef = Db.colony(tier_id)
 	if def == null:
 		return 0.0
 	return Balance.colony_cargo_capacity(def.base_cargo, cargo_level, colonists_assigned(), Game.prestige.cargo_multiplier())
@@ -96,7 +124,7 @@ func cargo_capacity() -> float:
 
 ## Full round-trip travel time in seconds for a Route serving this colony.
 func round_trip_seconds() -> float:
-	var def: ColonyDef = Db.colony(colony_id)
+	var def: ColonyDef = Db.colony(tier_id)
 	if def == null:
 		return 0.0
 	return Balance.route_round_trip_seconds(

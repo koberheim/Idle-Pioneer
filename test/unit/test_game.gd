@@ -63,7 +63,7 @@ func test_new_run_clears_leftover_colonies_and_colonist_assignments() -> void:
 	Game.colonies.register(Colony.new(&"cape_harbour"))
 	Game.economy.add_gold(100.0)
 	Game.colonists.buy_colonist()
-	Game.colonists.assign(&"tidewater_landing", 1)
+	Game.colonists.assign(&"slot_0", 1)
 
 	Game.new_run(&"mvp_coast")
 
@@ -79,8 +79,33 @@ func test_new_run_bootstraps_the_capital() -> void:
 	Game.new_run(&"mvp_coast")
 	var capital: Colony = Game.colonies.capital()
 	assert_not_null(capital)
-	assert_eq(capital.colony_id, &"tidewater_landing")
+	assert_eq(capital.colony_id, &"slot_0")
+	assert_eq(capital.tier_id, &"tidewater_landing")
 	assert_true(capital.is_capital)
+	assert_true(capital.is_coastal, "the Capital is always placed on the continent's coast")
+
+
+## Rework task: randomized map. new_run() generates the whole run's map and
+## colony-slot layout up front, once, seeded - this is the "something
+## works" smoke test; MapGenerator's own tests cover the generation
+## algorithm's correctness in detail.
+func test_new_run_generates_a_map_and_colony_slots() -> void:
+	Game.new_run(&"mvp_coast")
+	assert_false(Game.run.map.is_empty())
+	assert_gt(Game.run.map_seed, -1)
+	assert_gt(Game.run.colony_slots.size(), 1, "slot 0 (the Capital) plus at least one more")
+	assert_true(bool(Game.run.colony_slots[0]["founded"]))
+
+
+func test_new_run_with_an_explicit_seed_is_reproducible() -> void:
+	Game.new_run(&"mvp_coast", 12345)
+	var first_map: Dictionary = Game.run.map
+	var first_slots: Array[Dictionary] = Game.run.colony_slots
+
+	Game.new_run(&"mvp_coast", 12345)
+
+	assert_eq(Game.run.map, first_map)
+	assert_eq(Game.run.colony_slots, first_slots)
 
 
 func test_new_run_does_not_touch_meta() -> void:

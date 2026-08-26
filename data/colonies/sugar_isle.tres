@@ -10,7 +10,6 @@ id = &"sugar_isle"
 display_name = "Sugar Isle"
 resource_id = &"sugar_cane"
 order = 6
-unlock_cost = 85000000.0
 is_capital = false
 
 base_production_rate = 1.0

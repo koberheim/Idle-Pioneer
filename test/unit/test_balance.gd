@@ -125,3 +125,32 @@ func test_prestige_multipliers_at_level_zero_are_neutral() -> void:
 	assert_almost_eq(Balance.navigation_speed_multiplier(0), 1.0, 0.0001)
 	assert_almost_eq(Balance.navigation_cargo_multiplier(0), 1.0, 0.0001)
 	assert_almost_eq(Balance.settlement_cost_multiplier(0), 1.0, 0.0001)
+
+
+func test_round_trip_seconds_accepts_a_real_grid_distance() -> void:
+	# distance is now a float (real grid cells, rework task: randomized map),
+	# not the old small int - a fractional value must work the same way.
+	assert_almost_eq(Balance.route_round_trip_seconds(4.5, false, 1.0, 0, 0), 54.0, 0.0001)
+
+
+func test_map_generation_settings_match_balance_tres() -> void:
+	assert_eq(Balance.map_width(), 60)
+	assert_eq(Balance.map_height(), 60)
+	assert_almost_eq(Balance.continent_threshold(), 0.6, 0.0001)
+	assert_eq(Balance.island_count(), 5)
+	assert_almost_eq(Balance.island_min_radius(), 3.0, 0.0001)
+	assert_almost_eq(Balance.island_max_radius(), 7.0, 0.0001)
+	assert_almost_eq(Balance.colony_distance_step(), 2.5, 0.0001)
+	assert_almost_eq(Balance.min_colony_spacing(), 2.0, 0.0001)
+	assert_eq(Balance.max_colonies(), 25)
+
+
+func test_next_colony_slot_cost_matches_the_fitted_curve() -> void:
+	# base 250, growth 13 - fit against the old hand-authored table.
+	assert_almost_eq(Balance.next_colony_slot_cost(1), 250.0, 0.0001)
+	assert_almost_eq(Balance.next_colony_slot_cost(2), 3250.0, 0.01)
+	assert_almost_eq(Balance.next_colony_slot_cost(3), 42250.0, 0.01)
+
+
+func test_next_colony_slot_cost_applies_the_prestige_discount() -> void:
+	assert_almost_eq(Balance.next_colony_slot_cost(1, 0.93), 250.0 * 0.93, 0.0001)

@@ -155,6 +155,18 @@ func capital() -> ColonyDef:
 	return null
 
 
+## The ColonyDef whose `order` matches - used by Colonies' tier-cycling
+## logic (rework task: randomized map) to look up which tier a given colony
+## slot draws its resource/base stats from. Null (with a push_error) if no
+## tier has that order.
+func colony_by_order(order: int) -> ColonyDef:
+	for def: ColonyDef in _colonies.values():
+		if def.order == order:
+			return def
+	push_error("Db.colony_by_order: no ColonyDef has order %d" % order)
+	return null
+
+
 ## Silent existence check - unlike resource(id), this never push_errors. For
 ## callers (e.g. task R1's Inventory) that want to report their own, more
 ## specific "unknown id" message without also triggering Db's generic one for

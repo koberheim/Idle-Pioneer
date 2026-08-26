@@ -3,8 +3,10 @@
 ## own stats via Balance, not a simple land/sea lookup table). Uses the real
 ## colony table: tidewater_landing (Capital, destination for every route) and
 ## cape_harbour (distance 1, forced LAND) / chesapeake_fields (distance 2,
-## forced SEA) as origins - route_type is forced explicitly rather than left
-## to the real random roll, so these tests are deterministic.
+## forced SEA) as origins - distance_cells/is_coastal are set explicitly
+## (rework task: randomized map - route_type is now derived from is_coastal,
+## not a random roll) rather than left to real map generation, so these
+## tests are deterministic.
 extends GutTest
 
 var _capital: Colony
@@ -16,9 +18,11 @@ func before_each() -> void:
 	Game.new_run(&"mvp_coast")
 	_capital = Colony.new(&"tidewater_landing")
 	_land_origin = Colony.new(&"cape_harbour")
-	_land_origin.route_type = Colony.RouteType.LAND
+	_land_origin.distance_cells = 1.0
+	_land_origin.is_coastal = false
 	_sea_origin = Colony.new(&"chesapeake_fields")
-	_sea_origin.route_type = Colony.RouteType.SEA
+	_sea_origin.distance_cells = 2.0
+	_sea_origin.is_coastal = true
 
 
 func after_each() -> void:
@@ -55,7 +59,8 @@ func test_sea_leg_duration_at_the_same_distance_is_longer_than_land() -> void:
 	# Same distance (1), forced to each route type, isolates the type's
 	# effect on duration from distance's effect.
 	var sea_at_distance_one := Colony.new(&"cape_harbour")
-	sea_at_distance_one.route_type = Colony.RouteType.SEA
+	sea_at_distance_one.distance_cells = 1.0
+	sea_at_distance_one.is_coastal = true
 	var land_route := Route.new(_land_origin, _capital)
 	var sea_route := Route.new(sea_at_distance_one, _capital)
 	assert_gt(sea_route.leg_duration(), land_route.leg_duration())

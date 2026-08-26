@@ -32,6 +32,10 @@ func test_tick_advances_colony_production() -> void:
 
 func test_tick_advances_shipping() -> void:
 	var outpost := Colony.new(&"cape_harbour")
+	# Nonzero distance so the round trip takes measurable time instead of
+	# completing instantly within one tick (distance defaults to 0.0 now -
+	# rework task: randomized map).
+	outpost.distance_cells = 1.0
 	outpost.local_stock[&"cod"] = 5.0
 	Game.colonies.register(outpost)
 

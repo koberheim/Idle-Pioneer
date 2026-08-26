@@ -3,6 +3,13 @@
 ## unregister/Tick pattern (docs/GODOT_MIGRATION_ANALYSIS.md §A2), reimplemented
 ## as a plain typed Array rather than a Node registry, since Colony (task P2)
 ## is a RefCounted, not a scene object.
+##
+## Founding (rework task: randomized map) now walks Game.run.colony_slots -
+## the per-run generated list of where every colony will sit (see
+## Game.new_run() and MapGenerator) - instead of a fixed Db-authored order
+## list. Which ColonyDef a slot draws its resource/base stats from cycles
+## through the 7 non-Capital tiers repeatedly (tier_order_for_slot()), since
+## a run can found more colonies than there are tiers.
 extends Node
 
 signal founded(colony: Colony)
@@ -54,35 +61,56 @@ func capital() -> Colony:
 	return null
 
 
-## The next colony available to found, in the fixed order defined by
-## docs/GAME_DESIGN.md §5's colony table (ColonyDef.order) - colonies must be
-## founded in sequence, one at a time, matching that table's own framing of
-## "distance." Null once every colony is founded, or before the Capital
-## itself has been bootstrapped (see game.gd's new_run()).
-func next_to_found() -> ColonyDef:
-	if capital() == null:
-		return null
-	for def: ColonyDef in Db.all_colonies():
-		if not def.is_capital and not has(def.id):
-			return def
-	return null
+## Slot 0 is always the Capital's tier (order 0); every slot after that
+## cycles through the 7 non-Capital tiers (order 1-7) in sequence, wrapping
+## back to order 1 once a run founds more colonies than there are tiers -
+## see ColonyDef's class doc.
+func tier_order_for_slot(slot_index: int) -> int:
+	if slot_index <= 0:
+		return 0
+	return ((slot_index - 1) % 7) + 1
 
 
-## Spends gold and founds `colony_id`, if (and only if) it's the actual next
-## colony in sequence and there's enough gold for it - see next_to_found().
-## Returns false and changes nothing otherwise (unknown id, Capital, out of
-## order, or insufficient funds).
-func found(colony_id: StringName) -> bool:
-	var next: ColonyDef = next_to_found()
-	if next == null or next.id != colony_id:
+## The colony_slots entry (see RunState's class doc for the shape) for the
+## lowest-indexed unfounded slot - the one `found()` will actually place
+## next. Empty (`{}`) if every slot is founded, or there's no active run.
+func next_to_found() -> Dictionary:
+	if Game.run == null:
+		return {}
+	for slot: Dictionary in Game.run.colony_slots:
+		if not bool(slot.get("founded", false)):
+			return slot
+	return {}
+
+
+## Spends gold and founds the colony at `slot_index`, if (and only if) it's
+## the actual next slot in sequence and there's enough gold for it - see
+## next_to_found(). Returns false and changes nothing otherwise (unknown
+## slot, out of order, missing tier content, or insufficient funds).
+func found(slot_index: int) -> bool:
+	var next: Dictionary = next_to_found()
+	if next.is_empty() or int(next["slot_index"]) != slot_index:
 		return false
-	if not Game.economy.try_spend(Game.economy.colony_cost(colony_id)):
+
+	var tier_def: ColonyDef = Db.colony_by_order(int(next["tier_order"]))
+	if tier_def == null:
 		return false
 
-	var colony := Colony.new(colony_id)
+	var cost: float = Balance.next_colony_slot_cost(slot_index, Game.prestige.cost_discount_multiplier())
+	if not Game.economy.try_spend(cost):
+		return false
+
+	var colony := Colony.new(tier_def.id, StringName("slot_%d" % slot_index))
+	colony.slot_index = slot_index
+	colony.distance_cells = float(next["distance_cells"])
+	colony.is_coastal = bool(next["is_coastal"])
 	register(colony)
+
+	next["founded"] = true  # colony_slots entries are Dictionaries (reference types) - this mutates the real entry in Game.run.colony_slots, not a copy.
+
 	if Game.run != null:
 		Game.run.colonies_founded += 1
+
 	founded.emit(colony)
 	return true
 

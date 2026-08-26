@@ -157,35 +157,57 @@ func _apply_offline_catch_up(saved_at_unix: int) -> void:
 
 
 ## Snapshots every live colony into the plain-dictionary shape RunState.colonies
-## expects: which colony, its three independent upgrade levels, its rolled
-## route type, and what it's currently holding. is_capital isn't captured -
-## it's re-derived from the colony id on restore (see RunState's class doc on
-## `colonies` for why).
+## expects: which colony, which tier it draws from, its three independent
+## upgrade levels, and what it's currently holding. is_capital, distance,
+## and coastal-ness aren't captured here - is_capital is re-derived from
+## tier_id, and the rest comes from the matching Game.run.colony_slots entry
+## on restore (see RunState's class doc on `colonies` for why).
 func _capture_colonies() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for colony: Colony in Game.colonies.all():
 		out.append({
 			"colony_id": colony.colony_id,
+			"tier_id": colony.tier_id,
+			"slot_index": colony.slot_index,
 			"production_level": colony.production_level,
 			"cargo_level": colony.cargo_level,
 			"speed_level": colony.speed_level,
-			"route_type": colony.route_type,
 			"local_stock": colony.local_stock.duplicate(),
 		})
 	return out
 
 
+## Must run after Game.run is set (needs Game.run.colony_slots to restore
+## each colony's distance/coastal-ness).
 func _restore_colonies(snapshots: Array[Dictionary]) -> void:
 	Game.colonies.clear()
 	for snapshot: Dictionary in snapshots:
 		var colony_id: StringName = snapshot.get("colony_id", &"")
-		var colony := Colony.new(colony_id)
+		var tier_id: StringName = snapshot.get("tier_id", &"")
+		var slot_index: int = int(snapshot.get("slot_index", 0))
+
+		var colony := Colony.new(tier_id, colony_id)
+		colony.slot_index = slot_index
 		colony.production_level = int(snapshot.get("production_level", 0))
 		colony.cargo_level = int(snapshot.get("cargo_level", 0))
 		colony.speed_level = int(snapshot.get("speed_level", 0))
-		colony.route_type = snapshot.get("route_type", Colony.RouteType.LAND) as Colony.RouteType
 		colony.local_stock = (snapshot.get("local_stock", {}) as Dictionary).duplicate()
+
+		var slot: Dictionary = _find_colony_slot(slot_index)
+		if not slot.is_empty():
+			colony.distance_cells = float(slot.get("distance_cells", 0.0))
+			colony.is_coastal = bool(slot.get("is_coastal", colony.is_capital))
+
 		Game.colonies.register(colony)
+
+
+func _find_colony_slot(slot_index: int) -> Dictionary:
+	if Game.run == null:
+		return {}
+	for slot: Dictionary in Game.run.colony_slots:
+		if int(slot.get("slot_index", -1)) == slot_index:
+			return slot
+	return {}
 
 
 ## Snapshots every auto-craft station that's been created this run (see

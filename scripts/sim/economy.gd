@@ -75,21 +75,3 @@ func sell_value(id: StringName, amount: float) -> float:
 	if def == null:
 		return 0.0
 	return def.base_value * amount
-
-
-## Gold cost of founding `colony_id`, using its own real unlock_cost
-## (docs/GAME_DESIGN.md §5's colony table - each colony has an individually
-## authored cost, not a generic formula), discounted by Settlement's
-## prestige effect (§8 - "-7% colonist and colony cost per level"). Returns
-## 0.0 for an unknown id.
-##
-## Replaces an earlier generic exponential curve (base * mult^founded) left
-## over from before the real colony table existed (task #26) - that formula
-## no longer matched any of the actual per-colony costs and had no caller
-## outside its own tests, so it was replaced rather than kept alongside a
-## second, real cost source.
-func colony_cost(colony_id: StringName) -> float:
-	var def: ColonyDef = Db.colony(colony_id)
-	if def == null:
-		return 0.0
-	return def.unlock_cost * Game.prestige.cost_discount_multiplier()

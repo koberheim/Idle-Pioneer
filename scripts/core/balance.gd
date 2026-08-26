@@ -86,7 +86,7 @@ func colony_cargo_capacity(
 ## effect (Prestige.speed_multiplier()) - defaults to 1.0 so every existing
 ## caller/test is unaffected until Navigation is bought.
 func route_round_trip_seconds(
-	distance: int, is_sea: bool, base_speed: float, speed_level: int, colonists_assigned: int,
+	distance: float, is_sea: bool, base_speed: float, speed_level: int, colonists_assigned: int,
 	prestige_speed_multiplier: float = 1.0
 ) -> float:
 	var time_factor: float = _def.route_time_factor_sea if is_sea else _def.route_time_factor_land
@@ -98,7 +98,7 @@ func route_round_trip_seconds(
 	)
 	if speed_multiplier <= 0.0:
 		return 0.0
-	return float(distance) * time_factor / speed_multiplier
+	return distance * time_factor / speed_multiplier
 
 
 ## §8: reset unlocks once this run's lifetime earnings (not current on-hand
@@ -116,6 +116,52 @@ func prestige_liberty_payout(lifetime_gold_earned_this_run: float) -> int:
 
 func offline_catch_up_cap_seconds() -> float:
 	return _def.offline_catch_up_cap_seconds
+
+
+func map_width() -> int:
+	return _def.map_width
+
+
+func map_height() -> int:
+	return _def.map_height
+
+
+func continent_threshold() -> float:
+	return _def.continent_threshold
+
+
+func island_count() -> int:
+	return _def.island_count
+
+
+func island_min_radius() -> float:
+	return _def.island_min_radius
+
+
+func island_max_radius() -> float:
+	return _def.island_max_radius
+
+
+func colony_distance_step() -> float:
+	return _def.colony_distance_step
+
+
+func min_colony_spacing() -> float:
+	return _def.min_colony_spacing
+
+
+func max_colonies() -> int:
+	return _def.max_colonies
+
+
+## Cost of founding colony slot `slot_index` (1-indexed - slot 0 is the free
+## Capital). Replaces the old per-colony ColonyDef.unlock_cost table (task
+## #26), which doesn't extend past 8 hand-authored entries - see
+## BalanceDef.colony_slot_base_cost's doc for how these constants were fit.
+## `prestige_discount_multiplier` is Settlement's effect, same convention as
+## next_colonist_cost().
+func next_colony_slot_cost(slot_index: int, prestige_discount_multiplier: float = 1.0) -> float:
+	return _geometric_cost(_def.colony_slot_base_cost, _def.colony_slot_cost_growth, slot_index - 1) * prestige_discount_multiplier
 
 
 func industry_max_level() -> int:

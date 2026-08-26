@@ -51,6 +51,11 @@ func test_a_created_routes_origin_and_destination_are_the_live_colony_instances(
 
 func test_tick_syncs_and_advances_every_route() -> void:
 	var outpost := Colony.new(&"cape_harbour")
+	# A nonzero distance so the round trip actually takes measurable time -
+	# distance defaults to 0.0 now (real, generated per-slot data - rework
+	# task: randomized map), which would otherwise complete the whole round
+	# trip instantly within a single tick() call.
+	outpost.distance_cells = 1.0
 	outpost.local_stock[&"cod"] = 5.0
 	Game.colonies.register(outpost)
 

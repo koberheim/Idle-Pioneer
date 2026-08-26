@@ -71,79 +71,91 @@ func test_clear_empties_the_registry() -> void:
 	assert_eq(Game.colonies.all(), [] as Array[Colony])
 
 
-func test_next_to_found_is_null_before_the_capital_exists() -> void:
-	assert_null(Game.colonies.next_to_found())
+## Founding now walks Game.run.colony_slots (rework task: randomized map) -
+## new_run() (already called in before_each) always generates a real slot
+## list with slot 0 (the Capital) pre-founded, so there's no "before the
+## Capital exists" state to test here any more; the real no-run-at-all case
+## is a null Game.run instead.
+func test_next_to_found_is_empty_with_no_active_run() -> void:
+	Game.run = null
+	assert_true(Game.colonies.next_to_found().is_empty())
 
 
-func test_next_to_found_is_the_first_non_capital_colony_in_order() -> void:
-	Game.colonies.register(Colony.new(&"tidewater_landing"))
-	assert_eq(Game.colonies.next_to_found().id, &"cape_harbour")
+func test_next_to_found_is_slot_one_right_after_a_new_run() -> void:
+	# Slot 0 (the Capital) is founded automatically by new_run() - slot 1 is
+	# next, always cape_harbour's tier (order 1) regardless of the map seed,
+	# since tier cycling is independent of where slots physically land.
+	var next: Dictionary = Game.colonies.next_to_found()
+	assert_eq(int(next["slot_index"]), 1)
+	assert_eq(int(next["tier_order"]), 1)
 
 
 func test_found_spends_gold_and_registers_the_colony() -> void:
-	Game.colonies.register(Colony.new(&"tidewater_landing"))
-	Game.economy.add_gold(250.0)  # cape_harbour's real unlock_cost
+	Game.economy.add_gold(250.0)  # slot 1's real cost (Balance.next_colony_slot_cost(1))
 
-	var ok: bool = Game.colonies.found(&"cape_harbour")
+	var ok: bool = Game.colonies.found(1)
 
 	assert_true(ok)
-	assert_true(Game.colonies.has(&"cape_harbour"))
+	assert_true(Game.colonies.has(&"slot_1"))
 	assert_almost_eq(Game.economy.gold, 0.0, 0.0001)
 	assert_eq(Game.run.colonies_founded, 1)
 
 
 func test_found_emits_founded_with_the_new_colony() -> void:
-	Game.colonies.register(Colony.new(&"tidewater_landing"))
 	Game.economy.add_gold(250.0)
 	watch_signals(Game.colonies)
 
-	Game.colonies.found(&"cape_harbour")
+	Game.colonies.found(1)
 
 	assert_signal_emitted(Game.colonies, "founded")
 
 
 func test_found_fails_with_insufficient_gold_and_changes_nothing() -> void:
-	Game.colonies.register(Colony.new(&"tidewater_landing"))
-	Game.economy.add_gold(100.0)  # cape_harbour costs 250
+	Game.economy.add_gold(100.0)  # slot 1 costs 250
 
-	var ok: bool = Game.colonies.found(&"cape_harbour")
+	var ok: bool = Game.colonies.found(1)
 
 	assert_false(ok)
-	assert_false(Game.colonies.has(&"cape_harbour"))
+	assert_false(Game.colonies.has(&"slot_1"))
 	assert_almost_eq(Game.economy.gold, 100.0, 0.0001, "a failed founding must not touch gold")
 
 
 func test_found_rejects_founding_out_of_order() -> void:
-	Game.colonies.register(Colony.new(&"tidewater_landing"))
 	Game.economy.add_gold(1_000_000.0)
 
-	# chesapeake_fields is order 2 - cape_harbour (order 1) hasn't been
-	# founded yet, so this must be rejected even with plenty of gold.
-	var ok: bool = Game.colonies.found(&"chesapeake_fields")
+	# Slot 1 hasn't been founded yet - slot 2 must be rejected even with
+	# plenty of gold.
+	var ok: bool = Game.colonies.found(2)
 
 	assert_false(ok)
-	assert_false(Game.colonies.has(&"chesapeake_fields"))
+	assert_false(Game.colonies.has(&"slot_2"))
 
 
-func test_found_rejects_an_already_founded_colony() -> void:
-	Game.colonies.register(Colony.new(&"tidewater_landing"))
+func test_found_rejects_an_already_founded_slot() -> void:
 	Game.economy.add_gold(1_000_000.0)
-	Game.colonies.found(&"cape_harbour")
+	Game.colonies.found(1)
 
-	var ok: bool = Game.colonies.found(&"cape_harbour")
+	var ok: bool = Game.colonies.found(1)
 
 	assert_false(ok)
 
 
-func test_found_rejects_the_capital() -> void:
-	Game.colonies.register(Colony.new(&"tidewater_landing"))
+func test_found_rejects_the_capital_slot() -> void:
 	Game.economy.add_gold(1_000_000.0)
-	var ok: bool = Game.colonies.found(&"tidewater_landing")
+	var ok: bool = Game.colonies.found(0)
 	assert_false(ok)
 
 
-func test_found_rejects_an_unknown_colony_id() -> void:
-	Game.colonies.register(Colony.new(&"tidewater_landing"))
+func test_found_rejects_an_out_of_range_slot() -> void:
 	Game.economy.add_gold(1_000_000.0)
-	var ok: bool = Game.colonies.found(&"does_not_exist")
+	var ok: bool = Game.colonies.found(999)
 	assert_false(ok)
+
+
+func test_tier_order_for_slot_cycles_through_the_seven_non_capital_tiers() -> void:
+	assert_eq(Game.colonies.tier_order_for_slot(0), 0)
+	assert_eq(Game.colonies.tier_order_for_slot(1), 1)
+	assert_eq(Game.colonies.tier_order_for_slot(7), 7)
+	assert_eq(Game.colonies.tier_order_for_slot(8), 1, "wraps back to tier 1 after a full cycle")
+	assert_eq(Game.colonies.tier_order_for_slot(14), 7)
+	assert_eq(Game.colonies.tier_order_for_slot(15), 1)

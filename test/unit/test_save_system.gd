@@ -155,7 +155,7 @@ func test_save_then_load_restores_colonies_with_correct_ids_and_capital_flag() -
 	var by_id: Dictionary = {}
 	for c: Colony in restored:
 		by_id[c.colony_id] = c
-	# is_capital isn't stored directly - it's re-derived from colony_id via
+	# is_capital isn't stored directly - it's re-derived from tier_id via
 	# ColonyDef on restore (see RunState's class doc), so this also proves
 	# that derivation actually happens on load, not just that the id survived.
 	assert_true((by_id[&"tidewater_landing"] as Colony).is_capital)
@@ -177,13 +177,17 @@ func test_save_then_load_restores_colony_local_stock() -> void:
 
 
 ## Proves a save/load doesn't quietly discard any of the three purchased
-## upgrade levels or the colony's rolled land/sea route type.
+## upgrade levels or the colony's real (map-derived) coastal-ness.
 func test_save_then_load_restores_all_three_upgrade_levels_and_route_type() -> void:
-	var outpost := Colony.new(&"cape_harbour")
+	# Force slot 1 coastal so this is deterministic regardless of the real
+	# generated map's seed (rework task: randomized map).
+	Game.run.colony_slots[1]["is_coastal"] = true
+	var outpost := Colony.new(&"cape_harbour", &"slot_1")
+	outpost.slot_index = 1
+	outpost.is_coastal = true
 	outpost.production_level = 3
 	outpost.cargo_level = 2
 	outpost.speed_level = 4
-	outpost.route_type = Colony.RouteType.SEA
 	Game.colonies.register(outpost)
 
 	SaveSystem.save()
@@ -191,7 +195,7 @@ func test_save_then_load_restores_all_three_upgrade_levels_and_route_type() -> v
 	Game.colonies.clear()
 
 	SaveSystem.load()
-	var restored: Colony = Game.colonies.all()[0]
+	var restored: Colony = Game.colonies.get_colony(&"slot_1")
 	assert_eq(restored.production_level, 3)
 	assert_eq(restored.cargo_level, 2)
 	assert_eq(restored.speed_level, 4)
@@ -293,6 +297,10 @@ func test_save_then_load_with_no_workshops_restores_an_empty_list() -> void:
 func test_save_then_load_restores_a_routes_in_flight_state() -> void:
 	var capital := Colony.new(&"tidewater_landing")
 	var outpost := Colony.new(&"cape_harbour")
+	# Nonzero distance so the round trip takes measurable time instead of
+	# completing instantly within one tick (distance defaults to 0.0 now -
+	# rework task: randomized map).
+	outpost.distance_cells = 1.0
 	outpost.local_stock[&"cod"] = 5.0
 	Game.colonies.register(capital)
 	Game.colonies.register(outpost)

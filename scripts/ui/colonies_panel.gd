@@ -1,7 +1,9 @@
-## The Colonies tab. One row per colony, in docs/GAME_DESIGN.md §5's fixed
-## order: a founded colony shows its live stats and upgrade buttons, the
-## next colony in sequence shows a "Found" button, and anything further down
-## the order shows locked.
+## The Colonies tab. One row per generated colony slot (rework task:
+## randomized map - RunState.colony_slots, generated once per run by
+## MapGenerator), in slot order: a founded colony shows its live stats and
+## upgrade buttons, the next slot in sequence shows a "Found" button, and
+## anything further down shows locked. Real per-slot distance and land/sea
+## (from the generated map) are shown wherever known.
 ##
 ## Rebuilt from scratch on every refresh() rather than diffed - simple and
 ## correct matters more here than avoiding a bit of node churn a few times a
@@ -12,6 +14,7 @@
 extends Control
 
 const ICON_SIZE := Vector2(48, 48)
+const CYCLE_SUFFIXES: Array[String] = ["", " II", " III", " IV", " V", " VI"]
 
 var _list: VBoxContainer
 
@@ -34,32 +37,39 @@ func _ready() -> void:
 func refresh() -> void:
 	for child: Node in _list.get_children():
 		child.queue_free()
-	for def: ColonyDef in Db.all_colonies():
-		_list.add_child(_build_row(def))
+
+	if Game.run == null:
+		return
+
+	for slot: Dictionary in Game.run.colony_slots:
+		_list.add_child(_build_row(slot))
 	_list.add_child(HSeparator.new())
 
 
-func _build_row(def: ColonyDef) -> Control:
+func _build_row(slot: Dictionary) -> Control:
+	var slot_index: int = int(slot["slot_index"])
+	var tier_def: ColonyDef = Db.colony_by_order(int(slot["tier_order"]))
+
 	var row := PanelContainer.new()
 	var hbox := HBoxContainer.new()
 	row.add_child(hbox)
 
-	if def.icon != null:
-		hbox.add_child(_make_icon(def.icon))
+	if tier_def != null and tier_def.icon != null:
+		hbox.add_child(_make_icon(tier_def.icon))
 
 	var info := VBoxContainer.new()
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hbox.add_child(info)
 
 	var name_label := Label.new()
-	name_label.text = def.display_name
+	name_label.text = _display_name(tier_def, slot_index)
 	info.add_child(name_label)
 
-	var colony: Colony = Game.colonies.get_colony(def.id)
+	var colony: Colony = Game.colonies.get_colony(StringName("slot_%d" % slot_index))
 	if colony != null:
-		info.add_child(_build_founded_stats(colony, def))
-	elif _is_next_to_found(def):
-		info.add_child(_build_found_button(def))
+		info.add_child(_build_founded_stats(colony))
+	elif _is_next_to_found(slot_index):
+		info.add_child(_build_found_button(slot_index, slot))
 	else:
 		var locked := Label.new()
 		locked.text = "Locked"
@@ -69,12 +79,26 @@ func _build_row(def: ColonyDef) -> Control:
 	return row
 
 
-func _is_next_to_found(def: ColonyDef) -> bool:
-	var next: ColonyDef = Game.colonies.next_to_found()
-	return next != null and next.id == def.id
+## Founded colonies beyond the 7th (once tiers start repeating) get a
+## cycle-count suffix so nothing reads as an accidental duplicate - see the
+## class doc. A real per-tier name pool (ColonyDef.name_pool) can replace
+## this later without touching slot generation at all.
+func _display_name(tier_def: ColonyDef, slot_index: int) -> String:
+	if tier_def == null:
+		return "Unknown"
+	if slot_index == 0:
+		return tier_def.display_name
+	var cycle: int = (slot_index - 1) / 7
+	var suffix: String = CYCLE_SUFFIXES[cycle] if cycle < CYCLE_SUFFIXES.size() else " x%d" % (cycle + 1)
+	return tier_def.display_name + suffix
 
 
-func _build_founded_stats(colony: Colony, def: ColonyDef) -> Control:
+func _is_next_to_found(slot_index: int) -> bool:
+	var next: Dictionary = Game.colonies.next_to_found()
+	return not next.is_empty() and int(next["slot_index"]) == slot_index
+
+
+func _build_founded_stats(colony: Colony) -> Control:
 	var box := VBoxContainer.new()
 
 	var stats := Label.new()
@@ -84,7 +108,7 @@ func _build_founded_stats(colony: Colony, def: ColonyDef) -> Control:
 	box.add_child(stats)
 
 	if not colony.is_capital:
-		var route: Route = Game.routes.for_colony(def.id)
+		var route: Route = Game.routes.for_colony(colony.colony_id)
 		var status := Label.new()
 		var state_text := "At origin"
 		if route != null:
@@ -94,7 +118,7 @@ func _build_founded_stats(colony: Colony, def: ColonyDef) -> Control:
 				Route.State.TRAVELING_TO_ORIGIN:
 					state_text = "Returning (%d%%)" % int(route.progress() * 100.0)
 		var route_kind := "Sea" if colony.route_type == Colony.RouteType.SEA else "Land"
-		status.text = "%s - %s route" % [state_text, route_kind]
+		status.text = "%s - %s route, distance %.1f" % [state_text, route_kind, colony.distance()]
 		box.add_child(status)
 
 	var buttons := HBoxContainer.new()
@@ -115,13 +139,15 @@ func _build_founded_stats(colony: Colony, def: ColonyDef) -> Control:
 	return box
 
 
-func _build_found_button(def: ColonyDef) -> Control:
-	var cost: float = Game.economy.colony_cost(def.id)
+func _build_found_button(slot_index: int, slot: Dictionary) -> Control:
+	var cost: float = Balance.next_colony_slot_cost(slot_index, Game.prestige.cost_discount_multiplier())
 	var button := Button.new()
-	button.text = "Found for %.0f gold" % cost
+	button.text = "Found for %.0f gold (distance %.1f, %s)" % [
+		cost, float(slot["distance_cells"]), "sea" if bool(slot["is_coastal"]) else "land"
+	]
 	button.disabled = Game.economy.gold < cost
 	button.pressed.connect(func() -> void:
-		Game.colonies.found(def.id)
+		Game.colonies.found(slot_index)
 		refresh()
 	)
 	return button

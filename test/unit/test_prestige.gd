@@ -143,7 +143,8 @@ func test_navigation_boosts_a_colonys_cargo_capacity() -> void:
 func test_navigation_reduces_a_colonys_round_trip_time() -> void:
 	Game.meta.upgrades[&"navigation"] = 1  # +12% speed
 	var colony := Colony.new(&"cape_harbour")
-	colony.route_type = Colony.RouteType.LAND
+	colony.distance_cells = 1.0
+	colony.is_coastal = false
 	assert_almost_eq(colony.round_trip_seconds(), 12.0 / 1.12, 0.0001)
 
 
@@ -152,6 +153,6 @@ func test_settlement_discounts_the_next_colonist_cost() -> void:
 	assert_almost_eq(Game.colonists.next_colonist_cost(), 25.0 * 0.93, 0.0001)
 
 
-func test_settlement_discounts_the_next_colony_cost() -> void:
+func test_settlement_discounts_the_next_colony_slot_cost() -> void:
 	Game.meta.upgrades[&"settlement"] = 1  # 0.93x
-	assert_almost_eq(Game.economy.colony_cost(&"cape_harbour"), 250.0 * 0.93, 0.0001)
+	assert_almost_eq(Balance.next_colony_slot_cost(1, Game.prestige.cost_discount_multiplier()), 250.0 * 0.93, 0.0001)

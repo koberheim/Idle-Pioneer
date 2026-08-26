@@ -77,10 +77,18 @@ func test_ticks_accumulate_continuously_across_multiple_calls() -> void:
 	assert_almost_eq(colony.local_stock.get(&"cod", 0.0), 2.5, 0.0001)
 
 
-func test_distance_matches_the_colonys_fixed_play_order() -> void:
-	assert_eq(Colony.new(&"tidewater_landing").distance(), 0)
-	assert_eq(Colony.new(&"cape_harbour").distance(), 1)
-	assert_eq(Colony.new(&"northern_traces").distance(), 7)
+## Distance is now real, generated map distance (rework task: randomized
+## map), not a 0-7 index tied to which tier a colony is - two colonies of
+## the same tier can be at completely different distances. Set once at
+## founding/restore, read back verbatim by distance().
+func test_distance_returns_the_colonys_set_distance_cells() -> void:
+	var colony := Colony.new(&"cape_harbour")
+	colony.distance_cells = 12.5
+	assert_almost_eq(colony.distance(), 12.5, 0.0001)
+
+
+func test_distance_defaults_to_zero() -> void:
+	assert_almost_eq(Colony.new(&"cape_harbour").distance(), 0.0, 0.0001)
 
 
 func test_cargo_capacity_matches_the_documented_formula() -> void:
@@ -99,14 +107,16 @@ func test_cargo_level_increases_capacity() -> void:
 func test_round_trip_seconds_matches_the_documented_formula() -> void:
 	# distance 1 x 12s (land) / base_speed 1.0 = 12
 	var colony := Colony.new(&"cape_harbour")
-	colony.route_type = Colony.RouteType.LAND
+	colony.distance_cells = 1.0
+	colony.is_coastal = false
 	assert_almost_eq(colony.round_trip_seconds(), 12.0, 0.0001)
 
 
 func test_speed_level_reduces_round_trip_time() -> void:
 	# 12 / (1.0 * (1 + 0.5*2)) = 6.0
 	var colony := Colony.new(&"cape_harbour")
-	colony.route_type = Colony.RouteType.LAND
+	colony.distance_cells = 1.0
+	colony.is_coastal = false
 	colony.speed_level = 2
 	assert_almost_eq(colony.round_trip_seconds(), 6.0, 0.0001)
 
@@ -142,15 +152,19 @@ func test_purchase_fails_and_changes_nothing_with_insufficient_gold() -> void:
 	assert_eq(colony.production_level, 0)
 
 
-func test_capital_route_type_is_always_land_and_irrelevant() -> void:
-	# The Capital has distance 0 and never ships anywhere - route_type is
-	# meaningless for it, but pinned to a stable value rather than left random.
-	assert_eq(Colony.new(&"tidewater_landing").route_type, Colony.RouteType.LAND)
+func test_capital_is_always_coastal_and_route_type_is_irrelevant() -> void:
+	# The Capital never ships anywhere (nothing routes to itself) - route_type
+	# is meaningless for it, but is_coastal defaults true (real geography:
+	# MapGenerator.place_capital only ever picks a coastal continent cell).
+	var capital := Colony.new(&"tidewater_landing")
+	assert_true(capital.is_coastal)
+	assert_eq(capital.route_type, Colony.RouteType.SEA)
 
 
-func test_non_capital_route_type_is_settable_for_deterministic_tests() -> void:
+func test_route_type_is_derived_from_is_coastal() -> void:
 	var colony := Colony.new(&"cape_harbour")
-	colony.route_type = Colony.RouteType.SEA
+	assert_eq(colony.route_type, Colony.RouteType.LAND, "defaults false/LAND until real placement data is applied")
+	colony.is_coastal = true
 	assert_eq(colony.route_type, Colony.RouteType.SEA)
 
 

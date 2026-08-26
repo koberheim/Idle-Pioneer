@@ -10,7 +10,6 @@ id = &"cape_harbour"
 display_name = "Cape Harbour"
 resource_id = &"cod"
 order = 1
-unlock_cost = 250.0
 is_capital = false
 
 base_production_rate = 1.0

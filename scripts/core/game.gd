@@ -44,13 +44,50 @@ func has_run() -> bool:
 ## This IS prestige (once something calls it after a run is already in progress) -
 ## see the class doc above for why the reset boundary is this wholesale swap
 ## rather than a loop over "which fields count as run-scoped."
-func new_run(map_id: StringName) -> void:
+##
+## Generates a brand-new random map every time (rework task: randomized
+## map) - a fresh continent-and-islands layout and a fresh set of colony
+## sites, seeded and then fixed for this run's whole lifetime (confirmed
+## directly: reload must never reshuffle it, only a prestige reset
+## generates a new one - see RunState.map's class doc). `seed_value` is an
+## explicit override for reproducibility/testing; -1 (the default) picks a
+## real random seed.
+func new_run(map_id: StringName, seed_value: int = -1) -> void:
 	if has_run():
 		run_ended.emit()
 
 	var fresh := RunState.new()
 	fresh.map_id = map_id
 	fresh.started_at_unix = Time.get_unix_time_from_system()
+	fresh.map_seed = seed_value if seed_value >= 0 else randi()
+
+	var grid: MapGrid = MapGenerator.generate_terrain(
+		Balance.map_width(), Balance.map_height(), fresh.map_seed,
+		Balance.continent_threshold(), Balance.island_count(), Balance.island_min_radius(), Balance.island_max_radius()
+	)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = fresh.map_seed
+	var capital_cell: Vector2i = MapGenerator.place_capital(grid, rng)
+	var placed: Array[Dictionary] = MapGenerator.place_colony_slots(
+		grid, capital_cell, Balance.max_colonies(), Balance.colony_distance_step(), Balance.min_colony_spacing(), rng
+	)
+
+	fresh.map = grid.to_dict()
+	var slots: Array[Dictionary] = [{
+		"slot_index": 0, "tier_order": 0, "cell": capital_cell,
+		"distance_cells": 0.0, "is_coastal": true, "founded": true,
+	}]
+	for i: int in range(placed.size()):
+		slots.append({
+			"slot_index": i + 1,
+			"tier_order": colonies.tier_order_for_slot(i + 1),
+			"cell": placed[i]["cell"],
+			"distance_cells": placed[i]["distance_cells"],
+			"is_coastal": placed[i]["is_coastal"],
+			"founded": false,
+		})
+	fresh.colony_slots = slots
+
 	run = fresh
 
 	# Not everything run-scoped lives inside the RunState object itself -
@@ -67,12 +104,15 @@ func new_run(map_id: StringName) -> void:
 	routes.clear()
 
 	# The Capital always exists from the moment a run starts - free, per
-	# docs/GAME_DESIGN.md §5's colony table (unlock_cost 0). Every other
-	# colony has to be founded (Colonies.found()); the Capital is the one
-	# exception, so it's bootstrapped here rather than requiring a player
+	# docs/GAME_DESIGN.md §5's colony table. Every other colony has to be
+	# founded (Colonies.found()); the Capital is the one exception, so it's
+	# bootstrapped here directly from slot 0 rather than requiring a player
 	# action for something that was never actually optional.
 	var capital_def: ColonyDef = Db.capital()
 	if capital_def != null:
-		colonies.register(Colony.new(capital_def.id))
+		var capital := Colony.new(capital_def.id, &"slot_0")
+		capital.slot_index = 0
+		capital.is_coastal = true
+		colonies.register(capital)
 
 	run_started.emit()

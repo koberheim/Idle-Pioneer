@@ -7,7 +7,6 @@ func _make_valid_colony() -> ColonyDef:
 	c.id = &"cape_harbour"
 	c.resource_id = &"cod"
 	c.order = 1
-	c.unlock_cost = 250.0
 	return c
 
 
@@ -31,19 +30,6 @@ func test_negative_order_is_invalid() -> void:
 	var c: ColonyDef = _make_valid_colony()
 	c.order = -1
 	assert_false(c.is_valid())
-
-
-func test_negative_unlock_cost_is_invalid() -> void:
-	var c: ColonyDef = _make_valid_colony()
-	c.unlock_cost = -1.0
-	assert_false(c.is_valid())
-
-
-func test_zero_unlock_cost_is_valid() -> void:
-	# The Capital starts founded for free (docs/GAME_DESIGN.md §5).
-	var c: ColonyDef = _make_valid_colony()
-	c.unlock_cost = 0.0
-	assert_true(c.is_valid())
 
 
 func test_zero_base_production_rate_is_invalid() -> void:

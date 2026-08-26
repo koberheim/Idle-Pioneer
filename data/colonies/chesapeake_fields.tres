@@ -10,7 +10,6 @@ id = &"chesapeake_fields"
 display_name = "Chesapeake Fields"
 resource_id = &"tobacco"
 order = 2
-unlock_cost = 3000.0
 is_capital = false
 
 base_production_rate = 1.0

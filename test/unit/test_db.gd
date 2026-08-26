@@ -230,7 +230,6 @@ func test_colony_lookup_returns_a_colony_def() -> void:
 	assert_not_null(capital)
 	assert_eq(capital.resource_id, &"timber")
 	assert_true(capital.is_capital)
-	assert_almost_eq(capital.unlock_cost, 0.0, 0.0001)
 
 
 func test_all_eight_colonies_are_loaded() -> void:
@@ -278,19 +277,10 @@ func test_colony_prices_match_the_design_doc_table() -> void:
 		assert_almost_eq(res.base_value, expected[id], 0.0001, "%s's resource price mismatch" % id)
 
 
-func test_colony_unlock_costs_match_the_design_doc_table() -> void:
-	var expected: Dictionary = {
-		&"tidewater_landing": 0.0,
-		&"cape_harbour": 250.0,
-		&"chesapeake_fields": 3000.0,
-		&"carolina_flats": 40000.0,
-		&"ironworks_hollow": 500000.0,
-		&"indigo_reach": 6500000.0,
-		&"sugar_isle": 85000000.0,
-		&"northern_traces": 1100000000.0,
-	}
-	for id: StringName in expected.keys():
-		assert_almost_eq(Db.colony(id).unlock_cost, expected[id], 0.01, "%s unlock cost mismatch" % id)
+## unlock_cost was removed from ColonyDef (rework task: randomized map) -
+## founding cost is now a single per-slot formula (Balance.next_colony_slot_cost),
+## checked directly against the design doc's real table in test_balance.gd's
+## test_next_colony_slot_cost_matches_the_fitted_curve.
 
 
 func test_duplicate_colony_order_is_reported() -> void:

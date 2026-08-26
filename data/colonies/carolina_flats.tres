@@ -10,7 +10,6 @@ id = &"carolina_flats"
 display_name = "Carolina Flats"
 resource_id = &"cotton"
 order = 3
-unlock_cost = 40000.0
 is_capital = false
 
 base_production_rate = 1.0

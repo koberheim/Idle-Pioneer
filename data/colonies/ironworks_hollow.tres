@@ -10,7 +10,6 @@ id = &"ironworks_hollow"
 display_name = "Ironworks Hollow"
 resource_id = &"iron_ore"
 order = 4
-unlock_cost = 500000.0
 is_capital = false
 
 base_production_rate = 1.0

@@ -6,6 +6,11 @@ func _make_populated_run_state() -> RunState:
 	var s := RunState.new()
 	s.map_id = &"mvp_coast"
 	s.map_seed = 0
+	s.map = {"width": 4, "height": 4, "seed_value": 0, "terrain": "", "deposits": "", "deposit_palette": []}
+	s.colony_slots = [
+		{"slot_index": 0, "tier_order": 0, "cell": Vector2i(2, 3), "distance_cells": 0.0, "is_coastal": true, "founded": true},
+		{"slot_index": 1, "tier_order": 1, "cell": Vector2i(5, 6), "distance_cells": 4.2, "is_coastal": false, "founded": true},
+	]
 	s.started_at_unix = 1700000000
 	s.elapsed_seconds = 123.5
 	s.gold = 87.0
@@ -13,8 +18,8 @@ func _make_populated_run_state() -> RunState:
 	s.colonists_owned = 6
 	s.inventory = {&"timber": 12.0, &"clay": 3.0}
 	s.colonies = [
-		{"colony_id": &"tidewater_landing", "production_level": 2, "cargo_level": 0, "speed_level": 1, "route_type": 0, "local_stock": {&"timber": 4.0}},
-		{"colony_id": &"cape_harbour", "production_level": 0, "cargo_level": 3, "speed_level": 0, "route_type": 1, "local_stock": {}},
+		{"colony_id": &"slot_0", "tier_id": &"tidewater_landing", "slot_index": 0, "production_level": 2, "cargo_level": 0, "speed_level": 1, "local_stock": {&"timber": 4.0}},
+		{"colony_id": &"slot_1", "tier_id": &"cape_harbour", "slot_index": 1, "production_level": 0, "cargo_level": 3, "speed_level": 0, "local_stock": {}},
 	]
 	s.upgrades_purchased = [&"primitive_tools"]
 	s.colonies_founded = 2
@@ -34,6 +39,8 @@ func test_to_dict_from_dict_round_trip_preserves_all_fields() -> void:
 
 	assert_eq(restored.map_id, original.map_id)
 	assert_eq(restored.map_seed, original.map_seed)
+	assert_eq(restored.map, original.map)
+	assert_eq(restored.colony_slots, original.colony_slots)
 	assert_eq(restored.started_at_unix, original.started_at_unix)
 	assert_eq(restored.elapsed_seconds, original.elapsed_seconds)
 	assert_eq(restored.gold, original.gold)
@@ -79,6 +86,8 @@ func test_fresh_run_state_has_sane_defaults() -> void:
 	var s := RunState.new()
 	assert_eq(s.map_id, &"")
 	assert_eq(s.map_seed, 0)
+	assert_eq(s.map, {})
+	assert_eq(s.colony_slots, [] as Array[Dictionary])
 	assert_eq(s.started_at_unix, 0)
 	assert_eq(s.elapsed_seconds, 0.0)
 	assert_eq(s.gold, 0.0)

@@ -15,7 +15,33 @@ extends RefCounted
 ## Empty/zero for a hand-authored map (MVP; see MapGrid.seed_value). Which map
 ## this run is on.
 var map_id: StringName = &""
+
+## Seeds this run's generated map (rework task: randomized map) - captured
+## once at new_run() and never touched again, so the SAME map regenerates
+## deterministically if ever needed, and so a save file can prove which map
+## a run was on. The actual generated terrain lives in `map` below; this is
+## just provenance.
 var map_seed: int = 0
+
+## The generated map's terrain (MapGrid.to_dict()'s own shape) - generated
+## once at new_run() and persisted so reload never reshuffles it (confirmed
+## directly: the map stays fixed for a run's whole lifetime, only a prestige
+## reset generates a new one). Nothing during normal play reads this back
+## into a live MapGrid - every colony slot already carries its own
+## precomputed distance/coastal-ness (see `colony_slots` below), so there's
+## no gameplay reason to re-query the grid after generation. Saved purely
+## for completeness and for a future map view (out of scope for v1 - see
+## docs/GAME_DESIGN.md §12).
+var map: Dictionary = {}
+
+## Every colony site this run's map generated - one entry per slot, in
+## founding order (slot 0 is always the Capital). `founded` is the only
+## field that changes after generation; everything else (position, distance,
+## coastal-ness) is baked in once and never recomputed - see MapGenerator.
+## Each entry:
+## {"slot_index": int, "tier_order": int, "cell_x": int, "cell_y": int,
+## "distance_cells": float, "is_coastal": bool, "founded": bool}
+var colony_slots: Array[Dictionary] = []
 
 var elapsed_seconds: float = 0.0
 var gold: float = 0.0
@@ -43,15 +69,16 @@ var colonists_owned: int = 0
 ## this is just where it's persisted).
 var inventory: Dictionary = {}
 
-## Per-colony save state, shaped to match docs/GAME_DESIGN.md §9's own save
-## example directly (down to "route_type": "land"/"sea" as a string, exactly
-## as shown there). Each entry:
-## {"colony_id": StringName, "production_level": int, "cargo_level": int,
-## "speed_level": int, "route_type": String ("land"/"sea"),
+## Per-colony save state. Each entry:
+## {"colony_id": StringName, "tier_id": StringName, "slot_index": int,
+## "production_level": int, "cargo_level": int, "speed_level": int,
 ## "local_stock": Dictionary[StringName, float]}
-## is_capital isn't stored - it's fully derived from ColonyDef via colony_id
-## (Colony's own constructor looks it up), so storing it here would just be a
-## second source of truth for the same fact.
+## Neither is_capital nor position/distance/coastal-ness is stored here -
+## is_capital is derived from tier_id via ColonyDef, and the rest comes from
+## the matching entry in `colony_slots` above via slot_index. Storing either
+## a second time would just be a second source of truth for the same fact
+## (rework task: randomized map - colony_slots is what actually owns
+## position now, colonies here only owns purchased-upgrade state).
 var colonies: Array[Dictionary] = []
 
 var upgrades_purchased: Array[StringName] = []
@@ -90,6 +117,8 @@ func to_dict() -> Dictionary:
 	return {
 		"map_id": String(map_id),
 		"map_seed": map_seed,
+		"map": map,
+		"colony_slots": colony_slots.map(_colony_slot_to_dict),
 		"started_at_unix": started_at_unix,
 		"elapsed_seconds": elapsed_seconds,
 		"gold": gold,
@@ -112,6 +141,13 @@ static func from_dict(d: Dictionary) -> RunState:
 	# explicitly wherever the field is meant to be an int (see docs/GODOT_PLAN.md
 	# Phase 8, task G1's stated regression risk).
 	s.map_seed = int(d.get("map_seed", 0))
+	s.map = d.get("map", {})
+
+	var colony_slots: Array[Dictionary] = []
+	for entry: Variant in (d.get("colony_slots", []) as Array):
+		colony_slots.append(_colony_slot_from_dict(entry as Dictionary))
+	s.colony_slots = colony_slots
+
 	s.started_at_unix = int(d.get("started_at_unix", 0))
 	s.elapsed_seconds = float(d.get("elapsed_seconds", 0.0))
 	s.gold = float(d.get("gold", 0.0))
@@ -176,13 +212,13 @@ static func _json_to_stringname_string_dict(source: Dictionary) -> Dictionary:
 
 static func _colony_to_dict(colony: Dictionary) -> Dictionary:
 	var local_stock: Dictionary = colony.get("local_stock", {})
-	var route_type: int = int(colony.get("route_type", 0))  # Colony.RouteType.LAND = 0
 	return {
 		"colony_id": String(colony.get("colony_id", &"")),
+		"tier_id": String(colony.get("tier_id", &"")),
+		"slot_index": int(colony.get("slot_index", 0)),
 		"production_level": int(colony.get("production_level", 0)),
 		"cargo_level": int(colony.get("cargo_level", 0)),
 		"speed_level": int(colony.get("speed_level", 0)),
-		"route_type": "sea" if route_type == 1 else "land",
 		"local_stock": _stringname_float_dict_to_json(local_stock),
 	}
 
@@ -190,11 +226,36 @@ static func _colony_to_dict(colony: Dictionary) -> Dictionary:
 static func _colony_from_dict(d: Dictionary) -> Dictionary:
 	return {
 		"colony_id": StringName(d.get("colony_id", "")),
+		"tier_id": StringName(d.get("tier_id", "")),
+		"slot_index": int(d.get("slot_index", 0)),
 		"production_level": int(d.get("production_level", 0)),
 		"cargo_level": int(d.get("cargo_level", 0)),
 		"speed_level": int(d.get("speed_level", 0)),
-		"route_type": 1 if String(d.get("route_type", "land")) == "sea" else 0,
 		"local_stock": _json_to_stringname_float_dict(d.get("local_stock", {})),
+	}
+
+
+static func _colony_slot_to_dict(slot: Dictionary) -> Dictionary:
+	var cell: Vector2i = slot.get("cell", Vector2i.ZERO)
+	return {
+		"slot_index": int(slot.get("slot_index", 0)),
+		"tier_order": int(slot.get("tier_order", 0)),
+		"cell_x": cell.x,
+		"cell_y": cell.y,
+		"distance_cells": float(slot.get("distance_cells", 0.0)),
+		"is_coastal": bool(slot.get("is_coastal", false)),
+		"founded": bool(slot.get("founded", false)),
+	}
+
+
+static func _colony_slot_from_dict(d: Dictionary) -> Dictionary:
+	return {
+		"slot_index": int(d.get("slot_index", 0)),
+		"tier_order": int(d.get("tier_order", 0)),
+		"cell": Vector2i(int(d.get("cell_x", 0)), int(d.get("cell_y", 0))),
+		"distance_cells": float(d.get("distance_cells", 0.0)),
+		"is_coastal": bool(d.get("is_coastal", false)),
+		"founded": bool(d.get("founded", false)),
 	}
 
 

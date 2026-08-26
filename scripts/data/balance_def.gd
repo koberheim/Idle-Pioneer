@@ -47,9 +47,50 @@ extends Resource
 ## Seconds of round-trip travel time per unit of distance. Land/sea is now
 ## the ONLY thing this affects - cargo capacity has its own per-colony track
 ## above instead (see docs/GODOT_PLAN.md's design realignment section for
-## why - a judgment call, not something said outright).
+## why - a judgment call, not something said outright). "Distance" is now
+## real grid cells from the generated map (rework task: randomized map),
+## not the old 0-7 order index - these two numbers were tuned against that
+## smaller range and are a first-pass fit for the new one, not a claim of
+## precision; retune freely once a real run's pacing has been played.
 @export var route_time_factor_land: float = 12.0
 @export var route_time_factor_sea: float = 22.0
+
+@export_group("Map Generation")
+## Simulation-lattice size (rework task: randomized map). Coarse on purpose -
+## this grid is never rendered pixel-for-pixel (see
+## docs/GODOT_MIGRATION_ANALYSIS.md §C5's warning about the old 2000x1500
+## Unity grid being a 3-million-cell texture) - it only has to be fine enough
+## for placement and distance to feel meaningful.
+@export var map_width: int = 60
+@export var map_height: int = 60
+## Land forms where (noise * 0.5 + west-edge bias) exceeds this - see
+## MapGenerator.generate_terrain(). Higher = less land/more open ocean.
+## 0.6 was tuned by eye (docs/GODOT_PLAN's verification step) to read as
+## "mostly a continent," not a coin-flip blob covering half the map.
+@export var continent_threshold: float = 0.6
+@export var island_count: int = 5
+@export var island_min_radius: float = 3.0
+@export var island_max_radius: float = 7.0
+## Target distance (grid cells) between consecutive colony slots - see
+## MapGenerator.place_colony_slots(). Each slot's actual band is a spread
+## around `distance_step * slot_index`, not a fixed multiple - "semi-random,"
+## per the brief, not a rigid ladder.
+@export var colony_distance_step: float = 2.5
+## Minimum distance (grid cells) a new colony slot must keep from the
+## Capital and every other placed slot.
+@export var min_colony_spacing: float = 2.0
+
+@export_group("Colony Founding")
+## How many colony slots a run generates in total (Capital included) -
+## explicitly a number you expect to retune, not a locked design constant.
+@export var max_colonies: int = 25
+## Cost of founding colony slot N (1-indexed - slot 0 is the free Capital):
+## base * growth^N. Replaces the old hand-authored 8-entry unlock_cost table
+## (task #26), which doesn't extend to 25+ slots - fit against that table's
+## own real values (250 -> 3,000 -> 40,000 -> ... -> 1.1B, a strikingly
+## consistent ~13x step per tier) rather than invented from scratch.
+@export var colony_slot_base_cost: float = 250.0
+@export var colony_slot_cost_growth: float = 13.0
 
 @export_group("Offline Catch-Up")
 ## Maximum real-world time (seconds) a single load() will fast-forward

@@ -10,7 +10,6 @@ display_name = "Tidewater Landing"
 icon = ExtResource("2")
 resource_id = &"timber"
 order = 0
-unlock_cost = 0.0
 is_capital = true
 
 base_production_rate = 1.0
