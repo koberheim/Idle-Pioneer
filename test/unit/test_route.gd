@@ -1,9 +1,10 @@
-## Tests for Route (docs/GAME_DESIGN.md §5/§6, simplified further per
-## conversation: no full-or-30-seconds timer, just continuous cycling).
-## Uses the real colony table: tidewater_landing (Capital, destination for
-## every route) and cape_harbour (distance 1, forced LAND) / chesapeake_fields
-## (distance 2, forced SEA) as origins - route_type is forced explicitly
-## rather than left to the real random roll, so these tests are deterministic.
+## Tests for Route (docs/GAME_DESIGN.md §5/§6, reworked per the design
+## realignment: capacity and travel time both come from the origin colony's
+## own stats via Balance, not a simple land/sea lookup table). Uses the real
+## colony table: tidewater_landing (Capital, destination for every route) and
+## cape_harbour (distance 1, forced LAND) / chesapeake_fields (distance 2,
+## forced SEA) as origins - route_type is forced explicitly rather than left
+## to the real random roll, so these tests are deterministic.
 extends GutTest
 
 var _capital: Colony
@@ -21,23 +22,18 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	Game.colonists.clear_assignments()
 	Game.run = null
 
 
-func test_land_capacity_matches_the_documented_formula() -> void:
-	# 20 * (1 + 0.5 * 0) = 20
+func test_capacity_matches_the_origin_colonys_base_cargo_with_no_upgrades() -> void:
+	# base_cargo 20.0, no cargo_level, no colonists.
 	var route := Route.new(_land_origin, _capital)
 	assert_almost_eq(route.capacity(), 20.0, 0.0001)
 
 
-func test_sea_capacity_exceeds_land_capacity_at_the_same_transport_level() -> void:
-	var land_route := Route.new(_land_origin, _capital)
-	var sea_route := Route.new(_sea_origin, _capital)
-	assert_gt(sea_route.capacity(), land_route.capacity())
-
-
-func test_capacity_increases_with_transport_level() -> void:
-	_land_origin.transport_level = 2  # 20 * (1 + 0.5*2) = 40
+func test_capacity_increases_with_cargo_level() -> void:
+	_land_origin.cargo_level = 2  # 20 * (1 + 0.5*2) = 40
 	var route := Route.new(_land_origin, _capital)
 	assert_almost_eq(route.capacity(), 40.0, 0.0001)
 
@@ -45,12 +41,12 @@ func test_capacity_increases_with_transport_level() -> void:
 func test_capacity_is_read_live_not_cached_at_construction() -> void:
 	var route := Route.new(_land_origin, _capital)
 	assert_almost_eq(route.capacity(), 20.0, 0.0001)
-	_land_origin.transport_level = 1
+	_land_origin.cargo_level = 1
 	assert_almost_eq(route.capacity(), 30.0, 0.0001, "a level bought after Route creation should still apply")
 
 
 func test_leg_duration_matches_the_documented_formula() -> void:
-	# distance 1 * 12s round trip / 2 = 6s per leg
+	# distance 1 * 12s (land) round trip / base_speed 1.0 / 2 legs = 6s
 	var route := Route.new(_land_origin, _capital)
 	assert_almost_eq(route.leg_duration(), 6.0, 0.0001)
 
@@ -63,6 +59,12 @@ func test_sea_leg_duration_at_the_same_distance_is_longer_than_land() -> void:
 	var land_route := Route.new(_land_origin, _capital)
 	var sea_route := Route.new(sea_at_distance_one, _capital)
 	assert_gt(sea_route.leg_duration(), land_route.leg_duration())
+
+
+func test_speed_level_reduces_leg_duration() -> void:
+	_land_origin.speed_level = 2  # 12 / (1 + 0.5*2) / 2 = 3.0
+	var route := Route.new(_land_origin, _capital)
+	assert_almost_eq(route.leg_duration(), 3.0, 0.0001)
 
 
 func test_route_starts_idle_at_origin_with_zero_progress() -> void:
@@ -93,7 +95,7 @@ func test_departing_removes_loaded_cargo_from_origin_local_stock() -> void:
 
 
 func test_cargo_prefers_higher_value_resource_first_when_capacity_bound() -> void:
-	# muskets (base_value 38000) outranks cod (4). LAND capacity is 20, and
+	# muskets (base_value 38000) outranks cod (4). Capacity is 20, and
 	# 100 muskets alone exceeds it, so cod should get nothing.
 	_land_origin.local_stock[&"cod"] = 100.0
 	_land_origin.local_stock[&"muskets"] = 100.0
@@ -104,11 +106,11 @@ func test_cargo_prefers_higher_value_resource_first_when_capacity_bound() -> voi
 
 
 func test_cargo_load_is_capped_at_route_capacity() -> void:
-	_sea_origin.local_stock[&"tobacco"] = 300.0  # exceeds SEA capacity (50)
-	var route := Route.new(_sea_origin, _capital)
+	_land_origin.local_stock[&"cod"] = 300.0  # exceeds capacity (20)
+	var route := Route.new(_land_origin, _capital)
 	route.tick(0.001)
-	assert_almost_eq(route.cargo.get(&"tobacco", 0.0), 50.0, 0.0001)
-	assert_almost_eq(_sea_origin.local_stock.get(&"tobacco", 0.0), 250.0, 0.0001, "the remainder stays behind")
+	assert_almost_eq(route.cargo.get(&"cod", 0.0), 20.0, 0.0001)
+	assert_almost_eq(_land_origin.local_stock.get(&"cod", 0.0), 280.0, 0.0001, "the remainder stays behind")
 
 
 func test_progress_climbs_monotonically_across_the_outbound_leg() -> void:

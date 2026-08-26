@@ -12,9 +12,6 @@ extends Node
 
 signal colonist_purchased(total_owned: int)
 
-const BASE_COLONIST_COST: float = 25.0
-const COLONIST_COST_GROWTH: float = 1.15
-
 var _assignments: Dictionary = {}  # StringName (site id) -> int
 
 
@@ -39,13 +36,13 @@ func assigned_to(site_id: StringName) -> int:
 	return int(_assignments.get(site_id, 0))
 
 
-## Cost of the next colonist, before any prestige discount. §6's full formula
-## multiplies this by a Settlement-branch discount from Progression - not
-## applied here yet, since the real prestige system doesn't exist until a
-## later rework. Structured so that hookup is a one-line change here, not a
-## reason to touch every caller of this method.
+## Cost of the next colonist, before any prestige discount. The curve itself
+## lives in Balance (§6's full formula also multiplies by a Settlement-branch
+## discount from Progression - not applied here yet, since the real prestige
+## system doesn't exist until a later rework; that hookup is a one-line
+## change here when it does, not a reason to touch every caller).
 func next_colonist_cost() -> float:
-	return BASE_COLONIST_COST * pow(COLONIST_COST_GROWTH, colonists_owned())
+	return Balance.next_colonist_cost(colonists_owned())
 
 
 func buy_colonist() -> bool:

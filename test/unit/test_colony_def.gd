@@ -44,3 +44,23 @@ func test_zero_unlock_cost_is_valid() -> void:
 	var c: ColonyDef = _make_valid_colony()
 	c.unlock_cost = 0.0
 	assert_true(c.is_valid())
+
+
+func test_zero_base_production_rate_is_invalid() -> void:
+	# A colony must produce something with zero colonists (design realignment) -
+	# a zero base rate would silently defeat that.
+	var c: ColonyDef = _make_valid_colony()
+	c.base_production_rate = 0.0
+	assert_false(c.is_valid())
+
+
+func test_zero_base_cargo_is_invalid() -> void:
+	var c: ColonyDef = _make_valid_colony()
+	c.base_cargo = 0.0
+	assert_false(c.is_valid())
+
+
+func test_zero_base_speed_is_invalid() -> void:
+	var c: ColonyDef = _make_valid_colony()
+	c.base_speed = 0.0
+	assert_false(c.is_valid())

@@ -32,8 +32,9 @@ var inventory: Dictionary = {}
 ## Per-colony save state, shaped to match docs/GAME_DESIGN.md §9's own save
 ## example directly (down to "route_type": "land"/"sea" as a string, exactly
 ## as shown there). Each entry:
-## {"colony_id": StringName, "building_level": int, "transport_level": int,
-## "route_type": String ("land"/"sea"), "local_stock": Dictionary[StringName, float]}
+## {"colony_id": StringName, "production_level": int, "cargo_level": int,
+## "speed_level": int, "route_type": String ("land"/"sea"),
+## "local_stock": Dictionary[StringName, float]}
 ## is_capital isn't stored - it's fully derived from ColonyDef via colony_id
 ## (Colony's own constructor looks it up), so storing it here would just be a
 ## second source of truth for the same fact.
@@ -102,8 +103,9 @@ static func _colony_to_dict(colony: Dictionary) -> Dictionary:
 	var route_type: int = int(colony.get("route_type", 0))  # Colony.RouteType.LAND = 0
 	return {
 		"colony_id": String(colony.get("colony_id", &"")),
-		"building_level": int(colony.get("building_level", 0)),
-		"transport_level": int(colony.get("transport_level", 0)),
+		"production_level": int(colony.get("production_level", 0)),
+		"cargo_level": int(colony.get("cargo_level", 0)),
+		"speed_level": int(colony.get("speed_level", 0)),
 		"route_type": "sea" if route_type == 1 else "land",
 		"local_stock": _stringname_float_dict_to_json(local_stock),
 	}
@@ -112,8 +114,9 @@ static func _colony_to_dict(colony: Dictionary) -> Dictionary:
 static func _colony_from_dict(d: Dictionary) -> Dictionary:
 	return {
 		"colony_id": StringName(d.get("colony_id", "")),
-		"building_level": int(d.get("building_level", 0)),
-		"transport_level": int(d.get("transport_level", 0)),
+		"production_level": int(d.get("production_level", 0)),
+		"cargo_level": int(d.get("cargo_level", 0)),
+		"speed_level": int(d.get("speed_level", 0)),
 		"route_type": 1 if String(d.get("route_type", "land")) == "sea" else 0,
 		"local_stock": _json_to_stringname_float_dict(d.get("local_stock", {})),
 	}

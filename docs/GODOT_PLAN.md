@@ -33,6 +33,19 @@ A full, locked design document arrived after most of Phases 1–8 below were alr
 
 The items above touch a meaningful fraction of what was already built and tested (roughly the whole "Production" task block, most of the game-state and save work, and all of the map work). Before any of it gets reworked, the person running this project needs to decide: rebuild the affected pieces in place keeping what still fits, treat this as a bigger reset of the gameplay layer, and what to do with the now-unused map code (keep as dormant reference, or remove it). That conversation happened outside this document — check the session log around the point this section was added for the decision that was made, since a future session picking this file up cold won't have seen it otherwise.
 
+**Decided:** rebuild in place, keeping what fits. The map code stays in the project, untouched and unused (not deleted).
+
+**Shipping, simplified further:** transports don't wait for a full hold or a timer at all — they cycle continuously, loading whatever's ready up to capacity the moment they're back at their origin, and immediately departing again.
+
+### A real correction to the document, given directly in conversation — colony upgrades and colonists
+
+This isn't a simplification of something the document already said; it's a deliberate change to the document's own model, given explicitly, and it should be treated as the current source of truth over §4/§6's wording wherever the two disagree:
+
+- **A colony has three separate, per-colony upgrade tracks, each bought with gold independently: production rate, cargo size, and transport speed.** This replaces the document's single "building_level" (production only) and single "transport_level" (cargo and speed bundled together) with three independent levels.
+- **Each colony has its own base value for all three** — not a single shared constant across all eight. Founding a colony gives it working production and shipping immediately, at its base rate, with zero colonists assigned. This directly overturns §4's "every colonist is either producing or converting" framing taken literally (an unstaffed colony is no longer a colony producing *nothing* — it's a colony producing at its unboosted base rate).
+- **Colonists assigned to a colony boost all three tracks together** (production, cargo, and speed) — not just production. The exact colonist-to-bonus formula is explicitly left as a placeholder ("we'll develop later") — built as a single, clearly-labeled, easy-to-retune number in Balance, not a real design decision yet.
+- **Land vs. sea (the per-colony roll) is scoped down to affect only travel time**, not cargo capacity, now that cargo has its own dedicated per-colony base-and-upgrade track. This is a judgment call made to resolve an otherwise-unspecified interaction, not something said outright — flagged here so it can be revisited.
+
 ---
 
 ## Environment (verified this session)

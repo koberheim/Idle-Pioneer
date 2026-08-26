@@ -18,6 +18,7 @@ config/features=PackedStringArray("4.6", "GL Compatibility")
 [autoload]
 
 Db="*res://scripts/core/db.gd"
+Balance="*res://scripts/core/balance.gd"
 Game="*res://scripts/core/Game.tscn"
 SaveSystem="*res://scripts/core/save_system.gd"
 

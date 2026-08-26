@@ -172,12 +172,13 @@ func test_save_then_load_restores_colony_local_stock() -> void:
 	assert_almost_eq(restored.local_stock.get(&"cod", 0.0), 6.0, 0.0001)
 
 
-## Proves a save/load doesn't quietly discard purchased building/transport
-## levels or the colony's rolled land/sea route type.
-func test_save_then_load_restores_building_transport_level_and_route_type() -> void:
+## Proves a save/load doesn't quietly discard any of the three purchased
+## upgrade levels or the colony's rolled land/sea route type.
+func test_save_then_load_restores_all_three_upgrade_levels_and_route_type() -> void:
 	var outpost := Colony.new(&"cape_harbour")
-	outpost.building_level = 3
-	outpost.transport_level = 2
+	outpost.production_level = 3
+	outpost.cargo_level = 2
+	outpost.speed_level = 4
 	outpost.route_type = Colony.RouteType.SEA
 	Game.colonies.register(outpost)
 
@@ -187,8 +188,9 @@ func test_save_then_load_restores_building_transport_level_and_route_type() -> v
 
 	SaveSystem.load()
 	var restored: Colony = Game.colonies.all()[0]
-	assert_eq(restored.building_level, 3)
-	assert_eq(restored.transport_level, 2)
+	assert_eq(restored.production_level, 3)
+	assert_eq(restored.cargo_level, 2)
+	assert_eq(restored.speed_level, 4)
 	assert_eq(restored.route_type, Colony.RouteType.SEA)
 
 

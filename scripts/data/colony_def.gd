@@ -36,10 +36,25 @@ extends Resource
 ## already founded.
 @export var is_capital: bool = false
 
+## This colony's own base production/cargo/speed, before any upgrade level or
+## colonist is applied (Balance.gd's formulas combine these with a Colony's
+## purchased levels). Given the same starting value across all eight colonies
+## for now - they're per-colony fields specifically so each can be tuned
+## individually later without a code change, not because they need to differ
+## on day one. See docs/GODOT_PLAN.md's design realignment section: a colony
+## produces and ships at this base rate with zero colonists assigned, staffing
+## is a bonus on top, not a requirement.
+@export_group("Base Stats")
+@export var base_production_rate: float = 1.0
+@export var base_cargo: float = 20.0
+@export var base_speed: float = 1.0
+
 
 func is_valid() -> bool:
 	if id == &"" or resource_id == &"":
 		return false
 	if order < 0 or unlock_cost < 0.0:
+		return false
+	if base_production_rate <= 0.0 or base_cargo <= 0.0 or base_speed <= 0.0:
 		return false
 	return true

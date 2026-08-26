@@ -10,3 +10,7 @@ resource_id = &"furs"
 order = 7
 unlock_cost = 1100000000.0
 is_capital = false
+
+base_production_rate = 1.0
+base_cargo = 20.0
+base_speed = 1.0

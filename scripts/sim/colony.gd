@@ -1,45 +1,36 @@
-## A single colony's production (docs/GAME_DESIGN.md §5/§6). Plain RefCounted -
-## runtime simulation state with behaviour, like ProductionCycle and MapGrid,
-## not a Node (nothing here needs the scene tree) and not a Resource (this is
-## not authored content).
+## A single colony's production and shipping stats (docs/GAME_DESIGN.md §5/§6,
+## reworked per the design realignment: three independent, per-colony,
+## gold-bought upgrade tracks - production, cargo, speed - plus a real base
+## rate on all three that applies even with zero colonists assigned).
+## Plain RefCounted - runtime simulation state with behaviour, like
+## ProductionCycle and MapGrid, not a Node (nothing here needs the scene
+## tree) and not a Resource (this is not authored content - ColonyDef is).
 ##
-## Sits on a ColonyDef (the fixed eight-colony table) and produces exactly
-## that colony's one resource. Production is a continuous rate now, not a
-## discrete cycle - §6's formula is already a smooth units/second figure, so
-## task P1's ProductionCycle (division-based exact catch-up for a "wait N
-## seconds, get 1 unit" cycle) isn't used here anymore; amount = rate x delta
-## is exact by construction, with nothing left to catch up on. ProductionCycle
-## itself is untouched and still tested, in case a future system needs a real
-## discrete cycle again.
-##
-## Output depends on how many colonists are assigned (Game.colonists,
-## read live, never cached - see docs/GAME_DESIGN.md §4's central tension:
-## an unstaffed colony produces nothing) and this colony's building level, a
-## coin-bought upgrade tracked here as plain mutable state.
+## All the actual formulas live in Balance (scripts/core/balance.gd) - this
+## class just holds the state (which levels have been bought, the rolled
+## route type) and asks Balance to combine it with ColonyDef's base stats and
+## Game.colonists' live count. Retuning any of this never means touching
+## Colony.
 class_name Colony
 extends RefCounted
-
-## §6: base_rate is 1.0 units/sec for every colony - value differentiation
-## comes from price, not speed.
-const BASE_RATE: float = 1.0
 
 enum RouteType { LAND, SEA }
 
 var colony_id: StringName
 var is_capital: bool
 
-## Coin-bought, per docs/GAME_DESIGN.md §6's building_cost curve (a later
-## rework wires up the actual purchase). +25% production per level.
-var building_level: int = 0
-
-## Coin-bought, per §6's transport_cost curve (read by Route). Meaningless
-## for the Capital, which has distance 0 and never ships anywhere.
-var transport_level: int = 0
+## Independent gold-bought upgrade levels (docs/GODOT_PLAN.md's design
+## realignment section - three separate tracks, not one generic level).
+var production_level: int = 0
+var cargo_level: int = 0
+var speed_level: int = 0
 
 ## Rolled once per colony at creation - "each colony rolls land or sea,
 ## 50/50" (§5). Public and mutable (not just constructor-set) so tests can
 ## pin a specific value instead of fighting real randomness; a fresh Colony
-## still rolls for itself by default.
+## still rolls for itself by default. Now affects travel time only (Route
+## reads this) - cargo capacity comes entirely from this colony's own base
+## stat and cargo_level instead.
 var route_type: RouteType = RouteType.LAND
 
 ## StringName -> float. Only populated for a non-Capital colony - see tick().
@@ -72,16 +63,72 @@ func distance() -> int:
 	return def.order if def != null else 0
 
 
-## Units per second this colony currently produces:
-## base_rate x colonists_assigned x (1 + 0.25 x building_level) x prestige
-## multiplier (§6). Colonists are read live from Game.colonists every call,
-## never cached - the same "always read live state" discipline as Game.run.
-func rate() -> float:
-	var colonists: int = Game.colonists.assigned_to(colony_id)
-	if colonists <= 0:
+func colonists_assigned() -> int:
+	return Game.colonists.assigned_to(colony_id)
+
+
+## Units per second this colony currently produces. Real even with zero
+## colonists assigned - see the class doc.
+func production_rate() -> float:
+	var def: ColonyDef = Db.colony(colony_id)
+	if def == null:
 		return 0.0
-	var building_multiplier: float = 1.0 + 0.25 * float(building_level)
-	return BASE_RATE * float(colonists) * building_multiplier * Game.progression.production_multiplier()
+	return Balance.colony_production_rate(
+		def.base_production_rate, production_level, colonists_assigned(), Game.progression.production_multiplier()
+	)
+
+
+## Cargo capacity for a Route serving this colony.
+func cargo_capacity() -> float:
+	var def: ColonyDef = Db.colony(colony_id)
+	if def == null:
+		return 0.0
+	return Balance.colony_cargo_capacity(def.base_cargo, cargo_level, colonists_assigned())
+
+
+## Full round-trip travel time in seconds for a Route serving this colony.
+func round_trip_seconds() -> float:
+	var def: ColonyDef = Db.colony(colony_id)
+	if def == null:
+		return 0.0
+	return Balance.route_round_trip_seconds(
+		distance(), route_type == RouteType.SEA, def.base_speed, speed_level, colonists_assigned()
+	)
+
+
+func next_production_level_cost() -> float:
+	return Balance.next_production_level_cost(production_level)
+
+
+func next_cargo_level_cost() -> float:
+	return Balance.next_cargo_level_cost(cargo_level)
+
+
+func next_speed_level_cost() -> float:
+	return Balance.next_speed_level_cost(speed_level)
+
+
+## Spends gold and raises production_level by one. Returns false and changes
+## nothing on insufficient gold.
+func purchase_production_level() -> bool:
+	if not Game.economy.try_spend(next_production_level_cost()):
+		return false
+	production_level += 1
+	return true
+
+
+func purchase_cargo_level() -> bool:
+	if not Game.economy.try_spend(next_cargo_level_cost()):
+		return false
+	cargo_level += 1
+	return true
+
+
+func purchase_speed_level() -> bool:
+	if not Game.economy.try_spend(next_speed_level_cost()):
+		return false
+	speed_level += 1
+	return true
 
 
 ## Advances production by `delta` seconds. The Capital (distance 0) delivers
@@ -90,7 +137,7 @@ func rate() -> float:
 ## delivery framing. Every other colony accumulates in local_stock until a
 ## Route collects it.
 func tick(delta: float) -> void:
-	var amount: float = rate() * delta
+	var amount: float = production_rate() * delta
 	if amount <= 0.0:
 		return
 

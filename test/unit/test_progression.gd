@@ -159,10 +159,10 @@ func test_purchase_upgrade_with_insufficient_resource_cost_consumes_nothing() ->
 ## Game.progression.production_multiplier() on every call - this exercises
 ## that real wiring end to end.
 func test_purchasing_primitive_tools_increases_a_colonys_next_tick_output() -> void:
+	# No colonist needed - a colony produces at its base rate on its own
+	# (design realignment), which is all this test needs to isolate the
+	# upgrade's effect cleanly.
 	var colony := Colony.new(&"cape_harbour")
-	Game.economy.add_gold(25.0)  # exactly enough for the first colonist
-	Game.colonists.buy_colonist()
-	Game.colonists.assign(&"cape_harbour", 1)
 
 	colony.tick(5.0)  # no upgrade purchased yet
 	var baseline: float = colony.local_stock.get(&"cod", 0.0)

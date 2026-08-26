@@ -51,8 +51,9 @@ func test_tick_fans_out_to_every_registered_colony() -> void:
 
 	Game.colonies.tick(5.0)
 
-	assert_almost_eq(Game.inventory.get_amount(&"timber"), 5.0, 0.0001, "capital should have produced")
-	assert_almost_eq(outpost.local_stock.get(&"cod", 0.0), 5.0, 0.0001, "outpost should have produced")
+	# rate = base 1.0 x colonist bonus (1 + 0.1*1) = 1.1/s x 5s = 5.5
+	assert_almost_eq(Game.inventory.get_amount(&"timber"), 5.5, 0.0001, "capital should have produced")
+	assert_almost_eq(outpost.local_stock.get(&"cod", 0.0), 5.5, 0.0001, "outpost should have produced")
 
 
 func test_all_returns_a_copy_not_a_live_reference() -> void:

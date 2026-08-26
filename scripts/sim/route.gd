@@ -6,17 +6,17 @@
 ## origin, it loads whatever's ready (up to capacity) and departs immediately,
 ## even if that's a partial load. There is no waiting, ever.
 ##
-## Land vs. sea is rolled once per colony (Colony.route_type, §5's "each
-## colony rolls land or sea, 50/50") rather than derived from a real map -
-## this project's old map/land-water system is left in place, unused; see
-## docs/GODOT_PLAN.md's design realignment section for the full reasoning.
-## Sea routes get more cargo capacity and cover distance faster (§6).
+## Capacity and travel time both come from the origin Colony's own stats
+## (Balance-driven: a per-colony base value, a gold-bought upgrade level, and
+## the shared colonist bonus - see Colony.cargo_capacity()/round_trip_seconds()
+## and docs/GODOT_PLAN.md's design realignment section). Land vs. sea
+## (Colony.route_type, rolled once per colony) affects only travel time now.
 ##
-## No sprite, no Node2D, no visual position anymore - v1 ships with a plain
-## list interface, not a map (§10, §12), so there's no geography left to
-## animate a vehicle across. progress() (0-1 through the current leg) is kept
+## No sprite, no Node2D, no visual position - v1 ships with a plain list
+## interface, not a map (§10, §12), so there's no geography left to animate a
+## vehicle across. progress() (0-1 through the current leg) is kept
 ## regardless: it's still exactly what a shipping-status row in a list needs,
-## and it's the one piece worth reusing if a visual pass ever returns.
+## and the one part worth reusing if a visual pass ever returns.
 class_name Route
 extends RefCounted
 
@@ -28,18 +28,6 @@ enum State {
 	TRAVELING_TO_ORIGIN,
 }
 
-## §6's formulas. Where §5's summary table and §6's precise formula disagree
-## on how cargo scales with transport level (the table reads as a flat
-## `20 x level`; §6 gives `base x (1 + 0.5 x level)`), §6 is treated as
-## authoritative - it's the section explicitly meant to be "the single
-## Balance autoload" every other number is drawn from.
-const CARGO_BASE_LAND: float = 20.0
-const CARGO_BASE_SEA: float = 50.0
-const CARGO_LEVEL_BONUS: float = 0.5  # +50% capacity per transport level
-
-const TIME_FACTOR_LAND: float = 12.0  # seconds of round-trip time per distance, land
-const TIME_FACTOR_SEA: float = 22.0  # seconds of round-trip time per distance, sea
-
 var origin: Colony
 var destination: Colony  # always the Capital in practice; Route itself stays generic
 
@@ -48,32 +36,20 @@ var cargo: Dictionary = {}  # StringName -> float, only non-empty while travelin
 var leg_elapsed: float = 0.0
 
 
-static func base_cargo_for(route_type: Colony.RouteType) -> float:
-	return CARGO_BASE_SEA if route_type == Colony.RouteType.SEA else CARGO_BASE_LAND
-
-
-static func time_factor_for(route_type: Colony.RouteType) -> float:
-	return TIME_FACTOR_SEA if route_type == Colony.RouteType.SEA else TIME_FACTOR_LAND
-
-
 func _init(p_origin: Colony, p_destination: Colony) -> void:
 	origin = p_origin
 	destination = p_destination
 
 
-## Re-read live from origin.transport_level every call, never cached at
-## construction - a transport upgrade purchased mid-run takes effect on the
-## very next departure, not the next Route object.
+## Re-read live from the origin colony every call, never cached at
+## construction - an upgrade purchased mid-run takes effect on the very next
+## departure/leg, not the next Route object.
 func capacity() -> float:
-	return base_cargo_for(origin.route_type) * (1.0 + CARGO_LEVEL_BONUS * float(origin.transport_level))
+	return origin.cargo_capacity()
 
 
-## One-way leg duration. §6 gives a single round_trip_time for the whole out-
-## and-back cycle; the document never distinguishes an outbound speed from a
-## return speed, so it's split evenly across both legs here.
 func leg_duration() -> float:
-	var round_trip: float = float(origin.distance()) * time_factor_for(origin.route_type)
-	return round_trip / 2.0
+	return origin.round_trip_seconds() / 2.0
 
 
 ## 0.0 when idle at the origin (nothing in flight to show progress on); 0 -> 1
