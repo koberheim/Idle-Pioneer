@@ -21,6 +21,7 @@ signal run_ended
 @onready var inventory: Node = $Inventory
 @onready var colonies: Node = $Colonies
 @onready var progression: Node = $Progression
+@onready var colonists: Node = $Colonists
 
 var meta: MetaState = MetaState.new()
 var run: RunState = null
@@ -45,5 +46,16 @@ func new_run(map_id: StringName) -> void:
 	var fresh := RunState.new()
 	fresh.map_id = map_id
 	run = fresh
+
+	# Not everything run-scoped lives inside the RunState object itself -
+	# Colonies holds live Colony instances in memory, and Colonists holds
+	# colonist-to-site assignments in memory, neither of which the `run = fresh`
+	# swap above touches on its own. Both need clearing explicitly here, or a
+	# new run would start with the previous run's colonies and colonist
+	# assignments still active - exactly the "prestige didn't reset X" bug
+	# this class's own doc comment warns about. Found and fixed while adding
+	# the colonist pool, not something that had come up yet.
+	colonies.clear()
+	colonists.clear_assignments()
 
 	run_started.emit()

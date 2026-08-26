@@ -20,6 +20,11 @@ var map_seed: int = 0
 var elapsed_seconds: float = 0.0
 var gold: float = 0.0
 
+## How many colonists have been bought this run (docs/GAME_DESIGN.md §4 - the
+## shared workforce split between gathering and crafting). Colonists owns the
+## behaviour (buying, assigning); this is just where the total is persisted.
+var colonists_owned: int = 0
+
 ## StringName -> float. Central resource stock (task R1 owns the behaviour;
 ## this is just where it's persisted).
 var inventory: Dictionary = {}
@@ -40,6 +45,7 @@ func to_dict() -> Dictionary:
 		"map_seed": map_seed,
 		"elapsed_seconds": elapsed_seconds,
 		"gold": gold,
+		"colonists_owned": colonists_owned,
 		"inventory": _stringname_float_dict_to_json(inventory),
 		"colonies": colonies.map(_colony_to_dict),
 		"upgrades_purchased": upgrades_purchased.map(func(id: StringName) -> String: return String(id)),
@@ -56,6 +62,7 @@ static func from_dict(d: Dictionary) -> RunState:
 	s.map_seed = int(d.get("map_seed", 0))
 	s.elapsed_seconds = float(d.get("elapsed_seconds", 0.0))
 	s.gold = float(d.get("gold", 0.0))
+	s.colonists_owned = int(d.get("colonists_owned", 0))
 	s.inventory = _json_to_stringname_float_dict(d.get("inventory", {}))
 
 	var colonies: Array[Dictionary] = []

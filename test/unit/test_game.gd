@@ -41,6 +41,25 @@ func test_two_new_run_calls_produce_independent_state() -> void:
 	assert_eq(Game.run.colonies_founded, 0)
 
 
+## Found while building the colonist pool: new_run() replaced `Game.run`
+## wholesale, but Colonies (live Colony instances) and Colonists (colonist-to-
+## site assignments) both live in memory outside RunState, and neither was
+## being cleared - a second run would start with the first run's colonies
+## and colonist assignments still active. Fixed in game.gd's new_run(); this
+## test covers the fix.
+func test_new_run_clears_leftover_colonies_and_colonist_assignments() -> void:
+	Game.new_run(&"mvp_coast")
+	Game.colonies.register(Colony.new(&"harbor_point", true))
+	Game.economy.add_gold(100.0)
+	Game.colonists.buy_colonist()
+	Game.colonists.assign(&"harbor_point", 1)
+
+	Game.new_run(&"mvp_coast")
+
+	assert_eq(Game.colonies.all(), [] as Array[Colony], "leftover colonies should be cleared")
+	assert_eq(Game.colonists.total_assigned(), 0, "leftover assignments should be cleared")
+
+
 func test_new_run_does_not_touch_meta() -> void:
 	Game.meta.doubloons = 5
 	Game.meta.lifetime_gold_earned = 1000.0
