@@ -125,18 +125,20 @@ func load() -> bool:
 	return true
 
 
-## Snapshots every live colony (task P2) into the plain-dictionary shape
-## RunState.colonies expects (task G1/S1) - region, whether it's the Hub, what
-## it's holding, and how far into its current production cycle it is (so a
-## save/load doesn't quietly discard a few seconds of in-progress production).
+## Snapshots every live colony into the plain-dictionary shape RunState.colonies
+## expects: which colony, its building/transport levels, its rolled route
+## type, and what it's currently holding. is_capital isn't captured - it's
+## re-derived from the colony id on restore (see RunState's class doc on
+## `colonies` for why).
 func _capture_colonies() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for colony: Colony in Game.colonies.all():
 		out.append({
-			"region_id": colony.region_id,
-			"is_hub": colony.is_hub,
+			"colony_id": colony.colony_id,
+			"building_level": colony.building_level,
+			"transport_level": colony.transport_level,
+			"route_type": colony.route_type,
 			"local_stock": colony.local_stock.duplicate(),
-			"cycle_accumulated": colony.cycle.accumulated,
 		})
 	return out
 
@@ -144,11 +146,12 @@ func _capture_colonies() -> Array[Dictionary]:
 func _restore_colonies(snapshots: Array[Dictionary]) -> void:
 	Game.colonies.clear()
 	for snapshot: Dictionary in snapshots:
-		var region_id: StringName = snapshot.get("region_id", &"")
-		var is_hub: bool = snapshot.get("is_hub", false)
-		var colony := Colony.new(region_id, is_hub)
+		var colony_id: StringName = snapshot.get("colony_id", &"")
+		var colony := Colony.new(colony_id)
+		colony.building_level = int(snapshot.get("building_level", 0))
+		colony.transport_level = int(snapshot.get("transport_level", 0))
+		colony.route_type = snapshot.get("route_type", Colony.RouteType.LAND) as Colony.RouteType
 		colony.local_stock = (snapshot.get("local_stock", {}) as Dictionary).duplicate()
-		colony.cycle.accumulated = float(snapshot.get("cycle_accumulated", 0.0))
 		Game.colonies.register(colony)
 
 

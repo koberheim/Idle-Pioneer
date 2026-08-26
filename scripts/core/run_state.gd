@@ -29,10 +29,14 @@ var colonists_owned: int = 0
 ## this is just where it's persisted).
 var inventory: Dictionary = {}
 
-## Per-colony save state - finalised in task S1 alongside SaveSystem, which is
-## what actually converts between this and live Colony objects (task P2).
-## Each entry: {"region_id": StringName, "is_hub": bool,
-## "local_stock": Dictionary[StringName, float], "cycle_accumulated": float}
+## Per-colony save state, shaped to match docs/GAME_DESIGN.md §9's own save
+## example directly (down to "route_type": "land"/"sea" as a string, exactly
+## as shown there). Each entry:
+## {"colony_id": StringName, "building_level": int, "transport_level": int,
+## "route_type": String ("land"/"sea"), "local_stock": Dictionary[StringName, float]}
+## is_capital isn't stored - it's fully derived from ColonyDef via colony_id
+## (Colony's own constructor looks it up), so storing it here would just be a
+## second source of truth for the same fact.
 var colonies: Array[Dictionary] = []
 
 var upgrades_purchased: Array[StringName] = []
@@ -95,18 +99,21 @@ static func _json_to_stringname_float_dict(source: Dictionary) -> Dictionary:
 
 static func _colony_to_dict(colony: Dictionary) -> Dictionary:
 	var local_stock: Dictionary = colony.get("local_stock", {})
+	var route_type: int = int(colony.get("route_type", 0))  # Colony.RouteType.LAND = 0
 	return {
-		"region_id": String(colony.get("region_id", &"")),
-		"is_hub": bool(colony.get("is_hub", false)),
+		"colony_id": String(colony.get("colony_id", &"")),
+		"building_level": int(colony.get("building_level", 0)),
+		"transport_level": int(colony.get("transport_level", 0)),
+		"route_type": "sea" if route_type == 1 else "land",
 		"local_stock": _stringname_float_dict_to_json(local_stock),
-		"cycle_accumulated": float(colony.get("cycle_accumulated", 0.0)),
 	}
 
 
 static func _colony_from_dict(d: Dictionary) -> Dictionary:
 	return {
-		"region_id": StringName(d.get("region_id", "")),
-		"is_hub": bool(d.get("is_hub", false)),
+		"colony_id": StringName(d.get("colony_id", "")),
+		"building_level": int(d.get("building_level", 0)),
+		"transport_level": int(d.get("transport_level", 0)),
+		"route_type": 1 if String(d.get("route_type", "land")) == "sea" else 0,
 		"local_stock": _json_to_stringname_float_dict(d.get("local_stock", {})),
-		"cycle_accumulated": float(d.get("cycle_accumulated", 0.0)),
 	}

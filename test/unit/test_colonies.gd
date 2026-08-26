@@ -1,7 +1,8 @@
-## Tests for the Colonies subsystem (task P2) - the register/tick fan-out
-## registry, mirroring Unity's ColonyController. Game.colonies is a live
-## autoload child, so before_each/after_each clear it explicitly to keep tests
-## isolated from each other.
+## Tests for the Colonies subsystem - the register/tick fan-out registry,
+## mirroring Unity's ColonyController. Game.colonies is a live autoload
+## child, so before_each/after_each clear it explicitly to keep tests
+## isolated from each other. Uses the real colony table (design realignment):
+## tidewater_landing (Capital) and cape_harbour.
 extends GutTest
 
 
@@ -12,43 +13,50 @@ func before_each() -> void:
 
 func after_each() -> void:
 	Game.colonies.clear()
+	Game.colonists.clear_assignments()
 	Game.run = null
 
 
 func test_register_adds_to_all() -> void:
-	var c := Colony.new(&"harbor_point", true)
+	var c := Colony.new(&"tidewater_landing")
 	Game.colonies.register(c)
 	assert_eq(Game.colonies.all(), [c] as Array[Colony])
 
 
 func test_registering_the_same_colony_twice_does_not_duplicate() -> void:
-	var c := Colony.new(&"harbor_point", true)
+	var c := Colony.new(&"tidewater_landing")
 	Game.colonies.register(c)
 	Game.colonies.register(c)
 	assert_eq(Game.colonies.all().size(), 1)
 
 
 func test_unregister_removes_from_all() -> void:
-	var c := Colony.new(&"harbor_point", true)
+	var c := Colony.new(&"tidewater_landing")
 	Game.colonies.register(c)
 	Game.colonies.unregister(c)
 	assert_eq(Game.colonies.all(), [] as Array[Colony])
 
 
 func test_tick_fans_out_to_every_registered_colony() -> void:
-	var hub := Colony.new(&"harbor_point", true)
-	var outpost := Colony.new(&"clay_flats", false)
-	Game.colonies.register(hub)
+	var capital := Colony.new(&"tidewater_landing")
+	var outpost := Colony.new(&"cape_harbour")
+	Game.colonies.register(capital)
 	Game.colonies.register(outpost)
 
-	Game.colonies.tick(5.0)  # one full cycle for both (both 5s cycles)
+	Game.economy.add_gold(1000.0)
+	Game.colonists.buy_colonist()
+	Game.colonists.buy_colonist()
+	Game.colonists.assign(&"tidewater_landing", 1)
+	Game.colonists.assign(&"cape_harbour", 1)
 
-	assert_almost_eq(Game.inventory.get_amount(&"timber"), 1.0, 0.0001, "hub should have produced")
-	assert_almost_eq(outpost.local_stock.get(&"clay", 0.0), 1.0, 0.0001, "outpost should have produced")
+	Game.colonies.tick(5.0)
+
+	assert_almost_eq(Game.inventory.get_amount(&"timber"), 5.0, 0.0001, "capital should have produced")
+	assert_almost_eq(outpost.local_stock.get(&"cod", 0.0), 5.0, 0.0001, "outpost should have produced")
 
 
 func test_all_returns_a_copy_not_a_live_reference() -> void:
-	var c := Colony.new(&"harbor_point", true)
+	var c := Colony.new(&"tidewater_landing")
 	Game.colonies.register(c)
 	var snapshot: Array[Colony] = Game.colonies.all()
 	snapshot.clear()
@@ -56,7 +64,7 @@ func test_all_returns_a_copy_not_a_live_reference() -> void:
 
 
 func test_clear_empties_the_registry() -> void:
-	Game.colonies.register(Colony.new(&"harbor_point", true))
-	Game.colonies.register(Colony.new(&"clay_flats", false))
+	Game.colonies.register(Colony.new(&"tidewater_landing"))
+	Game.colonies.register(Colony.new(&"cape_harbour"))
 	Game.colonies.clear()
 	assert_eq(Game.colonies.all(), [] as Array[Colony])

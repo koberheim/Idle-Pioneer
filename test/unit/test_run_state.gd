@@ -11,8 +11,8 @@ func _make_populated_run_state() -> RunState:
 	s.colonists_owned = 6
 	s.inventory = {&"timber": 12.0, &"clay": 3.0}
 	s.colonies = [
-		{"region_id": &"harbor_point", "is_hub": true, "local_stock": {&"timber": 4.0}, "cycle_accumulated": 1.5},
-		{"region_id": &"clay_flats", "is_hub": false, "local_stock": {}, "cycle_accumulated": 0.0},
+		{"colony_id": &"tidewater_landing", "building_level": 2, "transport_level": 0, "route_type": 0, "local_stock": {&"timber": 4.0}},
+		{"colony_id": &"cape_harbour", "building_level": 0, "transport_level": 1, "route_type": 1, "local_stock": {}},
 	]
 	s.upgrades_purchased = [&"primitive_tools"]
 	s.colonies_founded = 2

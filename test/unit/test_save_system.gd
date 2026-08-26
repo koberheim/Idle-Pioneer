@@ -134,10 +134,10 @@ func test_save_then_load_restores_meta_across_a_run_reset() -> void:
 	assert_almost_eq(Game.meta.lifetime_gold_earned, 900.0, 0.0001)
 
 
-func test_save_then_load_restores_colonies_with_region_and_hub_flag() -> void:
-	var hub := Colony.new(&"harbor_point", true)
-	var outpost := Colony.new(&"clay_flats", false)
-	Game.colonies.register(hub)
+func test_save_then_load_restores_colonies_with_correct_ids_and_capital_flag() -> void:
+	var capital := Colony.new(&"tidewater_landing")
+	var outpost := Colony.new(&"cape_harbour")
+	Game.colonies.register(capital)
 	Game.colonies.register(outpost)
 
 	SaveSystem.save()
@@ -148,16 +148,19 @@ func test_save_then_load_restores_colonies_with_region_and_hub_flag() -> void:
 	var restored: Array[Colony] = Game.colonies.all()
 	assert_eq(restored.size(), 2)
 
-	var by_region: Dictionary = {}
+	var by_id: Dictionary = {}
 	for c: Colony in restored:
-		by_region[c.region_id] = c
-	assert_true((by_region[&"harbor_point"] as Colony).is_hub)
-	assert_false((by_region[&"clay_flats"] as Colony).is_hub)
+		by_id[c.colony_id] = c
+	# is_capital isn't stored directly - it's re-derived from colony_id via
+	# ColonyDef on restore (see RunState's class doc), so this also proves
+	# that derivation actually happens on load, not just that the id survived.
+	assert_true((by_id[&"tidewater_landing"] as Colony).is_capital)
+	assert_false((by_id[&"cape_harbour"] as Colony).is_capital)
 
 
 func test_save_then_load_restores_colony_local_stock() -> void:
-	var outpost := Colony.new(&"clay_flats", false)
-	outpost.local_stock[&"clay"] = 6.0
+	var outpost := Colony.new(&"cape_harbour")
+	outpost.local_stock[&"cod"] = 6.0
 	Game.colonies.register(outpost)
 
 	SaveSystem.save()
@@ -166,16 +169,16 @@ func test_save_then_load_restores_colony_local_stock() -> void:
 
 	SaveSystem.load()
 	var restored: Colony = Game.colonies.all()[0]
-	assert_almost_eq(restored.local_stock.get(&"clay", 0.0), 6.0, 0.0001)
+	assert_almost_eq(restored.local_stock.get(&"cod", 0.0), 6.0, 0.0001)
 
 
-## Proves a save/load doesn't quietly discard a few seconds of in-progress
-## production - see _capture_colonies()'s doc comment on why this is captured.
-func test_save_then_load_restores_partial_production_cycle_progress() -> void:
-	var outpost := Colony.new(&"clay_flats", false)
-	outpost.tick(2.0)  # partway through a 5s cycle, no full cycle completed yet
-	var accumulated_before: float = outpost.cycle.accumulated
-	assert_gt(accumulated_before, 0.0, "test setup should have left partial progress")
+## Proves a save/load doesn't quietly discard purchased building/transport
+## levels or the colony's rolled land/sea route type.
+func test_save_then_load_restores_building_transport_level_and_route_type() -> void:
+	var outpost := Colony.new(&"cape_harbour")
+	outpost.building_level = 3
+	outpost.transport_level = 2
+	outpost.route_type = Colony.RouteType.SEA
 	Game.colonies.register(outpost)
 
 	SaveSystem.save()
@@ -184,7 +187,9 @@ func test_save_then_load_restores_partial_production_cycle_progress() -> void:
 
 	SaveSystem.load()
 	var restored: Colony = Game.colonies.all()[0]
-	assert_almost_eq(restored.cycle.accumulated, accumulated_before, 0.0001)
+	assert_eq(restored.building_level, 3)
+	assert_eq(restored.transport_level, 2)
+	assert_eq(restored.route_type, Colony.RouteType.SEA)
 
 
 func test_save_then_load_with_no_colonies_restores_an_empty_list() -> void:

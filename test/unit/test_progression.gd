@@ -159,17 +159,21 @@ func test_purchase_upgrade_with_insufficient_resource_cost_consumes_nothing() ->
 ## Game.progression.production_multiplier() on every call - this exercises
 ## that real wiring end to end.
 func test_purchasing_primitive_tools_increases_a_colonys_next_tick_output() -> void:
-	var colony := Colony.new(&"clay_flats", false)
-	colony.tick(5.0)  # one cycle, no upgrade purchased yet
-	var baseline: float = colony.local_stock.get(&"clay", 0.0)
-	assert_almost_eq(baseline, 1.0, 0.0001)
+	var colony := Colony.new(&"cape_harbour")
+	Game.economy.add_gold(25.0)  # exactly enough for the first colonist
+	Game.colonists.buy_colonist()
+	Game.colonists.assign(&"cape_harbour", 1)
+
+	colony.tick(5.0)  # no upgrade purchased yet
+	var baseline: float = colony.local_stock.get(&"cod", 0.0)
+	assert_almost_eq(baseline, 5.0, 0.0001)
 
 	Game.economy.add_gold(50.0)
 	Game.progression.purchase(&"primitive_tools")
 
-	colony.collect()  # clear the baseline cycle's output so the next tick is isolated
-	colony.tick(5.0)  # one more cycle, now with the upgrade active
-	var boosted: float = colony.local_stock.get(&"clay", 0.0)
+	colony.collect()  # clear the baseline tick's output so the next tick is isolated
+	colony.tick(5.0)  # one more tick, now with the upgrade active
+	var boosted: float = colony.local_stock.get(&"cod", 0.0)
 
 	assert_gt(boosted, baseline, "purchasing the upgrade should have increased output")
 	assert_almost_eq(boosted, baseline * 1.25, 0.0001)

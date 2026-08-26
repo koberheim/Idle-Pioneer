@@ -49,10 +49,10 @@ func test_two_new_run_calls_produce_independent_state() -> void:
 ## test covers the fix.
 func test_new_run_clears_leftover_colonies_and_colonist_assignments() -> void:
 	Game.new_run(&"mvp_coast")
-	Game.colonies.register(Colony.new(&"harbor_point", true))
+	Game.colonies.register(Colony.new(&"tidewater_landing"))
 	Game.economy.add_gold(100.0)
 	Game.colonists.buy_colonist()
-	Game.colonists.assign(&"harbor_point", 1)
+	Game.colonists.assign(&"tidewater_landing", 1)
 
 	Game.new_run(&"mvp_coast")
 

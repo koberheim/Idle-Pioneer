@@ -1,92 +1,120 @@
-## Tests for Colony (task P2). Uses real regions from the authored MVP data
-## (task D5): harbor_point (coastal, deposit timber, 5s cycle) and clay_flats
-## (inland, deposit clay, 5s cycle). Same Game.run/Game.meta reset discipline
-## as test_inventory.gd/test_economy.gd (tasks R1/R2).
+## Tests for Colony (docs/GAME_DESIGN.md §5/§6). Uses the real colony table
+## (design realignment): tidewater_landing (the Capital, produces timber) and
+## cape_harbour (produces cod). Same Game.run reset discipline as the other
+## sim tests - and, since production now depends on assigned colonists
+## (§4's central tension), most tests need to buy and assign at least one
+## colonist before a colony will produce anything at all.
 extends GutTest
 
 
 func before_each() -> void:
 	Game.new_run(&"mvp_coast")
+	Game.economy.add_gold(1000.0)
 
 
 func after_each() -> void:
+	Game.colonists.clear_assignments()
 	Game.run = null
 
 
-func test_hub_colony_produces_into_central_inventory() -> void:
-	var hub := Colony.new(&"harbor_point", true)
-	hub.tick(5.0)  # exactly one cycle at harbor_point's 5s cycle
-	assert_almost_eq(Game.inventory.get_amount(&"timber"), 1.0, 0.0001)
+func test_unstaffed_colony_produces_nothing() -> void:
+	# The whole point of docs/GAME_DESIGN.md §4: no colonists, no output.
+	var colony := Colony.new(&"cape_harbour")
+	colony.tick(10.0)
+	assert_eq(colony.local_stock, {})
 
 
-func test_hub_colony_does_not_accumulate_local_stock() -> void:
-	var hub := Colony.new(&"harbor_point", true)
-	hub.tick(5.0)
-	assert_eq(hub.local_stock, {})
+func test_staffed_capital_produces_into_central_inventory() -> void:
+	var capital := Colony.new(&"tidewater_landing")
+	Game.colonists.buy_colonist()
+	Game.colonists.assign(&"tidewater_landing", 1)
+
+	capital.tick(2.0)  # rate 1.0/s x 1 colonist x 2s = 2.0 timber
+	assert_almost_eq(Game.inventory.get_amount(&"timber"), 2.0, 0.0001)
 
 
-func test_non_hub_colony_produces_into_local_stock_not_central_inventory() -> void:
-	var colony := Colony.new(&"clay_flats", false)
-	colony.tick(5.0)
-	assert_almost_eq(colony.local_stock.get(&"clay", 0.0), 1.0, 0.0001)
-	assert_eq(Game.inventory.get_amount(&"clay"), 0.0, "non-hub production must not reach central inventory")
+func test_capital_never_accumulates_local_stock() -> void:
+	var capital := Colony.new(&"tidewater_landing")
+	Game.colonists.buy_colonist()
+	Game.colonists.assign(&"tidewater_landing", 1)
+	capital.tick(5.0)
+	assert_eq(capital.local_stock, {})
+
+
+func test_non_capital_colony_produces_into_local_stock_not_central_inventory() -> void:
+	var colony := Colony.new(&"cape_harbour")
+	Game.colonists.buy_colonist()
+	Game.colonists.assign(&"cape_harbour", 1)
+
+	colony.tick(3.0)  # rate 1.0/s x 1 x 3s = 3.0 cod
+	assert_almost_eq(colony.local_stock.get(&"cod", 0.0), 3.0, 0.0001)
+	assert_eq(Game.inventory.get_amount(&"cod"), 0.0, "non-Capital production must not reach central inventory")
 
 
 func test_collect_empties_and_returns_local_stock() -> void:
-	var colony := Colony.new(&"clay_flats", false)
-	colony.tick(10.0)  # two cycles
+	var colony := Colony.new(&"cape_harbour")
+	Game.colonists.buy_colonist()
+	Game.colonists.assign(&"cape_harbour", 1)
+	colony.tick(4.0)
+
 	var collected: Dictionary = colony.collect()
-	assert_almost_eq(collected.get(&"clay", 0.0), 2.0, 0.0001)
+	assert_almost_eq(collected.get(&"cod", 0.0), 4.0, 0.0001)
 	assert_eq(colony.local_stock, {}, "collect() must empty local_stock")
 
 
-func test_collect_on_hub_is_always_empty() -> void:
-	var hub := Colony.new(&"harbor_point", true)
-	hub.tick(20.0)
-	assert_eq(hub.collect(), {})
+func test_more_colonists_produce_proportionally_more() -> void:
+	var colony := Colony.new(&"cape_harbour")
+	for i: int in range(3):
+		Game.colonists.buy_colonist()
+	Game.colonists.assign(&"cape_harbour", 3)
+
+	colony.tick(2.0)  # rate 1.0/s x 3 x 2s = 6.0
+	assert_almost_eq(colony.local_stock.get(&"cod", 0.0), 6.0, 0.0001)
 
 
-func test_partial_tick_produces_nothing() -> void:
-	var colony := Colony.new(&"clay_flats", false)
-	colony.tick(2.0)  # well under the 5s cycle
-	assert_eq(colony.local_stock, {})
+func test_building_level_increases_output_by_the_documented_rate() -> void:
+	# §6: x(1 + 0.25 x building_level).
+	var colony := Colony.new(&"cape_harbour")
+	Game.colonists.buy_colonist()
+	Game.colonists.assign(&"cape_harbour", 1)
+	colony.building_level = 2  # x(1 + 0.5) = x1.5
+
+	colony.tick(2.0)  # 1.0 x 1 x 1.5 x 2s = 3.0
+	assert_almost_eq(colony.local_stock.get(&"cod", 0.0), 3.0, 0.0001)
 
 
-func test_multiple_cycles_in_one_tick_produce_proportional_amount() -> void:
-	var colony := Colony.new(&"clay_flats", false)
-	colony.tick(23.0)  # 4 full cycles (20s) + 3s leftover, at a 5s cycle
-	assert_almost_eq(colony.local_stock.get(&"clay", 0.0), 4.0, 0.0001)
+func test_ticks_accumulate_continuously_across_multiple_calls() -> void:
+	var colony := Colony.new(&"cape_harbour")
+	Game.colonists.buy_colonist()
+	Game.colonists.assign(&"cape_harbour", 1)
+
+	colony.tick(1.0)
+	colony.tick(1.5)
+	assert_almost_eq(colony.local_stock.get(&"cod", 0.0), 2.5, 0.0001)
 
 
-func test_ticks_across_multiple_calls_accumulate_correctly() -> void:
-	var colony := Colony.new(&"clay_flats", false)
-	colony.tick(3.0)
-	colony.tick(3.0)  # 6s total - one cycle completes on this call
-	assert_almost_eq(colony.local_stock.get(&"clay", 0.0), 1.0, 0.0001)
+func test_distance_matches_the_colonys_fixed_play_order() -> void:
+	assert_eq(Colony.new(&"tidewater_landing").distance(), 0)
+	assert_eq(Colony.new(&"cape_harbour").distance(), 1)
+	assert_eq(Colony.new(&"northern_traces").distance(), 7)
 
 
-func test_colony_uses_its_region_base_cycle_seconds() -> void:
-	var colony := Colony.new(&"clay_flats", false)
-	assert_almost_eq(colony.cycle.cycle_seconds, 5.0, 0.0001)
+func test_capital_route_type_is_always_land_and_irrelevant() -> void:
+	# The Capital has distance 0 and never ships anywhere - route_type is
+	# meaningless for it, but pinned to a stable value rather than left random.
+	assert_eq(Colony.new(&"tidewater_landing").route_type, Colony.RouteType.LAND)
 
 
-func test_deposit_id_matches_the_region() -> void:
-	var colony := Colony.new(&"harbor_point", false)
-	assert_eq(colony.deposit_id(), &"timber")
+func test_non_capital_route_type_is_settable_for_deterministic_tests() -> void:
+	var colony := Colony.new(&"cape_harbour")
+	colony.route_type = Colony.RouteType.SEA
+	assert_eq(colony.route_type, Colony.RouteType.SEA)
 
 
-## Uses the current Progression stub (always 1.0 with no upgrade purchased) -
-## still meaningful once task P5 implements real multipliers, since no upgrade
-## is purchased in this test's fresh run.
-func test_production_amount_reflects_the_progression_multiplier() -> void:
-	var colony := Colony.new(&"clay_flats", false)
-	colony.tick(5.0)
-	var expected: float = 1.0 * Game.progression.production_multiplier()
-	assert_almost_eq(colony.local_stock.get(&"clay", 0.0), expected, 0.0001)
-
-
-func test_unknown_region_id_is_a_safe_no_op() -> void:
-	var colony := Colony.new(&"does_not_exist", false)
+func test_unknown_colony_id_is_a_safe_no_op() -> void:
+	var colony := Colony.new(&"does_not_exist")
+	Game.colonists.buy_colonist()
+	Game.colonists.assign(&"does_not_exist", 1)
 	colony.tick(100.0)
 	assert_eq(colony.local_stock, {})
-	assert_eq(colony.deposit_id(), &"")
+	assert_eq(colony.resource_id(), &"")

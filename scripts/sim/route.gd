@@ -1,23 +1,22 @@
-## Abstract transport between a colony and the Hub (task P3). "Abstract" means
-## duration only - no sprite, no Node, no visual anything in this file. But
-## your answer to the plan's Q3 confirmed animated travel is a REQUIRED part of
-## the final game, not a maybe, so this class is shaped for that from day one:
-## progress() and current_world_position() are real, tested seams that a future
-## VehicleView node subscribes to. Computing them costs nothing extra (the
-## duration math already tracks elapsed/total) - retrofitting them after other
-## code depends on this class's shape would cost a lot more. See
-## docs/GODOT_PLAN.md Phase 7's table row on Transport and Phase 10 rule 5's
-## third stated exception to "don't build ahead of need."
+## Transport between a colony and the Capital (docs/GAME_DESIGN.md §5/§6).
 ##
-## Do NOT add a sprite, a Node2D, or anything that draws to this class. A
-## VehicleView that reads progress()/current_world_position() is a separate,
-## later, not-yet-scheduled task.
+## Simplified further than the document's own §6 wording by explicit
+## direction in conversation: no "full or 30 seconds, whichever comes first"
+## timer. A transport just cycles continuously - the moment it's back at its
+## origin, it loads whatever's ready (up to capacity) and departs immediately,
+## even if that's a partial load. There is no waiting, ever.
 ##
-## route_kind (task M3) is what makes this load-bearing: SEA only when both
-## endpoints are coastal (fast, high capacity), LAND otherwise (slow, low
-## capacity) - see docs/GODOT_MIGRATION_ANALYSIS.md §5 for why Unity's
-## equivalent thresholds were calibrated against the wrong coordinate space and
-## effectively meant wagons could never reach anything.
+## Land vs. sea is rolled once per colony (Colony.route_type, §5's "each
+## colony rolls land or sea, 50/50") rather than derived from a real map -
+## this project's old map/land-water system is left in place, unused; see
+## docs/GODOT_PLAN.md's design realignment section for the full reasoning.
+## Sea routes get more cargo capacity and cover distance faster (§6).
+##
+## No sprite, no Node2D, no visual position anymore - v1 ships with a plain
+## list interface, not a map (§10, §12), so there's no geography left to
+## animate a vehicle across. progress() (0-1 through the current leg) is kept
+## regardless: it's still exactly what a shipping-status row in a list needs,
+## and it's the one piece worth reusing if a visual pass ever returns.
 class_name Route
 extends RefCounted
 
@@ -29,56 +28,66 @@ enum State {
 	TRAVELING_TO_ORIGIN,
 }
 
-## Balance placeholders (Phase 7's task V3 is where these get tuned against
-## real play, not here) - the only property that actually matters for MVP
-## correctness is SEA being faster and higher-capacity than LAND.
-const SEA_SPEED: float = 4.0  # cells/second
-const LAND_SPEED: float = 2.0  # cells/second
-const SEA_CAPACITY: float = 200.0
-const LAND_CAPACITY: float = 50.0
+## §6's formulas. Where §5's summary table and §6's precise formula disagree
+## on how cargo scales with transport level (the table reads as a flat
+## `20 x level`; §6 gives `base x (1 + 0.5 x level)`), §6 is treated as
+## authoritative - it's the section explicitly meant to be "the single
+## Balance autoload" every other number is drawn from.
+const CARGO_BASE_LAND: float = 20.0
+const CARGO_BASE_SEA: float = 50.0
+const CARGO_LEVEL_BONUS: float = 0.5  # +50% capacity per transport level
+
+const TIME_FACTOR_LAND: float = 12.0  # seconds of round-trip time per distance, land
+const TIME_FACTOR_SEA: float = 22.0  # seconds of round-trip time per distance, sea
 
 var origin: Colony
-var destination: Colony
-var kind: PlacementRules.RouteKind
-var capacity: float
-var speed: float
-var distance: float
+var destination: Colony  # always the Capital in practice; Route itself stays generic
 
 var state: State = State.AT_ORIGIN
 var cargo: Dictionary = {}  # StringName -> float, only non-empty while traveling
 var leg_elapsed: float = 0.0
-var leg_duration: float = 0.0
 
 
-static func speed_for(route_kind: PlacementRules.RouteKind) -> float:
-	return SEA_SPEED if route_kind == PlacementRules.RouteKind.SEA else LAND_SPEED
+static func base_cargo_for(route_type: Colony.RouteType) -> float:
+	return CARGO_BASE_SEA if route_type == Colony.RouteType.SEA else CARGO_BASE_LAND
 
 
-static func capacity_for(route_kind: PlacementRules.RouteKind) -> float:
-	return SEA_CAPACITY if route_kind == PlacementRules.RouteKind.SEA else LAND_CAPACITY
+static func time_factor_for(route_type: Colony.RouteType) -> float:
+	return TIME_FACTOR_SEA if route_type == Colony.RouteType.SEA else TIME_FACTOR_LAND
 
 
 func _init(p_origin: Colony, p_destination: Colony) -> void:
 	origin = p_origin
 	destination = p_destination
 
-	var grid: MapGrid = Db.map_grid()
-	var origin_cell: Vector2i = _cell_of(origin)
-	var dest_cell: Vector2i = _cell_of(destination)
 
-	kind = PlacementRules.route_kind(grid, origin_cell, dest_cell)
-	distance = PlacementRules.route_distance(grid, origin_cell, dest_cell)
-	speed = speed_for(kind)
-	capacity = capacity_for(kind)
+## Re-read live from origin.transport_level every call, never cached at
+## construction - a transport upgrade purchased mid-run takes effect on the
+## very next departure, not the next Route object.
+func capacity() -> float:
+	return base_cargo_for(origin.route_type) * (1.0 + CARGO_LEVEL_BONUS * float(origin.transport_level))
 
 
-## Advances the route by `delta` seconds: waiting at the origin tries to load
-## and depart every call (a "wait" isn't a separate timed phase - it's just
-## nothing happening yet because there's no cargo), a traveling leg advances
-## toward arrival. Time left over past an arrival within one tick() call is not
-## carried into the next leg - an acceptable simplification for an abstract,
-## every-frame-ticked system; unlike ProductionCycle (task P1), this is not
-## meant to resolve multi-hour offline gaps.
+## One-way leg duration. §6 gives a single round_trip_time for the whole out-
+## and-back cycle; the document never distinguishes an outbound speed from a
+## return speed, so it's split evenly across both legs here.
+func leg_duration() -> float:
+	var round_trip: float = float(origin.distance()) * time_factor_for(origin.route_type)
+	return round_trip / 2.0
+
+
+## 0.0 when idle at the origin (nothing in flight to show progress on); 0 -> 1
+## across whichever leg is currently underway.
+func progress() -> float:
+	var duration: float = leg_duration()
+	if state == State.AT_ORIGIN or duration <= 0.0:
+		return 0.0
+	return clampf(leg_elapsed / duration, 0.0, 1.0)
+
+
+## Advances the route by `delta` seconds: at the origin, tries to load and
+## depart every call (see the class doc - no waiting, ever); mid-journey,
+## advances toward arrival.
 func tick(delta: float) -> void:
 	match state:
 		State.AT_ORIGIN:
@@ -89,53 +98,19 @@ func tick(delta: float) -> void:
 			_advance_leg(delta, _arrive_at_origin)
 
 
-## 0.0 when idle at the origin (nothing to show); 0 -> 1 across whichever leg
-## is currently in flight. See the class doc for why this exists.
-func progress() -> float:
-	if leg_duration <= 0.0:
-		return 0.0
-	return clampf(leg_elapsed / leg_duration, 0.0, 1.0)
-
-
-## Linear interpolation between the current leg's endpoints, in grid-cell
-## space - no path-following yet (Phase 8+ is where a real Curve2D/PathFollow2D
-## would replace this). At rest (AT_ORIGIN), this is just the origin's cell.
-func current_world_position() -> Vector2:
-	var from_cell: Vector2i
-	var to_cell: Vector2i
-
-	match state:
-		State.TRAVELING_TO_HUB:
-			from_cell = _cell_of(origin)
-			to_cell = _cell_of(destination)
-		State.TRAVELING_TO_ORIGIN:
-			from_cell = _cell_of(destination)
-			to_cell = _cell_of(origin)
-		_:
-			from_cell = _cell_of(origin)
-			to_cell = _cell_of(origin)
-
-	return Vector2(from_cell).lerp(Vector2(to_cell), progress())
-
-
-func _cell_of(colony: Colony) -> Vector2i:
-	var region: RegionDef = Db.region(colony.region_id)
-	return region.cell if region != null else Vector2i.ZERO
-
-
 func _try_depart() -> void:
 	var loaded: Dictionary = _load_cargo()
 	if loaded.is_empty():
 		return
 	cargo = loaded
-	_start_leg()
+	leg_elapsed = 0.0
 	state = State.TRAVELING_TO_HUB
 
 
-## Loads up to `capacity` from origin.local_stock, highest ResourceDef.base_value
-## first - the cargo-prioritisation salvaged from Unity's TransportManager
-## (docs/GODOT_MIGRATION_ANALYSIS.md §A2). Removes exactly what it loads from
-## local_stock, so a partial load leaves the rest for next time.
+## Loads up to capacity() from origin.local_stock, highest ResourceDef.base_value
+## first (the same cargo-prioritisation this project has used since task P3).
+## Removes exactly what it loads from local_stock, so a partial load leaves
+## the rest for next time - there is always a "next time," immediately.
 func _load_cargo() -> Dictionary:
 	var available: Dictionary = origin.local_stock
 	if available.is_empty():
@@ -145,7 +120,7 @@ func _load_cargo() -> Dictionary:
 	ids.sort_custom(_by_value_descending)
 
 	var loaded: Dictionary = {}
-	var remaining: float = capacity
+	var remaining: float = capacity()
 	for id: StringName in ids:
 		if remaining <= 0.0:
 			break
@@ -173,18 +148,14 @@ func _by_value_descending(a: StringName, b: StringName) -> bool:
 	return value_a > value_b
 
 
-func _start_leg() -> void:
-	leg_elapsed = 0.0
-	leg_duration = distance / speed if speed > 0.0 else 0.0
-
-
 func _advance_leg(delta: float, on_arrive: Callable) -> void:
-	if leg_duration <= 0.0:
+	var duration: float = leg_duration()
+	if duration <= 0.0:
 		on_arrive.call()
 		return
 	leg_elapsed += delta
-	if leg_elapsed >= leg_duration:
-		leg_elapsed = leg_duration
+	if leg_elapsed >= duration:
+		leg_elapsed = duration
 		on_arrive.call()
 
 
@@ -193,11 +164,10 @@ func _arrive_at_hub() -> void:
 		Game.inventory.add(id, cargo[id])
 	delivered.emit(cargo)
 	cargo = {}
-	_start_leg()
+	leg_elapsed = 0.0
 	state = State.TRAVELING_TO_ORIGIN
 
 
 func _arrive_at_origin() -> void:
 	state = State.AT_ORIGIN
 	leg_elapsed = 0.0
-	leg_duration = 0.0
