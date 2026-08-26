@@ -1,6 +1,12 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Theme" path="res://assets/ui_theme.tres" id="1"]
+[ext_resource type="Script" path="res://scripts/ui/main_screen.gd" id="2"]
+[ext_resource type="Texture2D" path="res://assets/art/backgrounds/harbor.png" id="3"]
+[ext_resource type="Script" path="res://scripts/ui/colonies_panel.gd" id="4"]
+[ext_resource type="Script" path="res://scripts/ui/market_panel.gd" id="5"]
+[ext_resource type="Script" path="res://scripts/ui/crafting_panel.gd" id="6"]
+[ext_resource type="Script" path="res://scripts/ui/prestige_panel.gd" id="7"]
 
 [node name="MainScreen" type="Control"]
 layout_mode = 3
@@ -10,6 +16,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 theme = ExtResource("1")
+script = ExtResource("2")
 
 [node name="Root" type="VBoxContainer" parent="."]
 layout_mode = 1
@@ -24,58 +31,63 @@ layout_mode = 2
 size_flags_vertical = 0
 custom_minimum_size = Vector2(0, 64)
 
-[node name="GoldLabel" type="Label" parent="Root/TopBar"]
+[node name="TopBarRow" type="HBoxContainer" parent="Root/TopBar"]
+layout_mode = 2
+alignment = 1
+
+[node name="GoldLabel" type="Label" parent="Root/TopBar/TopBarRow"]
+unique_name_in_owner = true
 layout_mode = 2
 text = "Gold: 0"
-horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="LibertyLabel" type="Label" parent="Root/TopBar/TopBarRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Liberty: 0"
+vertical_alignment = 1
+
+[node name="SaveButton" type="Button" parent="Root/TopBar/TopBarRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Save"
 
 [node name="MapArea" type="PanelContainer" parent="Root"]
 layout_mode = 2
 size_flags_vertical = 3
+custom_minimum_size = Vector2(0, 96)
+clip_contents = true
 
-[node name="MapPlaceholderLabel" type="Label" parent="Root/MapArea"]
+[node name="HarborBackground" type="TextureRect" parent="Root/MapArea"]
 layout_mode = 2
-text = "Map Area"
-horizontal_alignment = 1
-vertical_alignment = 1
+texture = ExtResource("3")
+expand_mode = 1
+stretch_mode = 6
 
 [node name="BottomTabs" type="TabContainer" parent="Root"]
 layout_mode = 2
-size_flags_vertical = 0
+size_flags_vertical = 3
 custom_minimum_size = Vector2(0, 380)
 
-[node name="Resources" type="Control" parent="Root/BottomTabs"]
+[node name="Colonies" type="Control" parent="Root/BottomTabs"]
+unique_name_in_owner = true
 layout_mode = 2
+script = ExtResource("4")
 
-[node name="ResourcesPlaceholder" type="Label" parent="Root/BottomTabs/Resources"]
-layout_mode = 0
-offset_left = 20.0
-offset_top = 20.0
-offset_right = 400.0
-offset_bottom = 60.0
-text = "Resources (placeholder)"
-
-[node name="Colony" type="Control" parent="Root/BottomTabs"]
+[node name="Market" type="Control" parent="Root/BottomTabs"]
+unique_name_in_owner = true
 visible = false
 layout_mode = 2
+script = ExtResource("5")
 
-[node name="ColonyPlaceholder" type="Label" parent="Root/BottomTabs/Colony"]
-layout_mode = 0
-offset_left = 20.0
-offset_top = 20.0
-offset_right = 400.0
-offset_bottom = 60.0
-text = "Colony (placeholder)"
-
-[node name="Upgrades" type="Control" parent="Root/BottomTabs"]
+[node name="Crafting" type="Control" parent="Root/BottomTabs"]
+unique_name_in_owner = true
 visible = false
 layout_mode = 2
+script = ExtResource("6")
 
-[node name="UpgradesPlaceholder" type="Label" parent="Root/BottomTabs/Upgrades"]
-layout_mode = 0
-offset_left = 20.0
-offset_top = 20.0
-offset_right = 400.0
-offset_bottom = 60.0
-text = "Upgrades (placeholder)"
+[node name="Prestige" type="Control" parent="Root/BottomTabs"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+script = ExtResource("7")

@@ -93,6 +93,15 @@ Found and fixed a real leftover bug while building this: there was already a cos
 - **Founding is a real action now**: spend the colony's real gold cost, and it's registered and simulated immediately - production, shipping, everything from the sections above just starts working for it, with no separate wiring needed.
 - **Colonies must be founded in the fixed order the document's table lays out** - you can't skip ahead to a farther, pricier colony before the one before it exists. This wasn't stated outright as a rule; it's a judgment call reusing the same `order` field the colony table already had for distance, rather than inventing a separate "which sites are available" mechanic that isn't in the locked design.
 
+### The first real screens - and reusing the old Unity art
+
+Every system up to this point had only ever been proven through automated tests and console output - there was nothing to actually look at or click. Built real, playable screens for the whole loop: Colonies (found/upgrade/watch shipments), Market (sell/reserve per resource), Crafting (craft one/auto-craft per recipe), and Prestige (this run's upgrade, Declare Independence, the three permanent branches). Plain, functional layouts, not a polished pass - matches the document's own §11 guidance that an early build is allowed to be "ugly."
+
+- **Reused art from the original Unity project where it genuinely fit**, per direct instruction: colony/outpost card art, the ship and wagon icons for shipping status, a harbor background, and the Timber icon (the one resource whose name survived the design pivot). Most of the old game's resource icons don't apply any more - the resource list changed completely when the game was redesigned around the new document - so those still show as plain text rather than force a mismatched icon onto them.
+- **Structured so new art drops in without touching code**: `ResourceDef`, `ColonyDef`, and `UpgradeDef` all carry a plain `icon` field (the same pattern `ResourceDef.icon` already had), and every screen reads that field rather than hardcoding a lookup. Replacing any icon later is a matter of pointing that field at a new file in the inspector - never a script change.
+- **Found and fixed a real data bug while copying the art over**: several of the source files are JPEGs saved with a `.png` extension (evidently a side effect of past editing in Picasa). Godot's importer picks its decoder from the extension, so those silently failed to import and took the *entire* colony/upgrade record down with them - Db could no longer find a Capital at all. Renamed the affected files to their real extension and confirmed the automated suite - which had been passing the whole time on unrelated content - actually catches this class of problem now too.
+- **Not done in this pass**: any visual polish, animation, or a real map screen (still explicitly out of scope for v1 - see §12). This is the smallest thing that's honestly playable, not the final look.
+
 ---
 
 ## Environment (verified this session)

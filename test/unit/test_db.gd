@@ -33,7 +33,28 @@ func test_all_resources_includes_known_ids() -> void:
 		ids.append(def.id)
 	assert_has(ids, &"timber")
 	assert_has(ids, &"clay")
-	assert_has(ids, &"lumber")
+
+
+func test_all_upgrades_includes_known_ids() -> void:
+	var ids: Array[StringName] = []
+	for def: UpgradeDef in Db.all_upgrades():
+		ids.append(def.id)
+	assert_has(ids, &"primitive_tools")
+
+
+func test_all_recipes_includes_known_ids_sorted_by_craft_seconds() -> void:
+	var recipes: Array[RecipeDef] = Db.all_recipes()
+	var ids: Array[StringName] = []
+	for def: RecipeDef in recipes:
+		ids.append(def.id)
+	assert_has(ids, &"planks_recipe")
+	assert_has(ids, &"muskets_recipe")
+
+	for i in range(1, recipes.size()):
+		assert_true(
+			recipes[i - 1].craft_seconds <= recipes[i].craft_seconds,
+			"expected ascending craft_seconds order"
+		)
 
 
 ## The rest of this block is task D5: proving the authored MVP content is

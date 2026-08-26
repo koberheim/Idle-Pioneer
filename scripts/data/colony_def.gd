@@ -18,6 +18,12 @@ extends Resource
 
 @export var display_name: String = ""
 
+## Optional - a colony card with no icon set just shows text (see
+## docs/CONVENTIONS.md-style pattern already used by ResourceDef.icon).
+## Not required by is_valid(): missing art is a content gap, not a broken
+## colony.
+@export var icon: Texture2D
+
 ## Which raw good this colony produces - a ResourceDef id.
 @export var resource_id: StringName = &""
 

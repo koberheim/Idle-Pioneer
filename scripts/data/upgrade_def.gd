@@ -26,6 +26,10 @@ const EFFECT_GLOBAL_PRODUCTION_MULTIPLIER: StringName = &"global_production_mult
 @export var display_name: String = ""
 @export_multiline var description: String = ""
 
+## Optional - same pattern as ResourceDef.icon/ColonyDef.icon. Not required
+## by is_valid(): missing art is a content gap, not a broken upgrade.
+@export var icon: Texture2D
+
 @export var gold_cost: int = 0
 @export var resource_costs: Array[RecipeIngredient] = []
 

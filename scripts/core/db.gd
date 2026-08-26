@@ -83,6 +83,18 @@ func recipe(id: StringName) -> RecipeDef:
 	return found as RecipeDef
 
 
+## Recipes have no fixed display order in docs/GAME_DESIGN.md §7's table
+## beyond "single-step goods before multi-step ones" - sorted by
+## craft_seconds as a reasonable stand-in (shorter/simpler recipes first),
+## not a claim that craft time is the design's actual ordering rule.
+func all_recipes() -> Array[RecipeDef]:
+	var out: Array[RecipeDef] = []
+	for def: RecipeDef in _recipes.values():
+		out.append(def)
+	out.sort_custom(func(a: RecipeDef, b: RecipeDef) -> bool: return a.craft_seconds < b.craft_seconds)
+	return out
+
+
 func region(id: StringName) -> RegionDef:
 	var found: Variant = _regions.get(id)
 	if found == null:
@@ -102,6 +114,13 @@ func upgrade(id: StringName) -> UpgradeDef:
 func all_resources() -> Array[ResourceDef]:
 	var out: Array[ResourceDef] = []
 	for def: ResourceDef in _resources.values():
+		out.append(def)
+	return out
+
+
+func all_upgrades() -> Array[UpgradeDef]:
+	var out: Array[UpgradeDef] = []
+	for def: UpgradeDef in _upgrades.values():
 		out.append(def)
 	return out
 
