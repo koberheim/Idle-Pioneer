@@ -1,0 +1,81 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Theme" path="res://assets/ui_theme.tres" id="1"]
+
+[node name="MainScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("1")
+
+[node name="Root" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TopBar" type="PanelContainer" parent="Root"]
+layout_mode = 2
+size_flags_vertical = 0
+custom_minimum_size = Vector2(0, 64)
+
+[node name="GoldLabel" type="Label" parent="Root/TopBar"]
+layout_mode = 2
+text = "Gold: 0"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="MapArea" type="PanelContainer" parent="Root"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="MapPlaceholderLabel" type="Label" parent="Root/MapArea"]
+layout_mode = 2
+text = "Map Area"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="BottomTabs" type="TabContainer" parent="Root"]
+layout_mode = 2
+size_flags_vertical = 0
+custom_minimum_size = Vector2(0, 380)
+
+[node name="Resources" type="Control" parent="Root/BottomTabs"]
+layout_mode = 2
+
+[node name="ResourcesPlaceholder" type="Label" parent="Root/BottomTabs/Resources"]
+layout_mode = 0
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 400.0
+offset_bottom = 60.0
+text = "Resources (placeholder)"
+
+[node name="Colony" type="Control" parent="Root/BottomTabs"]
+visible = false
+layout_mode = 2
+
+[node name="ColonyPlaceholder" type="Label" parent="Root/BottomTabs/Colony"]
+layout_mode = 0
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 400.0
+offset_bottom = 60.0
+text = "Colony (placeholder)"
+
+[node name="Upgrades" type="Control" parent="Root/BottomTabs"]
+visible = false
+layout_mode = 2
+
+[node name="UpgradesPlaceholder" type="Label" parent="Root/BottomTabs/Upgrades"]
+layout_mode = 0
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 400.0
+offset_bottom = 60.0
+text = "Upgrades (placeholder)"
