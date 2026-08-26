@@ -73,3 +73,55 @@ func test_round_trip_seconds_decreases_with_colonists() -> void:
 
 func test_round_trip_seconds_at_zero_distance_is_zero() -> void:
 	assert_almost_eq(Balance.route_round_trip_seconds(0, false, 1.0, 0, 0), 0.0, 0.0001)
+
+
+func test_prestige_gate_is_not_met_below_the_threshold() -> void:
+	assert_false(Balance.prestige_gate_met(1_999_999_999.0))
+
+
+func test_prestige_gate_is_met_at_the_threshold() -> void:
+	assert_true(Balance.prestige_gate_met(2_000_000_000.0))
+
+
+func test_prestige_liberty_payout_matches_the_documented_formula() -> void:
+	# floor(6 * sqrt(1)) = 6 at exactly the gate.
+	assert_eq(Balance.prestige_liberty_payout(2_000_000_000.0), 6)
+	# Doubling earnings gives ~8.5 per the doc's own worked example.
+	assert_eq(Balance.prestige_liberty_payout(4_000_000_000.0), 8)
+
+
+func test_prestige_liberty_payout_is_zero_with_no_earnings() -> void:
+	assert_eq(Balance.prestige_liberty_payout(0.0), 0)
+
+
+func test_industry_cost_and_bonus_match_level_one() -> void:
+	assert_almost_eq(Balance.next_industry_cost(0), 3.0, 0.0001)
+	assert_almost_eq(Balance.industry_production_multiplier(1), 1.15, 0.0001)
+
+
+func test_navigation_cost_and_bonuses_match_level_one() -> void:
+	assert_almost_eq(Balance.next_navigation_cost(0), 4.0, 0.0001)
+	assert_almost_eq(Balance.navigation_speed_multiplier(1), 1.12, 0.0001)
+	assert_almost_eq(Balance.navigation_cargo_multiplier(1), 1.12, 0.0001)
+
+
+func test_settlement_cost_and_discount_match_level_one() -> void:
+	assert_almost_eq(Balance.next_settlement_cost(0), 5.0, 0.0001)
+	assert_almost_eq(Balance.settlement_cost_multiplier(1), 0.93, 0.0001)
+
+
+func test_settlement_discount_compounds_multiplicatively_with_level() -> void:
+	# 0.93^2 = 0.8649
+	assert_almost_eq(Balance.settlement_cost_multiplier(2), 0.8649, 0.0001)
+
+
+func test_settlement_discount_floors_at_the_configured_maximum() -> void:
+	# Even a hypothetical very high level must never discount past -60%.
+	assert_almost_eq(Balance.settlement_cost_multiplier(100), 0.4, 0.0001)
+
+
+func test_prestige_multipliers_at_level_zero_are_neutral() -> void:
+	assert_almost_eq(Balance.industry_production_multiplier(0), 1.0, 0.0001)
+	assert_almost_eq(Balance.navigation_speed_multiplier(0), 1.0, 0.0001)
+	assert_almost_eq(Balance.navigation_cargo_multiplier(0), 1.0, 0.0001)
+	assert_almost_eq(Balance.settlement_cost_multiplier(0), 1.0, 0.0001)

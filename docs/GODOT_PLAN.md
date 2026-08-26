@@ -57,6 +57,17 @@ Direct request: crafting needs to run continuously in the background (not just a
 - **Not done in this pass:** an actual real-time "keeps running while the app is closed" feature. That requires a live game clock plus reading elapsed real-world time on startup, and nothing in the project drives *any* system (colonies, shipping, crafting) in real time yet — there's no running game loop at all currently, for anything. Crafting (and shipping, below) are now built to handle that correctly whenever that clock gets wired up, but the wiring itself is separate, larger work.
 - **Found while building this, and fixed since it's the identical problem:** shipping only ever advanced one leg of one trip per call, so fast-forwarding it through a long gap would have badly under-counted deliveries. Fixed to complete as many full round trips as the elapsed time and available cargo allow, the same way crafting now does.
 
+### The real prestige system (Liberty)
+
+Built docs/GAME_DESIGN.md §8 for real, replacing the earlier unwired "doubloons" placeholder that nothing had ever read or written.
+
+- **Liberty, lifetime Liberty earned, and the three permanent upgrade levels (Industry/Navigation/Settlement) now live in the permanent save layer** and survive a reset - that's the entire point. The old placeholder fields (`doubloons`, an unused generic `meta_upgrades` list) are gone; nothing had wired them up to anything real, so there was no behavior to preserve.
+- **The reset gate reads this run's lifetime earnings, not current gold on hand** - a new per-run counter that only ever grows, separate from gold you can spend. Spending doesn't undo progress toward unlocking a reset.
+- **Declaring independence pays out Liberty via the documented formula, then wipes the run through the same `new_run()` reset boundary everything else in this codebase already uses** - no separate, duplicate reset logic.
+- **All three branches' effects are wired all the way through to where they matter**: Industry boosts colony production (stacking with the existing run-scoped upgrade system, multiplicatively, at the point where a colony reads its rate), Navigation boosts cargo capacity and shipping speed, Settlement discounts colonist and new-colony costs. None of these three is a number that just sits in a menu unconnected to anything - each one visibly changes a real result the same way primitive_tools already proved out for the run-scoped system.
+- **Branch costs use the same `base × growth^level` shape every other cost curve in this project already uses**, tuned to land close to the document's example table rather than hardcoding that table verbatim - consistent with the standing instruction to keep every number easily retunable from one place (Balance/the inspector) rather than baked into a lookup table.
+- Not yet touched: the rest of §9's save shape (recipes_ever_unlocked, stats, warehouse, routing) - that's task #34's job, not this one's.
+
 ---
 
 ## Environment (verified this session)

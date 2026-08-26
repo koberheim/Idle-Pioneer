@@ -74,7 +74,15 @@ func production_rate() -> float:
 	if def == null:
 		return 0.0
 	return Balance.colony_production_rate(
-		def.base_production_rate, production_level, colonists_assigned(), Game.progression.production_multiplier()
+		def.base_production_rate,
+		production_level,
+		colonists_assigned(),
+		# Two independent multipliers, combined here rather than in Balance:
+		# Progression's run-scoped upgrade (resets every run) and Prestige's
+		# Industry branch (permanent, §8). Balance.colony_production_rate()
+		# only ever takes one combined "prestige_multiplier" - it doesn't
+		# need to know these are two separate systems.
+		Game.progression.production_multiplier() * Game.prestige.production_multiplier()
 	)
 
 
@@ -83,7 +91,7 @@ func cargo_capacity() -> float:
 	var def: ColonyDef = Db.colony(colony_id)
 	if def == null:
 		return 0.0
-	return Balance.colony_cargo_capacity(def.base_cargo, cargo_level, colonists_assigned())
+	return Balance.colony_cargo_capacity(def.base_cargo, cargo_level, colonists_assigned(), Game.prestige.cargo_multiplier())
 
 
 ## Full round-trip travel time in seconds for a Route serving this colony.
@@ -92,7 +100,8 @@ func round_trip_seconds() -> float:
 	if def == null:
 		return 0.0
 	return Balance.route_round_trip_seconds(
-		distance(), route_type == RouteType.SEA, def.base_speed, speed_level, colonists_assigned()
+		distance(), route_type == RouteType.SEA, def.base_speed, speed_level, colonists_assigned(),
+		Game.prestige.speed_multiplier()
 	)
 
 

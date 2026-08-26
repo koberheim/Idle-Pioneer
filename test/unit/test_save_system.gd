@@ -125,14 +125,14 @@ func test_save_then_load_restores_purchased_upgrades() -> void:
 
 
 func test_save_then_load_restores_meta_across_a_run_reset() -> void:
-	Game.meta.doubloons = 4
+	Game.meta.liberty = 4
 	Game.meta.lifetime_gold_earned = 900.0
 	SaveSystem.save()
 	Game.run = null
 	Game.meta = MetaState.new()
 
 	SaveSystem.load()
-	assert_eq(Game.meta.doubloons, 4)
+	assert_eq(Game.meta.liberty, 4)
 	assert_almost_eq(Game.meta.lifetime_gold_earned, 900.0, 0.0001)
 
 
@@ -222,6 +222,30 @@ func test_save_then_load_restores_auto_craft_toggle_and_cycle_progress() -> void
 	assert_not_null(restored)
 	assert_true(restored.auto_craft)
 	assert_almost_eq(restored.cycle.accumulated, 1.75, 0.0001)
+
+
+func test_save_then_load_restores_lifetime_gold_earned_this_run() -> void:
+	Game.economy.add_gold(500.0)
+	Game.economy.try_spend(200.0)  # spending must not undo this on reload either
+	SaveSystem.save()
+	Game.run = null
+
+	SaveSystem.load()
+	assert_almost_eq(Game.prestige.lifetime_gold_earned_this_run(), 500.0, 0.0001)
+
+
+func test_save_then_load_restores_liberty_and_prestige_upgrade_levels() -> void:
+	Game.meta.liberty = 12
+	Game.meta.lifetime_liberty_earned = 20
+	Game.meta.upgrades[&"industry"] = 2
+	SaveSystem.save()
+	Game.run = null
+	Game.meta = MetaState.new()
+
+	SaveSystem.load()
+	assert_eq(Game.meta.liberty, 12)
+	assert_eq(Game.meta.lifetime_liberty_earned, 20)
+	assert_eq(Game.prestige.industry_level(), 2)
 
 
 func test_save_then_load_with_no_workshops_restores_an_empty_list() -> void:

@@ -61,13 +61,13 @@ func test_new_run_clears_leftover_colonies_and_colonist_assignments() -> void:
 
 
 func test_new_run_does_not_touch_meta() -> void:
-	Game.meta.doubloons = 5
+	Game.meta.liberty = 5
 	Game.meta.lifetime_gold_earned = 1000.0
 
 	Game.new_run(&"mvp_coast")
 	Game.new_run(&"mvp_coast")
 
-	assert_eq(Game.meta.doubloons, 5)
+	assert_eq(Game.meta.liberty, 5)
 	assert_eq(Game.meta.lifetime_gold_earned, 1000.0)
 
 

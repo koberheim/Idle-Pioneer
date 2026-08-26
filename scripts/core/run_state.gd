@@ -20,6 +20,13 @@ var map_seed: int = 0
 var elapsed_seconds: float = 0.0
 var gold: float = 0.0
 
+## Total gold ever earned this run, never decreasing even as gold is spent -
+## what §8's prestige gate/payout actually reads (lifetime_coin_this_run),
+## as opposed to current on-hand `gold` above. Resets to 0 with every new
+## run, same as everything else in RunState; Game.meta.lifetime_gold_earned
+## is the separate, permanent, never-reset total across every run.
+var lifetime_gold_earned_this_run: float = 0.0
+
 ## How many colonists have been bought this run (docs/GAME_DESIGN.md §4 - the
 ## shared workforce split between gathering and crafting). Colonists owns the
 ## behaviour (buying, assigning); this is just where the total is persisted.
@@ -58,6 +65,7 @@ func to_dict() -> Dictionary:
 		"map_seed": map_seed,
 		"elapsed_seconds": elapsed_seconds,
 		"gold": gold,
+		"lifetime_gold_earned_this_run": lifetime_gold_earned_this_run,
 		"colonists_owned": colonists_owned,
 		"inventory": _stringname_float_dict_to_json(inventory),
 		"colonies": colonies.map(_colony_to_dict),
@@ -76,6 +84,7 @@ static func from_dict(d: Dictionary) -> RunState:
 	s.map_seed = int(d.get("map_seed", 0))
 	s.elapsed_seconds = float(d.get("elapsed_seconds", 0.0))
 	s.gold = float(d.get("gold", 0.0))
+	s.lifetime_gold_earned_this_run = float(d.get("lifetime_gold_earned_this_run", 0.0))
 	s.colonists_owned = int(d.get("colonists_owned", 0))
 	s.inventory = _json_to_stringname_float_dict(d.get("inventory", {}))
 

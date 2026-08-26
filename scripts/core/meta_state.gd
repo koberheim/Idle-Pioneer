@@ -2,25 +2,31 @@
 ## Phase 6, Option B). Plain RefCounted data, same reasoning as RunState: this is
 ## save state, not authored content, not a live subsystem.
 ##
-## `lifetime_gold_earned` accumulates from day one even though nothing reads it
-## yet - the eventual Doubloon payout formula (task PrestigeManager-equivalent,
-## post-MVP) needs history to work from, and that's cheap to start capturing now
-## versus reconstructing later. This is Phase 10 rule 5's third-ish exception in
-## spirit, though the actual field is small enough not to be worth its own bullet
-## there.
+## `liberty`/`lifetime_liberty_earned`/`upgrades` are the real prestige currency
+## and permanent upgrade tree from docs/GAME_DESIGN.md §8/§9 - Prestige (Game
+## child, scripts/sim/prestige.gd) owns the behaviour; this is just where it's
+## persisted. Replaces an earlier placeholder ("doubloons" / a flat
+## meta_upgrades id list) that nothing had wired up yet - see docs/GODOT_PLAN.md's
+## design realignment section.
 class_name MetaState
 extends RefCounted
 
-var doubloons: int = 0
-var meta_upgrades: Array[StringName] = []
+var liberty: int = 0
+var lifetime_liberty_earned: int = 0
+
+## StringName (branch id - Prestige.BRANCH_*) -> int (level bought, permanent).
+## Missing key means level 0, same convention as Colonists' _assignments.
+var upgrades: Dictionary = {}
+
 var lifetime_gold_earned: float = 0.0
 var runs_completed: int = 0
 
 
 func to_dict() -> Dictionary:
 	return {
-		"doubloons": doubloons,
-		"meta_upgrades": meta_upgrades.map(func(id: StringName) -> String: return String(id)),
+		"liberty": liberty,
+		"lifetime_liberty_earned": lifetime_liberty_earned,
+		"upgrades": _stringname_int_dict_to_json(upgrades),
 		"lifetime_gold_earned": lifetime_gold_earned,
 		"runs_completed": runs_completed,
 	}
@@ -30,13 +36,23 @@ static func from_dict(d: Dictionary) -> MetaState:
 	var s := MetaState.new()
 	# JSON has no integer type - cast explicitly (see RunState.from_dict for the
 	# same gotcha, first handled in task G1).
-	s.doubloons = int(d.get("doubloons", 0))
-
-	var upgrades: Array[StringName] = []
-	for entry: Variant in (d.get("meta_upgrades", []) as Array):
-		upgrades.append(StringName(entry as String))
-	s.meta_upgrades = upgrades
-
+	s.liberty = int(d.get("liberty", 0))
+	s.lifetime_liberty_earned = int(d.get("lifetime_liberty_earned", 0))
+	s.upgrades = _json_to_stringname_int_dict(d.get("upgrades", {}))
 	s.lifetime_gold_earned = float(d.get("lifetime_gold_earned", 0.0))
 	s.runs_completed = int(d.get("runs_completed", 0))
 	return s
+
+
+static func _stringname_int_dict_to_json(source: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	for key: StringName in source.keys():
+		out[String(key)] = int(source[key])
+	return out
+
+
+static func _json_to_stringname_int_dict(source: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	for key: String in source.keys():
+		out[StringName(key)] = int(source[key])
+	return out

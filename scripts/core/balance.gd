@@ -29,8 +29,11 @@ func _geometric_cost(base: float, growth: float, count: int) -> float:
 	return base * pow(growth, count)
 
 
-func next_colonist_cost(colonists_owned: int) -> float:
-	return _geometric_cost(_def.colonist_base_cost, _def.colonist_cost_growth, colonists_owned)
+## `prestige_discount_multiplier` is Settlement's effect (Prestige.
+## cost_discount_multiplier()) - defaults to 1.0 (no discount) so every
+## existing caller/test that hasn't bought Settlement yet is unaffected.
+func next_colonist_cost(colonists_owned: int, prestige_discount_multiplier: float = 1.0) -> float:
+	return _geometric_cost(_def.colonist_base_cost, _def.colonist_cost_growth, colonists_owned) * prestige_discount_multiplier
 
 
 func next_production_level_cost(current_level: int) -> float:
@@ -66,21 +69,98 @@ func colony_production_rate(
 
 ## Cargo capacity - a colony's own base_cargo, its cargo upgrade level, and
 ## its assigned colonists. Land vs. sea no longer affects this (see
-## route_round_trip_seconds for where it does apply).
-func colony_cargo_capacity(base_cargo: float, cargo_level: int, colonists_assigned: int) -> float:
+## route_round_trip_seconds for where it does apply). `prestige_cargo_multiplier`
+## is Navigation's cargo effect (Prestige.cargo_multiplier()) - defaults to
+## 1.0 so every existing caller/test is unaffected until Navigation is bought.
+func colony_cargo_capacity(
+	base_cargo: float, cargo_level: int, colonists_assigned: int, prestige_cargo_multiplier: float = 1.0
+) -> float:
 	var level_multiplier: float = 1.0 + _def.cargo_level_bonus * float(cargo_level)
-	return base_cargo * level_multiplier * _colonist_multiplier(colonists_assigned)
+	return base_cargo * level_multiplier * _colonist_multiplier(colonists_assigned) * prestige_cargo_multiplier
 
 
 ## Full round-trip travel time in seconds. `is_sea` picks the per-distance
 ## time factor (land vs. sea, docs/GAME_DESIGN.md §5's per-colony roll); the
 ## colony's own base_speed, speed upgrade level, and assigned colonists all
-## reduce it further.
+## reduce it further. `prestige_speed_multiplier` is Navigation's speed
+## effect (Prestige.speed_multiplier()) - defaults to 1.0 so every existing
+## caller/test is unaffected until Navigation is bought.
 func route_round_trip_seconds(
-	distance: int, is_sea: bool, base_speed: float, speed_level: int, colonists_assigned: int
+	distance: int, is_sea: bool, base_speed: float, speed_level: int, colonists_assigned: int,
+	prestige_speed_multiplier: float = 1.0
 ) -> float:
 	var time_factor: float = _def.route_time_factor_sea if is_sea else _def.route_time_factor_land
-	var speed_multiplier: float = base_speed * (1.0 + _def.speed_level_bonus * float(speed_level)) * _colonist_multiplier(colonists_assigned)
+	var speed_multiplier: float = (
+		base_speed
+		* (1.0 + _def.speed_level_bonus * float(speed_level))
+		* _colonist_multiplier(colonists_assigned)
+		* prestige_speed_multiplier
+	)
 	if speed_multiplier <= 0.0:
 		return 0.0
 	return float(distance) * time_factor / speed_multiplier
+
+
+## §8: reset unlocks once this run's lifetime earnings (not current on-hand
+## gold, which can be spent down) cross the threshold.
+func prestige_gate_met(lifetime_gold_earned_this_run: float) -> bool:
+	return lifetime_gold_earned_this_run >= _def.prestige_gate_threshold
+
+
+## §6: liberty = floor(6 x sqrt(lifetime_coin_this_run / 2e9)).
+func prestige_liberty_payout(lifetime_gold_earned_this_run: float) -> int:
+	if lifetime_gold_earned_this_run <= 0.0:
+		return 0
+	return int(floor(_def.prestige_payout_multiplier * sqrt(lifetime_gold_earned_this_run / _def.prestige_payout_divisor)))
+
+
+func industry_max_level() -> int:
+	return _def.industry_max_level
+
+
+func navigation_max_level() -> int:
+	return _def.navigation_max_level
+
+
+func settlement_max_level() -> int:
+	return _def.settlement_max_level
+
+
+func next_industry_cost(level: int) -> float:
+	return _geometric_cost(_def.industry_base_cost, _def.industry_cost_growth, level)
+
+
+func next_navigation_cost(level: int) -> float:
+	return _geometric_cost(_def.navigation_base_cost, _def.navigation_cost_growth, level)
+
+
+func next_settlement_cost(level: int) -> float:
+	return _geometric_cost(_def.settlement_base_cost, _def.settlement_cost_growth, level)
+
+
+## +15% production per level, additive (docs/GAME_DESIGN.md §8's Industry
+## branch). Combines with Progression's run-scoped multiplier at the call
+## site (Colony.production_rate()) - Balance.colony_production_rate() only
+## ever takes one combined multiplier, not two separate ones.
+func industry_production_multiplier(level: int) -> float:
+	return 1.0 + _def.industry_bonus_per_level * float(level)
+
+
+## +12% transport speed per level, additive (docs/GAME_DESIGN.md §8's
+## Navigation branch).
+func navigation_speed_multiplier(level: int) -> float:
+	return 1.0 + _def.navigation_bonus_per_level * float(level)
+
+
+## +12% cargo per level, additive - same rate as speed, per §8 ("and +12%
+## cargo per level"), kept as its own function since the two effects are
+## independently retunable fields in BalanceDef even though they start equal.
+func navigation_cargo_multiplier(level: int) -> float:
+	return 1.0 + _def.navigation_bonus_per_level * float(level)
+
+
+## -7% colonist/colony cost per level, multiplicative (0.93^level), floored
+## at -60% total discount (docs/GAME_DESIGN.md §8's Settlement branch).
+func settlement_cost_multiplier(level: int) -> float:
+	var multiplier: float = pow(1.0 - _def.settlement_discount_per_level, float(level))
+	return maxf(multiplier, 1.0 - _def.settlement_max_discount)

@@ -23,6 +23,7 @@ signal run_ended
 @onready var progression: Node = $Progression
 @onready var colonists: Node = $Colonists
 @onready var crafting_stations: Node = $CraftingStations
+@onready var prestige: Node = $Prestige
 
 var meta: MetaState = MetaState.new()
 var run: RunState = null

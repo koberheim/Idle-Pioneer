@@ -3,7 +3,7 @@
 ## project should read or write save data directly.
 ##
 ## The file has two parts, matching the split established in tasks G1/G2/G3:
-## `meta` (permanent - doubloons, lifetime totals, survives everything) and
+## `meta` (permanent - Liberty, lifetime totals, survives everything) and
 ## `run` (the current playthrough - gold, resources, colonies, upgrades; can be
 ## null if no playthrough is in progress). See docs/GODOT_PLAN.md Phase 6 for
 ## why that split exists.

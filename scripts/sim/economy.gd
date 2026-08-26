@@ -24,6 +24,7 @@ func add_gold(amount: float) -> void:
 		return
 
 	Game.run.gold += amount
+	Game.run.lifetime_gold_earned_this_run += amount
 	Game.meta.lifetime_gold_earned += amount
 	gold_changed.emit(Game.run.gold)
 
@@ -79,9 +80,11 @@ func sell_value(id: StringName, amount: float) -> float:
 	return def.base_value * amount
 
 
-## Exponential cost curve for founding the next colony: base * mult^founded.
+## Exponential cost curve for founding the next colony: base * mult^founded,
+## discounted by Settlement's prestige effect (§8 - "-7% colonist and colony
+## cost per level").
 ## Matches the real Unity formula (EconomyManager.nextColonyCost) and Phase 7's
 ## MVP spec.
 func next_colony_cost() -> float:
 	var founded: int = Game.run.colonies_founded if Game.run != null else 0
-	return BASE_COLONY_COST * pow(COLONY_COST_MULTIPLIER, founded)
+	return BASE_COLONY_COST * pow(COLONY_COST_MULTIPLIER, founded) * Game.prestige.cost_discount_multiplier()

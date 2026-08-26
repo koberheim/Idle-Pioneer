@@ -36,13 +36,10 @@ func assigned_to(site_id: StringName) -> int:
 	return int(_assignments.get(site_id, 0))
 
 
-## Cost of the next colonist, before any prestige discount. The curve itself
-## lives in Balance (§6's full formula also multiplies by a Settlement-branch
-## discount from Progression - not applied here yet, since the real prestige
-## system doesn't exist until a later rework; that hookup is a one-line
-## change here when it does, not a reason to touch every caller).
+## Cost of the next colonist, including Settlement's prestige discount if any
+## has been bought (§6/§8). The curve itself lives in Balance.
 func next_colonist_cost() -> float:
-	return Balance.next_colonist_cost(colonists_owned())
+	return Balance.next_colonist_cost(colonists_owned(), Game.prestige.cost_discount_multiplier())
 
 
 func buy_colonist() -> bool:

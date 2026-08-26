@@ -8,6 +8,7 @@ func _make_populated_run_state() -> RunState:
 	s.map_seed = 0
 	s.elapsed_seconds = 123.5
 	s.gold = 87.0
+	s.lifetime_gold_earned_this_run = 5400.0
 	s.colonists_owned = 6
 	s.inventory = {&"timber": 12.0, &"clay": 3.0}
 	s.colonies = [
@@ -30,6 +31,7 @@ func test_to_dict_from_dict_round_trip_preserves_all_fields() -> void:
 	assert_eq(restored.map_seed, original.map_seed)
 	assert_eq(restored.elapsed_seconds, original.elapsed_seconds)
 	assert_eq(restored.gold, original.gold)
+	assert_eq(restored.lifetime_gold_earned_this_run, original.lifetime_gold_earned_this_run)
 	assert_eq(restored.colonists_owned, original.colonists_owned)
 	assert_eq(restored.inventory, original.inventory)
 	assert_eq(restored.colonies, original.colonies)
@@ -69,6 +71,7 @@ func test_fresh_run_state_has_sane_defaults() -> void:
 	assert_eq(s.map_seed, 0)
 	assert_eq(s.elapsed_seconds, 0.0)
 	assert_eq(s.gold, 0.0)
+	assert_eq(s.lifetime_gold_earned_this_run, 0.0)
 	assert_eq(s.colonists_owned, 0)
 	assert_eq(s.inventory, {})
 	assert_eq(s.colonies, [] as Array[Dictionary])

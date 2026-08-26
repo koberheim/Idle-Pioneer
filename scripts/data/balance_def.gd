@@ -50,3 +50,41 @@ extends Resource
 ## why - a judgment call, not something said outright).
 @export var route_time_factor_land: float = 12.0
 @export var route_time_factor_sea: float = 22.0
+
+@export_group("Prestige Gate and Payout")
+## §8/§6: reset unlocks once this run has earned this much gold, lifetime
+## (not current on-hand gold, which can be spent down).
+@export var prestige_gate_threshold: float = 2_000_000_000.0
+## Same 2e9 baseline the doc's payout formula divides by - kept as its own
+## field rather than reusing prestige_gate_threshold so gate and payout can
+## be retuned independently later without one accidentally moving the other.
+@export var prestige_payout_divisor: float = 2_000_000_000.0
+@export var prestige_payout_multiplier: float = 6.0
+
+@export_group("Prestige - Industry")
+## Cost of the next Industry level, in Liberty: base * growth^current_level -
+## the same shape as every other cost curve in this file, applied to the
+## doc's stated rule ("costs escalate base x 1.8^level") rather than its
+## rendered example table, which isn't a clean power series.
+@export var industry_base_cost: float = 3.0
+@export var industry_cost_growth: float = 1.8
+@export var industry_max_level: int = 10
+## +15% production per level, additive (docs/GAME_DESIGN.md §8).
+@export var industry_bonus_per_level: float = 0.15
+
+@export_group("Prestige - Navigation")
+@export var navigation_base_cost: float = 4.0
+@export var navigation_cost_growth: float = 1.8
+@export var navigation_max_level: int = 8
+## +12% transport speed AND +12% cargo per level, additive, same rate for
+## both (docs/GAME_DESIGN.md §8).
+@export var navigation_bonus_per_level: float = 0.12
+
+@export_group("Prestige - Settlement")
+@export var settlement_base_cost: float = 5.0
+@export var settlement_cost_growth: float = 1.8
+@export var settlement_max_level: int = 8
+## -7% colonist and colony cost per level, multiplicative (0.93^level), never
+## discounting past -60% total (docs/GAME_DESIGN.md §8).
+@export var settlement_discount_per_level: float = 0.07
+@export var settlement_max_discount: float = 0.6
