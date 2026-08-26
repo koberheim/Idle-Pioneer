@@ -200,3 +200,103 @@ func test_recipe_with_empty_inputs_is_rejected_by_db() -> void:
 		if p.contains("failed content validation"):
 			has_validation_problem = true
 	assert_true(has_validation_problem, "expected a content-validation problem, got: %s" % [problems])
+
+
+## Rework: real colony table (docs/GAME_DESIGN.md §5). Checks against the
+## live res://data/colonies/ content, same as the resource lookups above.
+func test_colony_lookup_returns_a_colony_def() -> void:
+	var capital: ColonyDef = Db.colony(&"tidewater_landing")
+	assert_not_null(capital)
+	assert_eq(capital.resource_id, &"timber")
+	assert_true(capital.is_capital)
+	assert_almost_eq(capital.unlock_cost, 0.0, 0.0001)
+
+
+func test_all_eight_colonies_are_loaded() -> void:
+	for id: StringName in [
+		&"tidewater_landing", &"cape_harbour", &"chesapeake_fields", &"carolina_flats",
+		&"ironworks_hollow", &"indigo_reach", &"sugar_isle", &"northern_traces",
+	]:
+		assert_not_null(Db.colony(id), "missing colony: %s" % id)
+
+
+func test_all_colonies_returns_them_in_fixed_play_order() -> void:
+	var colonies: Array[ColonyDef] = Db.all_colonies()
+	assert_eq(colonies.size(), 8)
+	for i: int in range(colonies.size()):
+		assert_eq(colonies[i].order, i, "colony at index %d should have order %d" % [i, i])
+	assert_eq(colonies[0].id, &"tidewater_landing")
+	assert_eq(colonies[7].id, &"northern_traces")
+
+
+func test_capital_returns_tidewater_landing() -> void:
+	var cap: ColonyDef = Db.capital()
+	assert_not_null(cap)
+	assert_eq(cap.id, &"tidewater_landing")
+
+
+func test_each_colony_resource_id_resolves_to_a_real_resource() -> void:
+	for def: ColonyDef in Db.all_colonies():
+		assert_not_null(Db.resource(def.resource_id), "%s references unknown resource '%s'" % [def.id, def.resource_id])
+
+
+func test_colony_prices_match_the_design_doc_table() -> void:
+	var expected: Dictionary = {
+		&"tidewater_landing": 1.0,
+		&"cape_harbour": 4.0,
+		&"chesapeake_fields": 14.0,
+		&"carolina_flats": 45.0,
+		&"ironworks_hollow": 150.0,
+		&"indigo_reach": 480.0,
+		&"sugar_isle": 1600.0,
+		&"northern_traces": 5200.0,
+	}
+	for id: StringName in expected.keys():
+		var def: ColonyDef = Db.colony(id)
+		var res: ResourceDef = Db.resource(def.resource_id)
+		assert_almost_eq(res.base_value, expected[id], 0.0001, "%s's resource price mismatch" % id)
+
+
+func test_colony_unlock_costs_match_the_design_doc_table() -> void:
+	var expected: Dictionary = {
+		&"tidewater_landing": 0.0,
+		&"cape_harbour": 250.0,
+		&"chesapeake_fields": 3000.0,
+		&"carolina_flats": 40000.0,
+		&"ironworks_hollow": 500000.0,
+		&"indigo_reach": 6500000.0,
+		&"sugar_isle": 85000000.0,
+		&"northern_traces": 1100000000.0,
+	}
+	for id: StringName in expected.keys():
+		assert_almost_eq(Db.colony(id).unlock_cost, expected[id], 0.01, "%s unlock cost mismatch" % id)
+
+
+func test_duplicate_colony_order_is_reported() -> void:
+	var result: Dictionary = Db._evaluate_directory(FIXTURES + "db_colony_duplicate_order/")
+	var problems: Array[String] = Db._colony_table_problems(result.valid)
+	var has_it := false
+	for p: String in problems:
+		if p.contains("already used by"):
+			has_it = true
+	assert_true(has_it, "expected a duplicate-order problem, got: %s" % [problems])
+
+
+func test_missing_capital_is_reported() -> void:
+	var result: Dictionary = Db._evaluate_directory(FIXTURES + "db_colony_no_capital/")
+	var problems: Array[String] = Db._colony_table_problems(result.valid)
+	var has_it := false
+	for p: String in problems:
+		if p.contains("no colony has is_capital"):
+			has_it = true
+	assert_true(has_it, "expected a missing-capital problem, got: %s" % [problems])
+
+
+func test_multiple_capitals_is_reported() -> void:
+	var result: Dictionary = Db._evaluate_directory(FIXTURES + "db_colony_two_capitals/")
+	var problems: Array[String] = Db._colony_table_problems(result.valid)
+	var has_it := false
+	for p: String in problems:
+		if p.contains("more than one colony"):
+			has_it = true
+	assert_true(has_it, "expected a multiple-capitals problem, got: %s" % [problems])

@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="ColonyDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/colony_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"carolina_flats"
+display_name = "Carolina Flats"
+resource_id = &"cotton"
+order = 3
+unlock_cost = 40000.0
+is_capital = false

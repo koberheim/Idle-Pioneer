@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="ResourceDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/resource_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"iron_ore"
+display_name = "Iron Ore"
+category = 3
+base_value = 150.0
+is_processed = false
+description = "Dug from the Hollow, still rough - a smithy will want it before long."

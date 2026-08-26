@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="ResourceDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/resource_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"tobacco"
+display_name = "Tobacco"
+category = 5
+base_value = 14.0
+is_processed = false
+description = "Broad-leafed and fragrant, cured in the field before it ever sees Europe."

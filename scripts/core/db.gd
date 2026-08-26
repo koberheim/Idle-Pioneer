@@ -10,6 +10,7 @@ const RESOURCES_DIR: String = "res://data/resources/"
 const RECIPES_DIR: String = "res://data/recipes/"
 const REGIONS_DIR: String = "res://data/regions/"
 const UPGRADES_DIR: String = "res://data/upgrades/"
+const COLONIES_DIR: String = "res://data/colonies/"
 
 ## MVP has exactly one map. A per-region `map_id` field (and a dictionary of
 ## loaded grids keyed by it) is the obvious extension once a second map exists -
@@ -18,8 +19,9 @@ const MAP_PATH: String = "res://data/maps/mvp_coast.txt"
 
 var _resources: Dictionary = {}  # StringName -> ResourceDef
 var _recipes: Dictionary = {}  # StringName -> RecipeDef
-var _regions: Dictionary = {}  # StringName -> RegionDef
+var _regions: Dictionary = {}  # StringName -> RegionDef (dormant - see design realignment, docs/GODOT_PLAN.md)
 var _upgrades: Dictionary = {}  # StringName -> UpgradeDef
+var _colonies: Dictionary = {}  # StringName -> ColonyDef
 var _map_grid: MapGrid = null
 
 
@@ -28,6 +30,7 @@ func _ready() -> void:
 	var recipes_result: Dictionary = _evaluate_directory(RECIPES_DIR)
 	var regions_result: Dictionary = _evaluate_directory(REGIONS_DIR)
 	var upgrades_result: Dictionary = _evaluate_directory(UPGRADES_DIR)
+	var colonies_result: Dictionary = _evaluate_directory(COLONIES_DIR)
 
 	# A region whose cell isn't a valid colony site on the map is exactly as
 	# unusable as one with a duplicate id - see _placement_problems for why
@@ -44,10 +47,11 @@ func _ready() -> void:
 	_recipes = recipes_result.valid
 	_regions = clean_regions
 	_upgrades = upgrades_result.valid
+	_colonies = colonies_result.valid
 
 	print(
-		"Db: loaded %d resources, %d recipes, %d regions, %d upgrades" % [
-			_resources.size(), _recipes.size(), _regions.size(), _upgrades.size()
+		"Db: loaded %d resources, %d recipes, %d regions, %d upgrades, %d colonies" % [
+			_resources.size(), _recipes.size(), _regions.size(), _upgrades.size(), _colonies.size()
 		]
 	)
 
@@ -57,6 +61,8 @@ func _ready() -> void:
 	all_problems.append_array(regions_result.problems)
 	all_problems.append_array(placement_problems)
 	all_problems.append_array(upgrades_result.problems)
+	all_problems.append_array(colonies_result.problems)
+	all_problems.append_array(_colony_table_problems(_colonies))
 	for problem: String in all_problems:
 		push_error("Db: %s" % problem)
 
@@ -100,6 +106,36 @@ func all_resources() -> Array[ResourceDef]:
 	return out
 
 
+func colony(id: StringName) -> ColonyDef:
+	var found: Variant = _colonies.get(id)
+	if found == null:
+		push_error("Db.colony: no ColonyDef with id '%s'" % id)
+		return null
+	return found as ColonyDef
+
+
+## Every colony in fixed play order (docs/GAME_DESIGN.md §5 - order 0 is
+## always the Capital). Never rely on Dictionary iteration order for this -
+## sort explicitly every time, since nothing about a Dictionary guarantees
+## insertion or scan order matches `order`.
+func all_colonies() -> Array[ColonyDef]:
+	var out: Array[ColonyDef] = []
+	for def: ColonyDef in _colonies.values():
+		out.append(def)
+	out.sort_custom(func(a: ColonyDef, b: ColonyDef) -> bool: return a.order < b.order)
+	return out
+
+
+## The one colony with is_capital true. Null (with a push_error) if content is
+## missing or misconfigured - every real save assumes exactly one exists.
+func capital() -> ColonyDef:
+	for def: ColonyDef in _colonies.values():
+		if def.is_capital:
+			return def
+	push_error("Db.capital: no ColonyDef has is_capital = true")
+	return null
+
+
 ## Silent existence check - unlike resource(id), this never push_errors. For
 ## callers (e.g. task R1's Inventory) that want to report their own, more
 ## specific "unknown id" message without also triggering Db's generic one for
@@ -141,6 +177,43 @@ func validate() -> Array[String]:
 	problems.append_array(_placement_problems(regions_result.valid))
 
 	problems.append_array(_evaluate_directory(UPGRADES_DIR).problems)
+
+	var colonies_result: Dictionary = _evaluate_directory(COLONIES_DIR)
+	problems.append_array(colonies_result.problems)
+	problems.append_array(_colony_table_problems(colonies_result.valid))
+
+	return problems
+
+
+## Table-level checks that don't fit per-entry validation: exactly one
+## Capital, and no two colonies sharing the same play position. These are
+## reported (not auto-fixed) - there's no sensible way to exclude a single
+## entry to repair a table-wide problem the way _placement_problems can drop
+## one bad region.
+func _colony_table_problems(colonies_valid: Dictionary) -> Array[String]:
+	var problems: Array[String] = []
+
+	var capital_ids: Array[StringName] = []
+	var seen_orders: Dictionary = {}  # int -> StringName (order -> first id that claimed it)
+
+	for id: StringName in colonies_valid.keys():
+		var def: ColonyDef = colonies_valid[id] as ColonyDef
+
+		if def.is_capital:
+			capital_ids.append(id)
+
+		if seen_orders.has(def.order):
+			problems.append(
+				"colony '%s' has order %d, already used by '%s'" % [id, def.order, seen_orders[def.order]]
+			)
+		else:
+			seen_orders[def.order] = id
+
+	if capital_ids.is_empty():
+		problems.append("no colony has is_capital = true")
+	elif capital_ids.size() > 1:
+		problems.append("more than one colony has is_capital = true: %s" % [capital_ids])
+
 	return problems
 
 
