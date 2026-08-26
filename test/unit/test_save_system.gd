@@ -12,6 +12,7 @@ func before_each() -> void:
 	Game.meta = MetaState.new()
 	Game.colonies.clear()
 	Game.crafting_stations.clear()
+	Game.routes.clear()
 
 
 func after_each() -> void:
@@ -20,6 +21,7 @@ func after_each() -> void:
 	Game.meta = MetaState.new()
 	Game.colonies.clear()
 	Game.crafting_stations.clear()
+	Game.routes.clear()
 
 
 func test_has_save_is_false_with_no_file() -> void:
@@ -286,3 +288,73 @@ func test_save_then_load_with_no_workshops_restores_an_empty_list() -> void:
 
 	SaveSystem.load()
 	assert_eq(Game.crafting_stations.all(), [] as Array[CraftingStation])
+
+
+func test_save_then_load_restores_a_routes_in_flight_state() -> void:
+	var capital := Colony.new(&"tidewater_landing")
+	var outpost := Colony.new(&"cape_harbour")
+	outpost.local_stock[&"cod"] = 5.0
+	Game.colonies.register(capital)
+	Game.colonies.register(outpost)
+	Game.routes.tick(0.001)  # syncs the route into existence and departs
+
+	var before: Route = Game.routes.for_colony(&"cape_harbour")
+	var leg_before: float = before.leg_elapsed
+	var cargo_before: float = before.cargo.get(&"cod", 0.0)
+
+	SaveSystem.save()
+	Game.run = null
+	Game.colonies.clear()
+	Game.routes.clear()
+
+	SaveSystem.load()
+	var restored: Route = Game.routes.for_colony(&"cape_harbour")
+	assert_not_null(restored)
+	assert_eq(restored.state, Route.State.TRAVELING_TO_HUB)
+	assert_almost_eq(restored.leg_elapsed, leg_before, 0.01)
+	assert_almost_eq(restored.cargo.get(&"cod", 0.0), cargo_before, 0.0001)
+
+
+## The offline-catch-up requirement: reloading after real time has passed
+## should fast-forward production by that much, in one load() call, not
+## require the game to have been open the whole time.
+func test_load_applies_offline_catch_up_to_colony_production() -> void:
+	Game.colonies.register(Colony.new(&"tidewater_landing"))
+	SaveSystem.save()
+	_rewrite_saved_at_unix(Time.get_unix_time_from_system() - 10)
+	Game.run = null
+	Game.colonies.clear()
+
+	SaveSystem.load()
+	assert_almost_eq(Game.inventory.get_amount(&"timber"), 10.0, 0.5, "10s offline at base rate 1.0/s")
+
+
+func test_load_offline_catch_up_is_capped_at_the_configured_maximum() -> void:
+	Game.colonies.register(Colony.new(&"tidewater_landing"))
+	SaveSystem.save()
+	_rewrite_saved_at_unix(Time.get_unix_time_from_system() - 999_999_999)
+	Game.run = null
+	Game.colonies.clear()
+
+	SaveSystem.load()
+	assert_almost_eq(Game.inventory.get_amount(&"timber"), Balance.offline_catch_up_cap_seconds(), 1.0)
+
+
+func test_load_with_a_fresh_save_applies_negligible_catch_up() -> void:
+	Game.colonies.register(Colony.new(&"tidewater_landing"))
+	SaveSystem.save()
+	Game.run = null
+	Game.colonies.clear()
+
+	SaveSystem.load()
+	assert_lt(Game.inventory.get_amount(&"timber"), 1.0, "essentially no real time passed between save and load")
+
+
+func _rewrite_saved_at_unix(new_value: int) -> void:
+	var file: FileAccess = FileAccess.open(SaveSystem.SAVE_PATH, FileAccess.READ)
+	var data: Dictionary = JSON.parse_string(file.get_as_text())
+	file.close()
+	data["saved_at_unix"] = new_value
+	var out_file: FileAccess = FileAccess.open(SaveSystem.SAVE_PATH, FileAccess.WRITE)
+	out_file.store_string(JSON.stringify(data))
+	out_file.close()

@@ -77,6 +77,15 @@ Closes out §9. One naming decision and one real gameplay decision came up doing
 - **Default is Reserve, not the document's own stated Sell default** - a deliberate choice, answered directly: goods keep piling up in storage exactly as they did before this system existed, unless the player explicitly marks a specific resource to auto-sell. Nothing about existing play changes unless the player opts in.
 - **Run history now has somewhere real to live**: which recipes have ever been crafted at least once, and the best gold total and fastest time across every run, all in the permanent save layer, updated automatically when a run ends. There's no recipe-unlock-gating mechanic yet, so "ever unlocked" is read as "ever crafted" - the closest honest match to what the document means until real recipe gating exists. "Fastest run" is measured by real-world clock time (`started_at_unix` to now), since nothing drives a simulated elapsed-time clock yet - see the continuous-crafting section above.
 
+### The game actually runs now: live simulation driver + offline catch-up
+
+Every subsystem above (colonies, shipping, crafting) had a correct, well-tested `tick(delta)` - but nothing was ever calling them during real play. Opening the game would have shown a static screen; numbers only ever moved inside test code. Two things fixed that together, since the second was the direct payoff of building the first:
+
+- **A live game clock now drives colonies, shipping, and crafting every frame.** Disabled by default until something explicitly starts it (the eventual game screen) - critically, this also means it stays inert during the automated test suite, which runs inside a real (headless) Godot engine that keeps advancing frames of its own accord. Without that guard, the test suite itself would have been silently mutating shared game state on every frame.
+- **Shipping never had a live registry at all before this** - Route objects only ever existed inside tests. Built one (self-healing: it notices a colony that needs a route and creates one automatically, so founding order never matters) and, since routes are now genuinely live, gave them real save/load support too - a shipment's in-flight cargo would otherwise have silently vanished on every reload.
+- **A fresh run now starts with the Capital already founded automatically** - it's free and always present per the document's own colony table; nothing should have to found it by hand.
+- **Reopening the game after time has passed now fast-forwards correctly**, using the save file's own timestamp - capped at a configurable maximum (24 hours by default) so a very long or tampered gap can't produce an unbounded result. This is the direct payoff of building crafting and shipping to handle arbitrarily large time jumps safely - the one big catch-up call simply reuses the same tick methods play already uses, with no separate "offline" code path to keep in sync.
+
 ---
 
 ## Environment (verified this session)

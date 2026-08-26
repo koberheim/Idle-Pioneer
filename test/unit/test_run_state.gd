@@ -22,6 +22,9 @@ func _make_populated_run_state() -> RunState:
 		{"recipe_id": &"salt_cod_recipe", "auto_craft": true, "cycle_accumulated": 1.25},
 	]
 	s.resource_routing = {&"timber": &"sell", &"cod": &"reserve"}
+	s.routes = [
+		{"colony_id": &"cape_harbour", "state": 1, "cargo": {&"cod": 12.0}, "leg_elapsed": 2.5},
+	]
 	return s
 
 
@@ -42,6 +45,7 @@ func test_to_dict_from_dict_round_trip_preserves_all_fields() -> void:
 	assert_eq(restored.colonies_founded, original.colonies_founded)
 	assert_eq(restored.workshops, original.workshops)
 	assert_eq(restored.resource_routing, original.resource_routing)
+	assert_eq(restored.routes, original.routes)
 
 
 ## The real regression risk (docs/GODOT_PLAN.md Phase 8, task G1): JSON has no
@@ -86,6 +90,17 @@ func test_fresh_run_state_has_sane_defaults() -> void:
 	assert_eq(s.colonies_founded, 0)
 	assert_eq(s.workshops, [] as Array[Dictionary])
 	assert_eq(s.resource_routing, {})
+	assert_eq(s.routes, [] as Array[Dictionary])
+
+
+func test_route_state_round_trips_as_its_named_string_in_json() -> void:
+	var original: RunState = _make_populated_run_state()
+	var json_text: String = JSON.stringify(original.to_dict())
+	assert_string_contains(json_text, "traveling_to_hub")
+
+	var parsed: Variant = JSON.parse_string(json_text)
+	var restored: RunState = RunState.from_dict(parsed as Dictionary)
+	assert_eq(restored.routes[0]["state"], 1)
 
 
 func test_from_dict_of_empty_dictionary_does_not_crash() -> void:

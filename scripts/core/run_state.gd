@@ -74,6 +74,17 @@ var workshops: Array[Dictionary] = []
 ## auto-selling.
 var resource_routing: Dictionary = {}
 
+## Per-route save state (rework task: live simulation driver). Routes are
+## rebuilt automatically (Routes.sync_with_colonies(), keyed by colony_id) -
+## this is only the in-flight state that can't be re-derived: where the
+## shipment currently is, and what it's carrying. Without this, activating
+## routes for real play would silently drop any cargo in transit on every
+## save/load. Each entry:
+## {"colony_id": StringName, "state": String ("at_origin"/"traveling_to_hub"/
+## "traveling_to_origin"), "cargo": Dictionary[StringName, float],
+## "leg_elapsed": float}
+var routes: Array[Dictionary] = []
+
 
 func to_dict() -> Dictionary:
 	return {
@@ -90,6 +101,7 @@ func to_dict() -> Dictionary:
 		"colonies_founded": colonies_founded,
 		"workshops": workshops.map(_workshop_to_dict),
 		"resource_routing": _stringname_string_dict_to_json(resource_routing),
+		"routes": routes.map(_route_to_dict),
 	}
 
 
@@ -125,6 +137,11 @@ static func from_dict(d: Dictionary) -> RunState:
 	s.workshops = workshops
 
 	s.resource_routing = _json_to_stringname_string_dict(d.get("resource_routing", {}))
+
+	var routes: Array[Dictionary] = []
+	for entry: Variant in (d.get("routes", []) as Array):
+		routes.append(_route_from_dict(entry as Dictionary))
+	s.routes = routes
 
 	return s
 
@@ -178,6 +195,30 @@ static func _colony_from_dict(d: Dictionary) -> Dictionary:
 		"speed_level": int(d.get("speed_level", 0)),
 		"route_type": 1 if String(d.get("route_type", "land")) == "sea" else 0,
 		"local_stock": _json_to_stringname_float_dict(d.get("local_stock", {})),
+	}
+
+
+const _ROUTE_STATE_NAMES: Array[String] = ["at_origin", "traveling_to_hub", "traveling_to_origin"]
+
+
+static func _route_to_dict(route: Dictionary) -> Dictionary:
+	var state: int = int(route.get("state", 0))
+	return {
+		"colony_id": String(route.get("colony_id", &"")),
+		"state": _ROUTE_STATE_NAMES[state] if state >= 0 and state < _ROUTE_STATE_NAMES.size() else _ROUTE_STATE_NAMES[0],
+		"cargo": _stringname_float_dict_to_json(route.get("cargo", {})),
+		"leg_elapsed": float(route.get("leg_elapsed", 0.0)),
+	}
+
+
+static func _route_from_dict(d: Dictionary) -> Dictionary:
+	var state_name: String = String(d.get("state", "at_origin"))
+	var state: int = _ROUTE_STATE_NAMES.find(state_name)
+	return {
+		"colony_id": StringName(d.get("colony_id", "")),
+		"state": state if state >= 0 else 0,
+		"cargo": _json_to_stringname_float_dict(d.get("cargo", {})),
+		"leg_elapsed": float(d.get("leg_elapsed", 0.0)),
 	}
 
 

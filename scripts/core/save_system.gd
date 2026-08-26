@@ -49,12 +49,12 @@ func save() -> bool:
 	# about the Colony class the rest of the time.
 	Game.run.colonies = _capture_colonies()
 	Game.run.workshops = _capture_workshops()
+	Game.run.routes = _capture_routes()
 
 	var payload: Dictionary = {
 		"save_version": CURRENT_SAVE_VERSION,
-		# Not used yet - task S3 (offline progress) will read this to work out
-		# how long the player was away. Captured now so that feature doesn't
-		# need a save-format change later.
+		# What load()'s offline catch-up measures elapsed time against (see
+		# _apply_offline_catch_up).
 		"saved_at_unix": Time.get_unix_time_from_system(),
 		"meta": Game.meta.to_dict(),
 		"run": Game.run.to_dict(),
@@ -77,11 +77,16 @@ func save() -> bool:
 	return true
 
 
-## Loads game state from disk into Game.meta/Game.run/Game.colonies. Returns
-## false on anything short of a clean, valid save - a missing file (first
-## launch) is not an error and is reported the same way as a corrupt one: both
-## just mean "nothing to load," and it's up to the caller (see task V1) to
-## start a fresh run when this returns false. Never crashes on bad input.
+## Loads game state from disk into Game.meta/Game.run/Game.colonies, then
+## fast-forwards the simulation through however long the player was away
+## (rework task: offline catch-up) - capped at
+## Balance.offline_catch_up_cap_seconds() regardless of the real gap, and
+## skipped entirely if the save predates `saved_at_unix` existing (0/missing
+## - there's nothing reliable to measure from). Returns false on anything
+## short of a clean, valid save - a missing file (first launch) is not an
+## error and is reported the same way as a corrupt one: both just mean
+## "nothing to load," and it's up to the caller (see task V1) to start a
+## fresh run when this returns false. Never crashes on bad input.
 func load() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
 		return false
@@ -120,12 +125,35 @@ func load() -> bool:
 		Game.run = RunState.from_dict(run_data)
 		_restore_colonies(Game.run.colonies)
 		_restore_workshops(Game.run.workshops)
+		_restore_routes(Game.run.routes)
+		_apply_offline_catch_up(int(data.get("saved_at_unix", 0)))
 	else:
 		Game.run = null
 		Game.colonies.clear()
 		Game.crafting_stations.clear()
+		Game.routes.clear()
 
 	return true
+
+
+## Fast-forwards colonies, routes, and crafting through the real time that
+## passed since `saved_at_unix`, in one call each - the exact same
+## exact-math/bounded-loop tick() methods that already handle a live frame's
+## delta handle an arbitrarily large one just as correctly (see Colony,
+## Route, and CraftingStation's own class docs). A non-positive or missing
+## timestamp is treated as "nothing to catch up" rather than guessed at.
+func _apply_offline_catch_up(saved_at_unix: int) -> void:
+	if saved_at_unix <= 0:
+		return
+	var now: int = Time.get_unix_time_from_system()
+	var elapsed: float = clampf(float(now - saved_at_unix), 0.0, Balance.offline_catch_up_cap_seconds())
+	if elapsed <= 0.0:
+		return
+
+	Game.colonies.tick(elapsed)
+	Game.routes.tick(elapsed)
+	Game.crafting_stations.tick(elapsed)
+	Game.run.elapsed_seconds += elapsed
 
 
 ## Snapshots every live colony into the plain-dictionary shape RunState.colonies
@@ -181,6 +209,42 @@ func _restore_workshops(snapshots: Array[Dictionary]) -> void:
 		var station: CraftingStation = Game.crafting_stations.get_or_create(recipe_id)
 		station.auto_craft = bool(snapshot.get("auto_craft", false))
 		station.cycle.accumulated = float(snapshot.get("cycle_accumulated", 0.0))
+
+
+## Snapshots every live route's in-flight state - see RunState.routes' class
+## doc for why this is the only route data that needs saving at all (routes
+## themselves are rebuilt automatically from the colony list, not stored).
+func _capture_routes() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for route: Route in Game.routes.all():
+		out.append({
+			"colony_id": route.origin.colony_id,
+			"state": route.state,
+			"cargo": route.cargo.duplicate(),
+			"leg_elapsed": route.leg_elapsed,
+		})
+	return out
+
+
+## Must run after _restore_colonies() - a route needs its origin (and the
+## Capital) to already be live. Routes.sync_with_colonies() (called
+## implicitly by the first Game.routes.tick()) creates the route itself;
+## this only needs to overwrite the in-flight fields on top of that, for
+## whichever colonies actually have a saved snapshot. A colony with no
+## snapshot (this save predates it, or it was founded but never shipped
+## anything) just gets a fresh route, exactly as sync_with_colonies() already
+## does on its own.
+func _restore_routes(snapshots: Array[Dictionary]) -> void:
+	Game.routes.clear()
+	Game.routes.sync_with_colonies()
+	for snapshot: Dictionary in snapshots:
+		var colony_id: StringName = snapshot.get("colony_id", &"")
+		var route: Route = Game.routes.for_colony(colony_id)
+		if route == null:
+			continue
+		route.state = int(snapshot.get("state", 0)) as Route.State
+		route.cargo = (snapshot.get("cargo", {}) as Dictionary).duplicate()
+		route.leg_elapsed = float(snapshot.get("leg_elapsed", 0.0))
 
 
 ## No migrations exist yet - version 1 is the only shape that has ever

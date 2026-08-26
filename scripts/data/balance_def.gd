@@ -51,6 +51,13 @@ extends Resource
 @export var route_time_factor_land: float = 12.0
 @export var route_time_factor_sea: float = 22.0
 
+@export_group("Offline Catch-Up")
+## Maximum real-world time (seconds) a single load() will fast-forward
+## through, regardless of how long the save file says the player was away.
+## Prevents an absurdly long gap (or a corrupted/tampered timestamp) from
+## producing an equally absurd result - 24 hours by default, easily retuned.
+@export var offline_catch_up_cap_seconds: float = 86400.0
+
 @export_group("Prestige Gate and Payout")
 ## §8/§6: reset unlocks once this run has earned this much gold, lifetime
 ## (not current on-hand gold, which can be spent down).

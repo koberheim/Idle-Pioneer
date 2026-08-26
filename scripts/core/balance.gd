@@ -114,6 +114,10 @@ func prestige_liberty_payout(lifetime_gold_earned_this_run: float) -> int:
 	return int(floor(_def.prestige_payout_multiplier * sqrt(lifetime_gold_earned_this_run / _def.prestige_payout_divisor)))
 
 
+func offline_catch_up_cap_seconds() -> float:
+	return _def.offline_catch_up_cap_seconds
+
+
 func industry_max_level() -> int:
 	return _def.industry_max_level
 

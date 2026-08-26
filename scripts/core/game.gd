@@ -25,6 +25,8 @@ signal run_ended
 @onready var crafting_stations: Node = $CraftingStations
 @onready var prestige: Node = $Prestige
 @onready var routing: Node = $Routing
+@onready var routes: Node = $Routes
+@onready var simulation: Node = $Simulation
 
 var meta: MetaState = MetaState.new()
 var run: RunState = null
@@ -62,5 +64,15 @@ func new_run(map_id: StringName) -> void:
 	colonies.clear()
 	colonists.clear_assignments()
 	crafting_stations.clear()
+	routes.clear()
+
+	# The Capital always exists from the moment a run starts - free, per
+	# docs/GAME_DESIGN.md §5's colony table (unlock_cost 0). Every other
+	# colony has to be founded (Colonies.found()); the Capital is the one
+	# exception, so it's bootstrapped here rather than requiring a player
+	# action for something that was never actually optional.
+	var capital_def: ColonyDef = Db.capital()
+	if capital_def != null:
+		colonies.register(Colony.new(capital_def.id))
 
 	run_started.emit()

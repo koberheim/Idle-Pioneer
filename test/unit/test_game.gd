@@ -10,11 +10,17 @@ extends GutTest
 func before_each() -> void:
 	Game.run = null
 	Game.meta = MetaState.new()
+	Game.colonies.clear()
+	Game.colonists.clear_assignments()
+	Game.routes.clear()
 
 
 func after_each() -> void:
 	Game.run = null
 	Game.meta = MetaState.new()
+	Game.colonies.clear()
+	Game.colonists.clear_assignments()
+	Game.routes.clear()
 
 
 func test_fresh_game_has_no_run() -> void:
@@ -47,17 +53,34 @@ func test_two_new_run_calls_produce_independent_state() -> void:
 ## being cleared - a second run would start with the first run's colonies
 ## and colonist assignments still active. Fixed in game.gd's new_run(); this
 ## test covers the fix.
+##
+## A fresh run always has exactly the Capital (bootstrapped automatically -
+## see game.gd's new_run(), rework task: live simulation), so "cleared"
+## means "only the fresh Capital remains," not "empty" - founding a second
+## colony is what proves anything beyond the Capital actually got wiped.
 func test_new_run_clears_leftover_colonies_and_colonist_assignments() -> void:
 	Game.new_run(&"mvp_coast")
-	Game.colonies.register(Colony.new(&"tidewater_landing"))
+	Game.colonies.register(Colony.new(&"cape_harbour"))
 	Game.economy.add_gold(100.0)
 	Game.colonists.buy_colonist()
 	Game.colonists.assign(&"tidewater_landing", 1)
 
 	Game.new_run(&"mvp_coast")
 
-	assert_eq(Game.colonies.all(), [] as Array[Colony], "leftover colonies should be cleared")
+	var remaining: Array[Colony] = Game.colonies.all()
+	assert_eq(remaining.size(), 1, "only the freshly-bootstrapped Capital should remain")
+	assert_true(remaining[0].is_capital)
 	assert_eq(Game.colonists.total_assigned(), 0, "leftover assignments should be cleared")
+
+
+## The Capital is free and always founded from the start (docs/GAME_DESIGN.md
+## §5) - every other colony has to be bought via Colonies.found().
+func test_new_run_bootstraps_the_capital() -> void:
+	Game.new_run(&"mvp_coast")
+	var capital: Colony = Game.colonies.capital()
+	assert_not_null(capital)
+	assert_eq(capital.colony_id, &"tidewater_landing")
+	assert_true(capital.is_capital)
 
 
 func test_new_run_does_not_touch_meta() -> void:
