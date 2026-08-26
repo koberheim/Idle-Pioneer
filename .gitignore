@@ -1,0 +1,20 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+
+# Godot-specific export presets may contain keystore paths / passwords
+export_presets.cfg
+
+# Imported assets cache
+.import/
+
+# Mono/C# (not used — see docs/GODOT_PLAN.md Phase 3)
+.mono/
+data_*/
+*.csproj
+*.sln
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
