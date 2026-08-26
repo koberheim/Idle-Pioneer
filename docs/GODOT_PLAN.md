@@ -115,6 +115,10 @@ Read `docs/GODOT_MIGRATION_ANALYSIS.md`'s account of what actually broke in Unit
 - **Found and fixed a real bug while wiring this up, unrelated to the map itself**: distance now defaults to 0 for a freshly-made colony (real, per-site data, not a stand-in number) - which is correct - but several tests still assumed the old default and broke in a specific, informative way (a shipment "arriving" instantly instead of showing it mid-transit). Fixed by giving those tests real distances explicitly, the same fix already applied everywhere the design realignment touched shipping earlier this session.
 - **Generation itself needed a speed pass**: the placement search initially rescanned the whole map for every one of the up to 25 colonies, which was slow enough to visibly drag down the whole automated test suite (every test that starts a run now generates a real map). Precomputing and sorting candidate sites by distance once, then narrowing straight to the relevant range, cut that down substantially.
 
+### Colonists had no screen at all
+
+Found while reviewing what was still missing after the map rework: buying and assigning colonists (docs/GAME_DESIGN.md §4's "central tension of the whole game") had a fully built, tested backend (`Game.colonists`) but no way to touch it from the actual game screen - the Colonies tab covered founding and upgrades, but not the colonist pool sitting right next to them. Added a colonist count/buy row at the top of that tab, and a per-colony assign/unassign control on every founded colony's row.
+
 ---
 
 ## Environment (verified this session)

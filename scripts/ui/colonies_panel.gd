@@ -41,9 +41,36 @@ func refresh() -> void:
 	if Game.run == null:
 		return
 
+	_list.add_child(_build_colonist_pool_row())
+	_list.add_child(HSeparator.new())
+
 	for slot: Dictionary in Game.run.colony_slots:
 		_list.add_child(_build_row(slot))
 	_list.add_child(HSeparator.new())
+
+
+## Docs/GAME_DESIGN.md §4's "central tension" - a single shared, limited
+## pool bought here and handed out per colony below. Buying doesn't assign;
+## assigning below is what actually boosts a colony's output.
+func _build_colonist_pool_row() -> Control:
+	var row := HBoxContainer.new()
+
+	var label := Label.new()
+	label.text = "Colonists: %d owned, %d idle" % [Game.colonists.colonists_owned(), Game.colonists.colonists_idle()]
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(label)
+
+	var cost: float = Game.colonists.next_colonist_cost()
+	var buy_button := Button.new()
+	buy_button.text = "Buy Colonist (%.0fg)" % cost
+	buy_button.disabled = Game.economy.gold < cost
+	buy_button.pressed.connect(func() -> void:
+		Game.colonists.buy_colonist()
+		refresh()
+	)
+	row.add_child(buy_button)
+
+	return row
 
 
 func _build_row(slot: Dictionary) -> Control:
@@ -121,6 +148,8 @@ func _build_founded_stats(colony: Colony) -> Control:
 		status.text = "%s - %s route, distance %.1f" % [state_text, route_kind, colony.distance()]
 		box.add_child(status)
 
+	box.add_child(_build_colonist_assignment_row(colony))
+
 	var buttons := HBoxContainer.new()
 	box.add_child(buttons)
 	buttons.add_child(_upgrade_button(
@@ -137,6 +166,39 @@ func _build_founded_stats(colony: Colony) -> Control:
 	))
 
 	return box
+
+
+## Colonists boost all three of a colony's tracks at once (design realignment
+## - see Balance's colonist-bonus doc) - a colony produces fine with none
+## assigned; this is purely a bonus on top.
+func _build_colonist_assignment_row(colony: Colony) -> Control:
+	var row := HBoxContainer.new()
+
+	var assigned: int = Game.colonists.assigned_to(colony.colony_id)
+	var label := Label.new()
+	label.text = "Colonists assigned: %d" % assigned
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(label)
+
+	var minus_button := Button.new()
+	minus_button.text = "-"
+	minus_button.disabled = assigned <= 0
+	minus_button.pressed.connect(func() -> void:
+		Game.colonists.unassign(colony.colony_id, 1)
+		refresh()
+	)
+	row.add_child(minus_button)
+
+	var plus_button := Button.new()
+	plus_button.text = "+"
+	plus_button.disabled = Game.colonists.colonists_idle() <= 0
+	plus_button.pressed.connect(func() -> void:
+		Game.colonists.assign(colony.colony_id, 1)
+		refresh()
+	)
+	row.add_child(plus_button)
+
+	return row
 
 
 func _build_found_button(slot_index: int, slot: Dictionary) -> Control:
