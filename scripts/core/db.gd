@@ -11,10 +11,16 @@ const RECIPES_DIR: String = "res://data/recipes/"
 const REGIONS_DIR: String = "res://data/regions/"
 const UPGRADES_DIR: String = "res://data/upgrades/"
 
+## MVP has exactly one map. A per-region `map_id` field (and a dictionary of
+## loaded grids keyed by it) is the obvious extension once a second map exists -
+## not built ahead of that need, per docs/GODOT_PLAN.md Phase 10 rule 5.
+const MAP_PATH: String = "res://data/maps/mvp_coast.txt"
+
 var _resources: Dictionary = {}  # StringName -> ResourceDef
-var _recipes: Dictionary = {}  # StringName -> Resource (RecipeDef once it exists)
-var _regions: Dictionary = {}  # StringName -> Resource (RegionDef once it exists)
-var _upgrades: Dictionary = {}  # StringName -> Resource (UpgradeDef once it exists)
+var _recipes: Dictionary = {}  # StringName -> RecipeDef
+var _regions: Dictionary = {}  # StringName -> RegionDef
+var _upgrades: Dictionary = {}  # StringName -> UpgradeDef
+var _map_grid: MapGrid = null
 
 
 func _ready() -> void:
@@ -23,9 +29,20 @@ func _ready() -> void:
 	var regions_result: Dictionary = _evaluate_directory(REGIONS_DIR)
 	var upgrades_result: Dictionary = _evaluate_directory(UPGRADES_DIR)
 
+	# A region whose cell isn't a valid colony site on the map is exactly as
+	# unusable as one with a duplicate id - see _placement_problems for why
+	# this needs a second pass rather than living inside _evaluate_directory
+	# (it's map-specific, not something every collection needs).
+	var placement_problems: Array[String] = _placement_problems(regions_result.valid)
+	var clean_regions: Dictionary = regions_result.valid.duplicate()
+	for id: StringName in regions_result.valid.keys():
+		var def: RegionDef = regions_result.valid[id] as RegionDef
+		if not PlacementRules.is_valid_colony_site(map_grid(), def.cell):
+			clean_regions.erase(id)
+
 	_resources = resources_result.valid
 	_recipes = recipes_result.valid
-	_regions = regions_result.valid
+	_regions = clean_regions
 	_upgrades = upgrades_result.valid
 
 	print(
@@ -38,6 +55,7 @@ func _ready() -> void:
 	all_problems.append_array(resources_result.problems)
 	all_problems.append_array(recipes_result.problems)
 	all_problems.append_array(regions_result.problems)
+	all_problems.append_array(placement_problems)
 	all_problems.append_array(upgrades_result.problems)
 	for problem: String in all_problems:
 		push_error("Db: %s" % problem)
@@ -51,28 +69,28 @@ func resource(id: StringName) -> ResourceDef:
 	return found as ResourceDef
 
 
-func recipe(id: StringName) -> Resource:
+func recipe(id: StringName) -> RecipeDef:
 	var found: Variant = _recipes.get(id)
 	if found == null:
 		push_error("Db.recipe: no definition with id '%s'" % id)
 		return null
-	return found as Resource
+	return found as RecipeDef
 
 
-func region(id: StringName) -> Resource:
+func region(id: StringName) -> RegionDef:
 	var found: Variant = _regions.get(id)
 	if found == null:
 		push_error("Db.region: no definition with id '%s'" % id)
 		return null
-	return found as Resource
+	return found as RegionDef
 
 
-func upgrade(id: StringName) -> Resource:
+func upgrade(id: StringName) -> UpgradeDef:
 	var found: Variant = _upgrades.get(id)
 	if found == null:
 		push_error("Db.upgrade: no definition with id '%s'" % id)
 		return null
-	return found as Resource
+	return found as UpgradeDef
 
 
 func all_resources() -> Array[ResourceDef]:
@@ -82,14 +100,61 @@ func all_resources() -> Array[ResourceDef]:
 	return out
 
 
+## The MVP's one map (task M5 - see the MAP_PATH doc comment above), loaded
+## once and cached. Returns null (with a push_error already emitted by
+## MapLoader) if the file is missing or malformed.
+func map_grid() -> MapGrid:
+	if _map_grid == null:
+		_map_grid = MapLoader.from_file(MAP_PATH)
+	return _map_grid
+
+
+## Whether a region sits on a coast cell - derived from the map every time
+## this is called, never stored on RegionDef itself. See RegionDef's class doc
+## (task D3) for why: two independent sources of truth for the same fact is
+## how they drift apart.
+func region_is_coastal(id: StringName) -> bool:
+	var def: RegionDef = region(id)
+	var grid: MapGrid = map_grid()
+	if def == null or grid == null:
+		return false
+	return grid.is_coast(def.cell)
+
+
 ## Re-scans every collection and returns every problem found, without touching the
 ## live registry. Intended for tests, CI, and the boot-time push_error sweep above.
 func validate() -> Array[String]:
 	var problems: Array[String] = []
 	problems.append_array(_evaluate_directory(RESOURCES_DIR).problems)
 	problems.append_array(_evaluate_directory(RECIPES_DIR).problems)
-	problems.append_array(_evaluate_directory(REGIONS_DIR).problems)
+
+	var regions_result: Dictionary = _evaluate_directory(REGIONS_DIR)
+	problems.append_array(regions_result.problems)
+	problems.append_array(_placement_problems(regions_result.valid))
+
 	problems.append_array(_evaluate_directory(UPGRADES_DIR).problems)
+	return problems
+
+
+## Every region in `regions_valid` (StringName -> RegionDef) whose cell isn't a
+## valid colony site (land or coast) on the MVP map - task M5's guard rail. A
+## region that fails this check is excluded from the live registry in _ready()
+## exactly like any other malformed entry.
+func _placement_problems(regions_valid: Dictionary) -> Array[String]:
+	var problems: Array[String] = []
+	var grid: MapGrid = map_grid()
+	if grid == null:
+		problems.append("could not load map '%s' to validate region placement" % MAP_PATH)
+		return problems
+
+	for id: StringName in regions_valid.keys():
+		var def: RegionDef = regions_valid[id] as RegionDef
+		if not PlacementRules.is_valid_colony_site(grid, def.cell):
+			problems.append(
+				"region '%s' at cell %s is not a valid colony site (must be land or coast) on '%s'" % [
+					id, def.cell, MAP_PATH
+				]
+			)
 	return problems
 
 

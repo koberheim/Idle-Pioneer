@@ -107,6 +107,33 @@ func test_mvp_regions_include_both_coastal_and_inland_sites() -> void:
 	assert_gt(inland_count, 0, "expected at least one inland region")
 
 
+## Task M5's own guard rail, tested directly: a region placed on water must be
+## rejected, with a message naming both the region and the cell. Uses a fixture
+## whose cell (23, 0) was ground-truthed as deep water on the real
+## data/maps/mvp_coast.txt map (Db validates region placement against that one
+## map - see Db.MAP_PATH - so a fixture-only map can't be substituted here).
+func test_region_on_water_is_rejected_with_a_message_naming_region_and_cell() -> void:
+	var result: Dictionary = Db._evaluate_directory(FIXTURES + "db_region_on_water/")
+	assert_eq((result.problems as Array).size(), 0, "the fixture itself should pass id/is_valid checks")
+
+	var placement_problems: Array[String] = Db._placement_problems(result.valid)
+	assert_eq(placement_problems.size(), 1)
+	assert_string_contains(placement_problems[0], "sunken_outpost")
+	assert_string_contains(placement_problems[0], "(23, 0)")
+
+
+func test_region_is_coastal_reflects_the_map() -> void:
+	assert_true(Db.region_is_coastal(&"harbor_point"))
+	assert_false(Db.region_is_coastal(&"clay_flats"))
+
+
+func test_map_grid_returns_the_real_mvp_map() -> void:
+	var grid: MapGrid = Db.map_grid()
+	assert_not_null(grid)
+	assert_eq(grid.width, 24)
+	assert_eq(grid.height, 16)
+
+
 func test_valid_fixture_loads_with_no_problems() -> void:
 	var result: Dictionary = Db._evaluate_directory(FIXTURES + "db_valid/")
 	assert_eq((result.problems as Array).size(), 0)
