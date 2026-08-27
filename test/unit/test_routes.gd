@@ -70,3 +70,18 @@ func test_clear_empties_the_registry() -> void:
 	Game.routes.sync_with_colonies()
 	Game.routes.clear()
 	assert_eq(Game.routes.all().size(), 0)
+
+
+## docs/GAME_DESIGN.md §11 Phase 7: "notifications when shipments land" -
+## Routes forwards each Route's own `delivered` signal with the colony
+## attached, since a bare Route doesn't know its own display context.
+func test_a_route_arriving_at_the_hub_emits_shipment_delivered_with_its_colony() -> void:
+	var outpost := Colony.new(&"cape_harbour")
+	outpost.distance_cells = 0.0  # zero distance -> the leg completes within one tick()
+	outpost.local_stock[&"cod"] = 5.0
+	Game.colonies.register(outpost)
+
+	watch_signals(Game.routes)
+	Game.routes.tick(0.001)
+
+	assert_signal_emitted_with_parameters(Game.routes, "shipment_delivered", [outpost, {&"cod": 5.0}])

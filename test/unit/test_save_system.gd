@@ -378,6 +378,25 @@ func test_load_with_a_fresh_save_applies_negligible_catch_up() -> void:
 	assert_lt(Game.inventory.get_amount(&"timber"), 1.0, "essentially no real time passed between save and load")
 
 
+## docs/GAME_DESIGN.md §11 Phase 7: "offline summary" - the player needs to
+## be told what they earned while away, not just have it applied silently.
+func test_load_emits_offline_progress_applied_with_gold_earned() -> void:
+	Game.colonies.register(Colony.new(&"tidewater_landing"))
+	Game.routing.set_mode(&"timber", Game.routing.SELL)
+	SaveSystem.save()
+	_rewrite_saved_at_unix(Time.get_unix_time_from_system() - 10)
+	Game.run = null
+	Game.colonies.clear()
+
+	watch_signals(SaveSystem)
+	SaveSystem.load()
+
+	assert_signal_emitted(SaveSystem, "offline_progress_applied")
+	var params: Array = get_signal_parameters(SaveSystem, "offline_progress_applied")
+	assert_almost_eq(float(params[0]), 10.0, 0.5, "elapsed_seconds")
+	assert_gt(float(params[1]), 0.0, "gold_earned should be positive - 10s of sold timber")
+
+
 func _rewrite_saved_at_unix(new_value: int) -> void:
 	var file: FileAccess = FileAccess.open(SaveSystem.SAVE_PATH, FileAccess.READ)
 	var data: Dictionary = JSON.parse_string(file.get_as_text())

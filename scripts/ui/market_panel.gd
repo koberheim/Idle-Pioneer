@@ -47,7 +47,7 @@ func _build_row(def: ResourceDef) -> Control:
 
 	var amount: float = Game.inventory.get_amount(def.id)
 	var label := Label.new()
-	label.text = "%s: %.1f  (%.0fg each)" % [def.display_name, amount, def.base_value]
+	label.text = "%s: %s  (%sg each)" % [def.display_name, Format.number(amount, 1), Format.number(def.base_value)]
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hbox.add_child(label)
 

@@ -65,8 +65,8 @@ func _build_colonist_pool_row() -> Control:
 	var box := VBoxContainer.new()
 
 	var summary := Label.new()
-	summary.text = "Influence: %.1f   Colonists owned: %d   Idle: %d" % [
-		Game.colonists.influence(), Game.colonists.colonists_owned(), Game.colonists.idle_colonists().size()
+	summary.text = "Influence: %s   Colonists owned: %d   Idle: %d" % [
+		Format.number(Game.colonists.influence(), 1), Game.colonists.colonists_owned(), Game.colonists.idle_colonists().size()
 	]
 	box.add_child(summary)
 
@@ -75,7 +75,7 @@ func _build_colonist_pool_row() -> Control:
 	var cost: float = Game.colonists.next_recruit_cost()
 	for type: Colonist.Type in [Colonist.Type.RESOURCE, Colonist.Type.CARGO, Colonist.Type.SPEED]:
 		var button := Button.new()
-		button.text = "Recruit %s (%.1f)" % [TYPE_LABELS[type], cost]
+		button.text = "Recruit %s (%s)" % [TYPE_LABELS[type], Format.number(cost, 1)]
 		button.disabled = Game.colonists.influence() < cost
 		button.pressed.connect(func() -> void:
 			Game.colonists.recruit(type)
@@ -166,15 +166,15 @@ func _build_founded_stats(colony: Colony) -> Control:
 	var buttons := HBoxContainer.new()
 	box.add_child(buttons)
 	buttons.add_child(_upgrade_button(
-		"Production +25%% (%.0fg)" % colony.next_production_level_cost(),
+		"Production +25%% (%sg)" % Format.number(colony.next_production_level_cost()),
 		colony.next_production_level_cost(), colony.purchase_production_level
 	))
 	buttons.add_child(_upgrade_button(
-		"Cargo +50%% (%.0fg)" % colony.next_cargo_level_cost(),
+		"Cargo +50%% (%sg)" % Format.number(colony.next_cargo_level_cost()),
 		colony.next_cargo_level_cost(), colony.purchase_cargo_level
 	))
 	buttons.add_child(_upgrade_button(
-		"Speed +50%% (%.0fg)" % colony.next_speed_level_cost(),
+		"Speed +50%% (%sg)" % Format.number(colony.next_speed_level_cost()),
 		colony.next_speed_level_cost(), colony.purchase_speed_level
 	))
 
@@ -224,7 +224,7 @@ func _build_colonist_slot(colony: Colony, type: Colonist.Type) -> Control:
 
 		var upgrade_cost: float = Game.colonists.next_upgrade_cost(colonist.id)
 		var upgrade_button := Button.new()
-		upgrade_button.text = "Upgrade (%.1f)" % upgrade_cost
+		upgrade_button.text = "Upgrade (%s)" % Format.number(upgrade_cost, 1)
 		upgrade_button.disabled = Game.colonists.influence() < upgrade_cost
 		upgrade_button.pressed.connect(func() -> void:
 			Game.colonists.upgrade(colonist.id)
@@ -246,8 +246,8 @@ func _build_colonist_slot(colony: Colony, type: Colonist.Type) -> Control:
 func _build_found_button(slot_index: int, slot: Dictionary) -> Control:
 	var cost: float = Balance.next_colony_slot_cost(slot_index, Game.prestige.cost_discount_multiplier())
 	var button := Button.new()
-	button.text = "Found for %.0f gold (distance %.1f, %s)" % [
-		cost, float(slot["distance_cells"]), "sea" if bool(slot["is_coastal"]) else "land"
+	button.text = "Found for %s gold (distance %.1f, %s)" % [
+		Format.number(cost), float(slot["distance_cells"]), "sea" if bool(slot["is_coastal"]) else "land"
 	]
 	button.disabled = Game.economy.gold < cost
 	button.pressed.connect(func() -> void:

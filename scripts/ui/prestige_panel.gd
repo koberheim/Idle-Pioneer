@@ -8,6 +8,14 @@
 ## doc for why.
 extends Control
 
+## Declaring Independence wipes the whole run - docs/GAME_DESIGN.md §11 Phase
+## 7 wants this to be "a real Independence sequence," not a single
+## instant-wipe click. This panel is rebuilt from scratch on every refresh()
+## (see the class doc pattern), so the armed/not-armed state has to live
+## here as a field rather than a local var - a local would just reset itself
+## on the very next 0.25s refresh before the player could ever click Confirm.
+var _declare_armed: bool = false
+
 var _list: VBoxContainer
 
 
@@ -37,7 +45,7 @@ func refresh() -> void:
 	_list.add_child(_build_declare_section())
 
 	_list.add_child(HSeparator.new())
-	_list.add_child(_section_label("Liberty: %d" % Game.prestige.liberty()))
+	_list.add_child(_section_label("Liberty: %s" % Format.number(Game.prestige.liberty())))
 	_list.add_child(_build_branch_row(
 		"Industry (+15%% production/level)", Game.prestige.industry_level(), Balance.industry_max_level(),
 		Game.prestige.next_industry_cost(), Game.prestige.can_purchase_industry(), Game.prestige.purchase_industry
@@ -76,7 +84,7 @@ func _build_progression_row(def: UpgradeDef) -> Control:
 	if Game.progression.is_purchased(def.id):
 		label.text = "%s - purchased" % def.display_name
 	else:
-		label.text = "%s (%dg)" % [def.display_name, def.gold_cost]
+		label.text = "%s (%sg)" % [def.display_name, Format.number(def.gold_cost)]
 		var buy := Button.new()
 		buy.text = "Buy"
 		buy.disabled = not Game.progression.can_purchase(def.id)
@@ -94,22 +102,50 @@ func _build_declare_section() -> Control:
 
 	var earned: float = Game.prestige.lifetime_gold_earned_this_run()
 	var progress := Label.new()
-	progress.text = "This run has earned %.0f gold" % earned
+	progress.text = "This run has earned %s gold" % Format.number(earned)
 	box.add_child(progress)
 
 	var payout := Label.new()
-	payout.text = "Projected Liberty payout: %d" % Game.prestige.projected_liberty_payout()
+	payout.text = "Projected Liberty payout: %s" % Format.number(Game.prestige.projected_liberty_payout())
 	box.add_child(payout)
 
-	var button := Button.new()
 	var can_declare: bool = Game.prestige.can_declare_independence()
-	button.text = "Declare Independence"
-	button.disabled = not can_declare
-	button.pressed.connect(func() -> void:
-		Game.prestige.declare_independence()
-		refresh()
-	)
-	box.add_child(button)
+	if not can_declare:
+		_declare_armed = false
+
+	if _declare_armed:
+		var warning := Label.new()
+		warning.text = "This resets your entire run - colonies, gold, everything but Liberty. Are you sure?"
+		box.add_child(warning)
+
+		var confirm_row := HBoxContainer.new()
+		box.add_child(confirm_row)
+
+		var confirm := Button.new()
+		confirm.text = "Confirm - Declare Independence"
+		confirm.pressed.connect(func() -> void:
+			_declare_armed = false
+			Game.prestige.declare_independence()
+			refresh()
+		)
+		confirm_row.add_child(confirm)
+
+		var cancel := Button.new()
+		cancel.text = "Cancel"
+		cancel.pressed.connect(func() -> void:
+			_declare_armed = false
+			refresh()
+		)
+		confirm_row.add_child(cancel)
+	else:
+		var button := Button.new()
+		button.text = "Declare Independence"
+		button.disabled = not can_declare
+		button.pressed.connect(func() -> void:
+			_declare_armed = true
+			refresh()
+		)
+		box.add_child(button)
 
 	return box
 
@@ -130,7 +166,7 @@ func _build_branch_row(
 		row.add_child(maxed)
 	else:
 		var buy := Button.new()
-		buy.text = "Buy (%d Liberty)" % int(round(cost))
+		buy.text = "Buy (%s Liberty)" % Format.number(round(cost))
 		buy.disabled = not can_purchase
 		buy.pressed.connect(func() -> void:
 			purchase_fn.call()

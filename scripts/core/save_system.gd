@@ -15,6 +15,13 @@
 ## something in between.
 extends Node
 
+## Fired once per load() that actually applied offline catch-up (docs/GAME_DESIGN.md
+## §11 Phase 7: "offline summary") - never fired for a fresh install (no save
+## yet) or a save with nothing to catch up (elapsed <= 0). The UI listens for
+## this to tell the player what they earned while away; SaveSystem itself
+## has no opinion on how that's presented.
+signal offline_progress_applied(elapsed_seconds: float, gold_earned: float)
+
 const SAVE_PATH: String = "user://save.json"
 const TMP_PATH: String = "user://save.json.tmp"
 
@@ -150,10 +157,13 @@ func _apply_offline_catch_up(saved_at_unix: int) -> void:
 	if elapsed <= 0.0:
 		return
 
+	var gold_before: float = Game.economy.gold
 	Game.colonies.tick(elapsed)
 	Game.routes.tick(elapsed)
 	Game.crafting_stations.tick(elapsed)
 	Game.run.elapsed_seconds += elapsed
+
+	offline_progress_applied.emit(elapsed, Game.economy.gold - gold_before)
 
 
 ## Snapshots every live colony into the plain-dictionary shape RunState.colonies

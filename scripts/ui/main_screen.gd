@@ -28,12 +28,18 @@ const AUTO_SAVE_INTERVAL_SECONDS: float = 30.0
 @onready var _market_tab_button: Button = %MarketTabButton
 @onready var _crafting_tab_button: Button = %CraftingTabButton
 @onready var _prestige_tab_button: Button = %PrestigeTabButton
+@onready var _notification_bar: PanelContainer = %NotificationBar
 
 var _refresh_elapsed: float = 0.0
 var _auto_save_elapsed: float = 0.0
 
 
 func _ready() -> void:
+	# Connected before load() rather than after - offline_progress_applied
+	# fires synchronously from inside load() itself, so connecting any later
+	# would miss it entirely.
+	SaveSystem.offline_progress_applied.connect(_on_offline_progress_applied)
+
 	if SaveSystem.has_save():
 		SaveSystem.load()
 	else:
@@ -47,12 +53,64 @@ func _ready() -> void:
 	_crafting_tab_button.pressed.connect(func() -> void: _select_tab(_crafting_panel))
 	_prestige_tab_button.pressed.connect(func() -> void: _select_tab(_prestige_panel))
 
+	Game.routes.shipment_delivered.connect(_on_shipment_delivered)
+	Game.prestige.declared_independence.connect(_on_declared_independence)
+
 	refresh_all()
 
 
 func _select_tab(page: Control) -> void:
 	for p: Control in [_colonies_panel, _market_panel, _crafting_panel, _prestige_panel]:
 		p.visible = p == page
+
+
+func _on_shipment_delivered(colony: Colony, cargo: Dictionary) -> void:
+	var tier_def: ColonyDef = Db.colony(colony.tier_id)
+	var colony_name: String = tier_def.display_name if tier_def != null else String(colony.tier_id)
+	_notification_bar.push("%s delivered: %s" % [colony_name, _cargo_summary(cargo)])
+
+
+## docs/GAME_DESIGN.md §11 Phase 7: "offline summary." Only shown when time
+## away actually produced gold - a save reloaded seconds after being written
+## (the common case, opening a fresh editor run right after saving) has
+## nothing worth announcing.
+func _on_offline_progress_applied(elapsed_seconds: float, gold_earned: float) -> void:
+	if gold_earned <= 0.0:
+		return
+	_notification_bar.push(
+		"Welcome back! Earned %s gold while away (%s)" % [Format.number(gold_earned), _format_duration(elapsed_seconds)],
+		6.0
+	)
+
+
+func _format_duration(seconds: float) -> String:
+	var total: int = int(seconds)
+	var hours: int = total / 3600
+	var minutes: int = (total % 3600) / 60
+	if hours > 0:
+		return "%dh %dm" % [hours, minutes]
+	if minutes > 0:
+		return "%dm" % minutes
+	return "%ds" % total
+
+
+## docs/GAME_DESIGN.md §11 Phase 7: "a real Independence sequence" - the
+## moment the run actually resets deserves more than silently swapping
+## numbers, even without a dedicated cutscene screen.
+func _on_declared_independence(liberty_awarded: int) -> void:
+	_notification_bar.push(
+		"Independence declared! Earned %s Liberty. A new frontier awaits." % Format.number(liberty_awarded),
+		6.0
+	)
+
+
+func _cargo_summary(cargo: Dictionary) -> String:
+	var parts: Array[String] = []
+	for id: StringName in cargo.keys():
+		var def: ResourceDef = Db.resource(id)
+		var name: String = def.display_name if def != null else String(id)
+		parts.append("%s %s" % [Format.number(float(cargo[id]), 1), name])
+	return ", ".join(parts)
 
 
 func _process(delta: float) -> void:
@@ -76,8 +134,8 @@ func _notification(what: int) -> void:
 
 
 func refresh_all() -> void:
-	_gold_label.text = "Gold: %.0f" % Game.economy.gold
-	_liberty_label.text = "Liberty: %d" % Game.prestige.liberty()
+	_gold_label.text = "Gold: %s" % Format.number(Game.economy.gold)
+	_liberty_label.text = "Liberty: %s" % Format.number(Game.prestige.liberty())
 	_colonies_panel.refresh()
 	_market_panel.refresh()
 	_crafting_panel.refresh()

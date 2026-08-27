@@ -11,6 +11,13 @@
 ## - there's nothing to ship to yet.
 extends Node
 
+## Forwards each Route's own `delivered` signal with the colony it came from
+## attached - a UI notification needs to say *which* colony's shipment
+## landed, which a bare Route (generic origin/destination) doesn't carry on
+## its own (docs/GAME_DESIGN.md §11 Phase 7: "notifications when shipments
+## land").
+signal shipment_delivered(colony: Colony, cargo: Dictionary)
+
 var _by_colony_id: Dictionary = {}  # StringName (colony_id) -> Route
 
 
@@ -25,7 +32,9 @@ func sync_with_colonies() -> void:
 		if colony.is_capital:
 			continue
 		if not _by_colony_id.has(colony.colony_id):
-			_by_colony_id[colony.colony_id] = Route.new(colony, capital)
+			var route := Route.new(colony, capital)
+			route.delivered.connect(func(cargo: Dictionary) -> void: shipment_delivered.emit(colony, cargo))
+			_by_colony_id[colony.colony_id] = route
 
 
 func for_colony(colony_id: StringName) -> Route:
