@@ -1,8 +1,10 @@
 ## The Market tab, split into two sub-tabs (direct request): Raw Materials
 ## (what a colony produces directly) and Crafted Goods (recipe outputs) -
 ## previously one undifferentiated list mixing both. Each sub-tab is the
-## same row shape: current stock, sale value, a Sell/Reserve toggle
-## (Game.routing), and a manual "Sell All" that cashes out immediately
+## same row shape: current stock, sale value, a single Auto Sell on/off
+## toggle (Game.routing - direct request, replacing separate Sell/Reserve
+## buttons that read ambiguously as two different actions instead of one
+## on/off state), and a manual "Sell All" that cashes out immediately
 ## regardless of that toggle (docs/GAME_DESIGN.md §4: "manual Sell All
 ## available").
 ##
@@ -98,17 +100,7 @@ func _build_row(def: ResourceDef) -> Control:
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hbox.add_child(label)
 
-	var mode: StringName = Game.routing.mode_for(def.id)
-	var is_sell: bool = mode == Game.routing.SELL
-	var toggle := Button.new()
-	toggle.toggle_mode = true
-	toggle.button_pressed = is_sell
-	toggle.text = "Auto-Sell" if is_sell else "Reserve"
-	toggle.pressed.connect(func() -> void:
-		Game.routing.set_mode(def.id, Game.routing.RESERVE if is_sell else Game.routing.SELL)
-		refresh()
-	)
-	hbox.add_child(toggle)
+	hbox.add_child(_build_auto_sell_toggle(def.id))
 
 	var sell_all := Button.new()
 	sell_all.text = "Sell All"
@@ -120,3 +112,50 @@ func _build_row(def: ResourceDef) -> Control:
 	hbox.add_child(sell_all)
 
 	return row
+
+
+const AUTO_SELL_ON_COLOR := Color(0.34, 0.58, 0.32, 1)
+const AUTO_SELL_BORDER_COLOR := Color(0.85, 0.98, 0.8, 1)
+
+## Single on/off toggle (direct request, replacing separate Sell/Reserve
+## buttons - "not intuitive on whether it is selling or reserving"). ON
+## gets a distinct green fill plus a border that pulses in and out
+## (Tween, looped) so an active toggle reads as visibly "live" at a glance,
+## not just a difference in button text.
+func _build_auto_sell_toggle(resource_id: StringName) -> Button:
+	var is_selling: bool = Game.routing.mode_for(resource_id) == Game.routing.SELL
+
+	var toggle := Button.new()
+	toggle.toggle_mode = true
+	toggle.button_pressed = is_selling
+	toggle.text = "Auto Sell: ON" if is_selling else "Auto Sell: OFF"
+
+	if is_selling:
+		var style := StyleBoxFlat.new()
+		style.bg_color = AUTO_SELL_ON_COLOR
+		style.border_color = AUTO_SELL_BORDER_COLOR
+		style.border_width_left = 2
+		style.border_width_top = 2
+		style.border_width_right = 2
+		style.border_width_bottom = 2
+		style.corner_radius_top_left = 4
+		style.corner_radius_top_right = 4
+		style.corner_radius_bottom_left = 4
+		style.corner_radius_bottom_right = 4
+		style.content_margin_left = 14.0
+		style.content_margin_top = 8.0
+		style.content_margin_right = 14.0
+		style.content_margin_bottom = 8.0
+		for state: String in ["normal", "hover", "pressed"]:
+			toggle.add_theme_stylebox_override(state, style)
+
+		var tween: Tween = toggle.create_tween()
+		tween.set_loops()
+		tween.tween_property(style, "border_color:a", 0.15, 0.7).set_trans(Tween.TRANS_SINE)
+		tween.tween_property(style, "border_color:a", 1.0, 0.7).set_trans(Tween.TRANS_SINE)
+
+	toggle.pressed.connect(func() -> void:
+		Game.routing.set_mode(resource_id, Game.routing.RESERVE if is_selling else Game.routing.SELL)
+		refresh()
+	)
+	return toggle

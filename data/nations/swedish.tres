@@ -4,8 +4,8 @@
 
 [resource]
 script = ExtResource("1")
-id = &"italian"
-display_name = "Italian"
-color = Color(0.18039216, 0.3019608, 0.13725491, 1)
+id = &"swedish"
+display_name = "Swedish"
+color = Color(0.0, 0.3254902, 0.57254905, 1)
 bonus_description = "+15% Liberty earned on Independence"
 liberty_generation_multiplier = 1.15

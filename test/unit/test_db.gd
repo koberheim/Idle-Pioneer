@@ -390,7 +390,7 @@ func test_full_musket_chain_crafts_end_to_end() -> void:
 ## NationalityData assets (Assets/03_Data/Nationalities/*.asset) - see
 ## NationDef's class doc for the archaeology.
 func test_all_six_nations_are_loaded() -> void:
-	for id: StringName in [&"dutch", &"english", &"french", &"italian", &"portuguese", &"spanish"]:
+	for id: StringName in [&"dutch", &"english", &"french", &"swedish", &"portuguese", &"spanish"]:
 		assert_not_null(Db.nation(id), "missing nation: %s" % id)
 
 
@@ -408,7 +408,7 @@ func test_each_nation_carries_exactly_its_own_original_bonus() -> void:
 		&"dutch": {"field": "extraction_rate_multiplier", "value": 1.15},
 		&"english": {"field": "ship_speed_multiplier", "value": 1.1},
 		&"french": {"field": "colony_cost_multiplier", "value": 0.8},
-		&"italian": {"field": "liberty_generation_multiplier", "value": 1.15},
+		&"swedish": {"field": "liberty_generation_multiplier", "value": 1.15},
 		&"portuguese": {"field": "wagon_speed_multiplier", "value": 1.3},
 		&"spanish": {"field": "gold_sell_multiplier", "value": 1.25},
 	}

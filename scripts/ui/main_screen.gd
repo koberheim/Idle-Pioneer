@@ -32,7 +32,17 @@
 extends Control
 
 const MAP_ID: StringName = &"mvp_coast"
-const REFRESH_INTERVAL_SECONDS: float = 0.25
+## Was 0.25 - raised after a real reported bug (direct feedback: "clicking
+## responsiveness seems hit or miss," worst on Market's Sell/Reserve
+## buttons). Every panel rebuilds its buttons from scratch on refresh()
+## (queue_free the old ones, create new ones) - a click that straddles a
+## rebuild has its press and release delivered to two different Button
+## nodes, so Godot never fires `pressed` for it. 0.25s made that collision
+## common enough to notice; this doesn't eliminate the race, but at 1.0s
+## (still reads as "live" for an idle game) it's four times rarer, and
+## refresh_all() below now also only rebuilds the one panel actually
+## visible - four fewer panels competing for the same click every tick.
+const REFRESH_INTERVAL_SECONDS: float = 1.0
 const AUTO_SAVE_INTERVAL_SECONDS: float = 30.0
 
 const TAB_BAR_HEIGHT: float = 56.0
@@ -81,7 +91,11 @@ func _ready() -> void:
 	SaveSystem.offline_progress_applied.connect(_on_offline_progress_applied)
 
 	_save_button.pressed.connect(SaveSystem.save)
-	_menu_button.pressed.connect(func() -> void: _menu_popup.visible = not _menu_popup.visible)
+	_menu_button.pressed.connect(func() -> void:
+		_menu_popup.visible = not _menu_popup.visible
+		if _menu_popup.visible:
+			_prestige_panel.refresh()
+	)
 
 	_colonies_tab_button.toggled.connect(func(pressed: bool) -> void: _on_tab_toggled(pressed, _colonies_panel))
 	_market_tab_button.toggled.connect(func(pressed: bool) -> void: _on_tab_toggled(pressed, _market_panel))
@@ -120,12 +134,16 @@ func _start_run() -> void:
 
 
 ## Starts closed (map fills the whole screen, nothing selected) - opening a
-## tab is always a deliberate tap, never the default state.
+## tab is always a deliberate tap, never the default state. Refreshes the
+## page immediately on open (it may be stale - see REFRESH_INTERVAL_SECONDS'
+## doc comment on why the periodic tick alone only rebuilds whichever page
+## is already active, not every page every tick).
 func _on_tab_toggled(pressed: bool, page: Control) -> void:
 	if pressed:
 		_active_page = page
 		for p: Control in [_colonies_panel, _market_panel, _crafting_panel, _colonists_panel, _discoveries_panel]:
 			p.visible = p == page
+		page.refresh()
 		_animate_sheet_to(_target_sheet_height())
 	else:
 		_active_page = null
@@ -255,13 +273,17 @@ func _notification(what: int) -> void:
 		SaveSystem.save()
 
 
+## Refreshes the always-visible bits (top bar, map) plus whichever one tab
+## page is actually open, if any - the other four pages are hidden behind
+## the closed sheet, so rebuilding their buttons every tick would only add
+## click-eating risk (see REFRESH_INTERVAL_SECONDS' doc comment) for zero
+## visible benefit. _on_tab_toggled() refreshes a page immediately the
+## moment it's opened, so nothing shown is ever stale from before this ran.
 func refresh_all() -> void:
 	_gold_label.text = "Gold: %s" % Format.number(Game.economy.gold)
 	_liberty_label.text = "Liberty: %s" % Format.number(Game.prestige.liberty())
 	_map_view.refresh()
-	_colonies_panel.refresh()
-	_market_panel.refresh()
-	_crafting_panel.refresh()
-	_colonists_panel.refresh()
-	_discoveries_panel.refresh()
-	_prestige_panel.refresh()
+	if _active_page != null:
+		_active_page.refresh()
+	if _menu_popup.visible:
+		_prestige_panel.refresh()

@@ -100,6 +100,9 @@ func _build_row(slot: Dictionary) -> Control:
 	var colony: Colony = Game.colonies.get_colony(StringName("slot_%d" % slot_index))
 	if colony != null:
 		info.add_child(_build_founded_stats(colony))
+		# Direct request: stacked on the right side of the row instead of a
+		# full-width row of their own below the stats.
+		hbox.add_child(_build_upgrade_buttons(colony))
 	else:
 		info.add_child(_build_found_button(slot_index, slot))
 
@@ -152,21 +155,28 @@ func _build_founded_stats(colony: Colony) -> Control:
 
 	box.add_child(_build_colonist_summary(colony))
 
-	var buttons := HBoxContainer.new()
-	box.add_child(buttons)
-	buttons.add_child(_upgrade_button(
-		"Production +25%% (%sg)" % Format.number(colony.next_production_level_cost()),
+	return box
+
+
+## Stacked vertically on the right side of the colony's row (direct
+## request, replacing a full-width row of its own below the stats). Each
+## button shows the track's current level - direct request: "Production
+## +25%" alone didn't say whether this was the colony's first upgrade or
+## its tenth.
+func _build_upgrade_buttons(colony: Colony) -> Control:
+	var box := VBoxContainer.new()
+	box.add_child(_upgrade_button(
+		"Production Lv %d\n+25%% (%sg)" % [colony.production_level, Format.number(colony.next_production_level_cost())],
 		colony.next_production_level_cost(), colony.purchase_production_level
 	))
-	buttons.add_child(_upgrade_button(
-		"Cargo +50%% (%sg)" % Format.number(colony.next_cargo_level_cost()),
+	box.add_child(_upgrade_button(
+		"Cargo Lv %d\n+50%% (%sg)" % [colony.cargo_level, Format.number(colony.next_cargo_level_cost())],
 		colony.next_cargo_level_cost(), colony.purchase_cargo_level
 	))
-	buttons.add_child(_upgrade_button(
-		"Speed +50%% (%sg)" % Format.number(colony.next_speed_level_cost()),
+	box.add_child(_upgrade_button(
+		"Speed Lv %d\n+50%% (%sg)" % [colony.speed_level, Format.number(colony.next_speed_level_cost())],
 		colony.next_speed_level_cost(), colony.purchase_speed_level
 	))
-
 	return box
 
 
