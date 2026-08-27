@@ -5,12 +5,13 @@
 ## hub arrival both call deliver() here instead of touching Game.inventory or
 ## Game.economy directly.
 ##
-## A resource with no explicit entry defaults to RESERVE, not SELL, by
-## direct instruction: goods pile up in storage exactly as they did before
-## this system existed unless the player deliberately opts a resource into
-## auto-selling. This is a real, considered choice (not the design doc's own
-## stated default, which is SELL) - flagged in docs/GODOT_PLAN.md's design
-## realignment section since a future balance pass may want to revisit it.
+## A resource with no explicit entry defaults to SELL, matching
+## docs/GAME_DESIGN.md's own stated default. An earlier pass this session
+## deliberately flipped this to RESERVE (goods pile up in storage unless
+## explicitly opted into auto-selling); reversed back per direct feedback
+## after playtesting - a fresh colony producing and never selling anything
+## reads as "gold isn't ticking up," not as an intentional design choice, so
+## SELL is the default that actually needs an opt-out, not an opt-in.
 extends Node
 
 signal routing_changed(resource_id: StringName, mode: StringName)
@@ -21,8 +22,8 @@ const RESERVE: StringName = &"reserve"
 
 func mode_for(resource_id: StringName) -> StringName:
 	if Game.run == null:
-		return RESERVE
-	return Game.run.resource_routing.get(resource_id, RESERVE)
+		return SELL
+	return Game.run.resource_routing.get(resource_id, SELL)
 
 
 func set_mode(resource_id: StringName, mode: StringName) -> void:
@@ -44,6 +45,7 @@ func set_mode(resource_id: StringName, mode: StringName) -> void:
 func deliver(resource_id: StringName, amount: float) -> void:
 	if amount <= 0.0:
 		return
+	Game.discoveries.discover_resource(resource_id)
 	if mode_for(resource_id) == SELL:
 		Game.economy.add_gold(Game.economy.sell_value(resource_id, amount))
 	else:

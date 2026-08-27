@@ -24,6 +24,7 @@ func test_unstaffed_colony_still_produces_at_its_base_rate() -> void:
 
 
 func test_staffed_capital_produces_into_central_inventory() -> void:
+	Game.routing.set_mode(&"timber", Game.routing.RESERVE)
 	var capital := Colony.new(&"tidewater_landing")
 	capital.tick(2.0)  # base rate alone: 1.0/s x 2s = 2.0 timber
 	assert_almost_eq(Game.inventory.get_amount(&"timber"), 2.0, 0.0001)

@@ -48,6 +48,7 @@ static func craft_recipe(recipe: RecipeDef) -> bool:
 			return false
 
 	Game.inventory.add(recipe.output_id, recipe.output_amount)
+	Game.discoveries.discover_resource(recipe.output_id)
 
 	# "Unlocked" is read pragmatically as "ever successfully crafted" - see
 	# MetaState.recipes_ever_unlocked's class doc for why (no recipe-gating

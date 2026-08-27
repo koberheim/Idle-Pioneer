@@ -37,6 +37,7 @@ func test_unregister_removes_from_all() -> void:
 
 
 func test_tick_fans_out_to_every_registered_colony() -> void:
+	Game.routing.set_mode(&"timber", Game.routing.RESERVE)
 	var capital := Colony.new(&"tidewater_landing")
 	var outpost := Colony.new(&"cape_harbour")
 	Game.colonies.register(capital)

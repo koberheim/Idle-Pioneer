@@ -5,7 +5,9 @@
 ## Prestige, rework task: real prestige system).
 ##
 ## Built entirely in code, same pattern as ColoniesPanel - see that class
-## doc for why.
+## doc for why. Lives inside MainScreen's top-right menu popup now (direct
+## request), a narrower space than the old full-width tab sheet - every
+## label here word-wraps rather than assuming it has a wide row to itself.
 extends Control
 
 ## Declaring Independence wipes the whole run - docs/GAME_DESIGN.md §11 Phase
@@ -63,6 +65,7 @@ func refresh() -> void:
 func _section_label(text: String) -> Label:
 	var label := Label.new()
 	label.text = text
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return label
 
 
@@ -79,6 +82,7 @@ func _build_progression_row(def: UpgradeDef) -> Control:
 
 	var label := Label.new()
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	row.add_child(label)
 
 	if Game.progression.is_purchased(def.id):
@@ -103,10 +107,12 @@ func _build_declare_section() -> Control:
 	var earned: float = Game.prestige.lifetime_gold_earned_this_run()
 	var progress := Label.new()
 	progress.text = "This run has earned %s gold" % Format.number(earned)
+	progress.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(progress)
 
 	var payout := Label.new()
 	payout.text = "Projected Liberty payout: %s" % Format.number(Game.prestige.projected_liberty_payout())
+	payout.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(payout)
 
 	var can_declare: bool = Game.prestige.can_declare_independence()
@@ -116,6 +122,7 @@ func _build_declare_section() -> Control:
 	if _declare_armed:
 		var warning := Label.new()
 		warning.text = "This resets your entire run - colonies, gold, everything but Liberty. Are you sure?"
+		warning.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		box.add_child(warning)
 
 		var confirm_row := HBoxContainer.new()
@@ -158,6 +165,7 @@ func _build_branch_row(
 	var label := Label.new()
 	label.text = "%s - level %d/%d" % [label_text, level, max_level]
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	row.add_child(label)
 
 	if level >= max_level:

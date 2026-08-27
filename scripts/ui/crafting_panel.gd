@@ -1,6 +1,10 @@
-## The Crafting tab. One row per recipe: its inputs and output, a "Craft
-## One" button (instant, exactly Crafting.craft()), and an Auto-Craft toggle
-## (CraftingStation - rework task: continuous crafting).
+## The Crafting tab. One card per recipe in a 2-column grid: its inputs and
+## output, a "Craft One" button (instant, exactly Crafting.craft()), and an
+## Auto-Craft toggle (CraftingStation - rework task: continuous crafting).
+##
+## Direct request: only discovered recipes are listed (Game.discoveries -
+## see its class doc), in the order discovered, not the full authored
+## recipe table up front.
 ##
 ## Built entirely in code, same pattern as ColoniesPanel - see that class
 ## doc for why.
@@ -14,6 +18,10 @@ var _grid: GridContainer
 func _ready() -> void:
 	var scroll := ScrollContainer.new()
 	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	# The grid must never need horizontal scrolling (direct request) - a
+	# disabled scroll mode is a hard guarantee of that, not just a hope that
+	# every card's content stays narrow enough on its own.
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	add_child(scroll)
 
 	_grid = GridContainer.new()
@@ -28,13 +36,21 @@ func _ready() -> void:
 func refresh() -> void:
 	for child: Node in _grid.get_children():
 		child.queue_free()
-	for recipe: RecipeDef in Db.all_recipes():
-		_grid.add_child(_build_row(recipe))
+	for id: StringName in Game.discoveries.discovered_recipes():
+		var recipe: RecipeDef = Db.recipe(id)
+		if recipe != null:
+			_grid.add_child(_build_row(recipe))
 
 
 func _build_row(recipe: RecipeDef) -> Control:
 	var row := PanelContainer.new()
+	# A GridContainer sizes each column to its widest cell's minimum size -
+	# without an explicit cap here, one long recipe description would widen
+	# its whole column past half the screen and force horizontal scrolling
+	# (the exact bug being fixed). SIZE_EXPAND_FILL alone isn't enough since
+	# it only controls how leftover space is distributed, not the minimum.
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.custom_minimum_size.x = 0
 	var vbox := VBoxContainer.new()
 	row.add_child(vbox)
 
@@ -54,6 +70,8 @@ func _build_row(recipe: RecipeDef) -> Control:
 		recipe.craft_seconds,
 	]
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.custom_minimum_size.x = 0
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	header.add_child(label)
 
 	var buttons := HBoxContainer.new()

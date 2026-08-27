@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://scripts/core/game.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/sim/economy.gd" id="2"]
@@ -11,6 +11,7 @@
 [ext_resource type="Script" path="res://scripts/sim/routing.gd" id="9"]
 [ext_resource type="Script" path="res://scripts/sim/routes.gd" id="10"]
 [ext_resource type="Script" path="res://scripts/sim/simulation.gd" id="11"]
+[ext_resource type="Script" path="res://scripts/sim/discoveries.gd" id="12"]
 
 [node name="Game" type="Node"]
 script = ExtResource("1")
@@ -44,3 +45,6 @@ script = ExtResource("10")
 
 [node name="Simulation" type="Node" parent="."]
 script = ExtResource("11")
+
+[node name="Discoveries" type="Node" parent="."]
+script = ExtResource("12")

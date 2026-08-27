@@ -98,6 +98,13 @@ var colonies: Array[Dictionary] = []
 var upgrades_purchased: Array[StringName] = []
 var colonies_founded: int = 0
 
+## Which resources/recipes this run has actually encountered, in the order
+## first encountered (Discoveries owns the behaviour - see its class doc).
+## Run-scoped, unlike MetaState.recipes_ever_unlocked's permanent "ever
+## crafted" stat - a fresh run starts back at nothing discovered.
+var discovered_resources: Array[StringName] = []
+var discovered_recipes: Array[StringName] = []
+
 ## Per-recipe auto-craft save state (rework task: continuous crafting).
 ## Field names match docs/GAME_DESIGN.md §9's own "workshops" example, minus
 ## "colonists"/"level" - those belong to a colonist-driven crafting-speed
@@ -144,6 +151,8 @@ func to_dict() -> Dictionary:
 		"colonies": colonies.map(_colony_to_dict),
 		"upgrades_purchased": upgrades_purchased.map(func(id: StringName) -> String: return String(id)),
 		"colonies_founded": colonies_founded,
+		"discovered_resources": discovered_resources.map(func(id: StringName) -> String: return String(id)),
+		"discovered_recipes": discovered_recipes.map(func(id: StringName) -> String: return String(id)),
 		"workshops": workshops.map(_workshop_to_dict),
 		"resource_routing": _stringname_string_dict_to_json(resource_routing),
 		"routes": routes.map(_route_to_dict),
@@ -189,6 +198,16 @@ static func from_dict(d: Dictionary) -> RunState:
 	s.upgrades_purchased = upgrades
 
 	s.colonies_founded = int(d.get("colonies_founded", 0))
+
+	var discovered_resources: Array[StringName] = []
+	for entry: Variant in (d.get("discovered_resources", []) as Array):
+		discovered_resources.append(StringName(entry as String))
+	s.discovered_resources = discovered_resources
+
+	var discovered_recipes: Array[StringName] = []
+	for entry: Variant in (d.get("discovered_recipes", []) as Array):
+		discovered_recipes.append(StringName(entry as String))
+	s.discovered_recipes = discovered_recipes
 
 	var workshops: Array[Dictionary] = []
 	for entry: Variant in (d.get("workshops", []) as Array):

@@ -27,6 +27,7 @@ signal run_ended
 @onready var routing: Node = $Routing
 @onready var routes: Node = $Routes
 @onready var simulation: Node = $Simulation
+@onready var discoveries: Node = $Discoveries
 
 var meta: MetaState = MetaState.new()
 var run: RunState = null

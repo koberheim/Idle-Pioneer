@@ -95,6 +95,18 @@ func all_recipes() -> Array[RecipeDef]:
 	return out
 
 
+## Direct request: Market splits raw materials from crafted goods into two
+## sub-tabs. A resource counts as "crafted" if any recipe names it as an
+## output - everything else (what a colony produces directly) is a raw
+## material. Cheap enough to compute on demand (recipe count is tiny) rather
+## than caching a second lookup table alongside _recipes.
+func is_crafted_resource(id: StringName) -> bool:
+	for def: RecipeDef in _recipes.values():
+		if def.output_id == id:
+			return true
+	return false
+
+
 func region(id: StringName) -> RegionDef:
 	var found: Variant = _regions.get(id)
 	if found == null:

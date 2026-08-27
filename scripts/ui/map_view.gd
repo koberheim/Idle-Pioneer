@@ -28,7 +28,6 @@ const TERRAIN_COLORS: Dictionary = {
 const CAPITAL_COLOR := Color(0.95, 0.85, 0.25)
 const FOUNDED_COLOR := Color(0.3, 0.78, 0.35)
 const NEXT_COLOR := Color(0.35, 0.65, 0.95)
-const LOCKED_COLOR := Color(0.55, 0.55, 0.55, 0.65)
 const MARKER_OUTLINE := Color(0.05, 0.05, 0.05, 0.8)
 
 var _grid: MapGrid
@@ -73,8 +72,13 @@ func _draw() -> void:
 	var next_slot_index: int = _next_to_found_slot_index()
 	for slot: Dictionary in Game.run.colony_slots:
 		var slot_index: int = int(slot["slot_index"])
+		# Direct request: an unsettled colony stays hidden entirely (not a
+		# gray "locked" dot) until it's actually the next one foundable -
+		# same rule ColoniesPanel's row list follows.
+		if not (bool(slot["founded"]) or slot_index == next_slot_index):
+			continue
 		var center: Vector2 = _slot_center(slot, cell_size)
-		var color: Color = _marker_color(slot_index, slot, next_slot_index)
+		var color: Color = _marker_color(slot_index, slot)
 		draw_circle(center, MARKER_RADIUS, color)
 		draw_arc(center, MARKER_RADIUS, 0.0, TAU, 16, MARKER_OUTLINE, 1.0)
 
@@ -89,14 +93,18 @@ func _gui_input(event: InputEvent) -> void:
 	if cell_size.x <= 0.0 or cell_size.y <= 0.0:
 		return
 
+	var next_slot_index: int = _next_to_found_slot_index()
 	var best_slot_index: int = -1
 	var best_dist: float = MARKER_HIT_RADIUS
 	for slot: Dictionary in Game.run.colony_slots:
+		var slot_index: int = int(slot["slot_index"])
+		if not (bool(slot["founded"]) or slot_index == next_slot_index):
+			continue
 		var center: Vector2 = _slot_center(slot, cell_size)
 		var dist: float = event.position.distance_to(center)
 		if dist <= best_dist:
 			best_dist = dist
-			best_slot_index = int(slot["slot_index"])
+			best_slot_index = slot_index
 
 	if best_slot_index >= 0:
 		slot_selected.emit(best_slot_index)
@@ -107,14 +115,14 @@ func _slot_center(slot: Dictionary, cell_size: Vector2) -> Vector2:
 	return (Vector2(cell) + Vector2(0.5, 0.5)) * cell_size
 
 
-func _marker_color(slot_index: int, slot: Dictionary, next_slot_index: int) -> Color:
+## Only ever called for a founded or next-to-found slot now - a hidden
+## locked slot never reaches this (see _draw()'s continue above).
+func _marker_color(slot_index: int, slot: Dictionary) -> Color:
 	if slot_index == 0:
 		return CAPITAL_COLOR
 	if bool(slot["founded"]):
 		return FOUNDED_COLOR
-	if slot_index == next_slot_index:
-		return NEXT_COLOR
-	return LOCKED_COLOR
+	return NEXT_COLOR
 
 
 func _next_to_found_slot_index() -> int:

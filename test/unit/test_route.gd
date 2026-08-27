@@ -16,6 +16,11 @@ var _sea_origin: Colony  # chesapeake_fields, distance 2, SEA
 
 func before_each() -> void:
 	Game.new_run(&"mvp_coast")
+	# Routing now defaults to SELL (docs/GAME_DESIGN.md's own default,
+	# reversed back to from an earlier RESERVE-by-default pass) - these tests
+	# are about delivery/inventory mechanics, not Sell/Reserve itself, so
+	# pin RESERVE here rather than touch every assertion.
+	Game.routing.set_mode(&"cod", Game.routing.RESERVE)
 	_capital = Colony.new(&"tidewater_landing")
 	_land_origin = Colony.new(&"cape_harbour")
 	_land_origin.distance_cells = 1.0

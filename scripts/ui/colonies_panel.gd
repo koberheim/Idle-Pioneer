@@ -1,9 +1,15 @@
-## The Colonies tab. One row per generated colony slot (rework task:
-## randomized map - RunState.colony_slots, generated once per run by
-## MapGenerator), in slot order: a founded colony shows its live stats and
-## upgrade buttons, the next slot in sequence shows a "Found" button, and
-## anything further down shows locked. Real per-slot distance and land/sea
-## (from the generated map) are shown wherever known.
+## The Colonies tab. One row per colony slot the player actually knows
+## about - a founded colony shows its live stats and upgrade buttons, and
+## the single next slot in sequence shows a "Found" button. Direct request:
+## anything further down the sequence is hidden entirely (not shown as
+## "Locked") until it's actually the next one foundable - same rule
+## MapView's markers follow, for the same reason: an unsettled colony isn't
+## information yet, it's noise. Real per-slot distance and land/sea (from
+## the generated map) are shown wherever known.
+##
+## Colonist management (recruit/upgrade/assign) moved out to ColonistsPanel
+## (direct request) - this panel keeps only a read-only per-slot summary so
+## a colony's row still tells the whole story at a glance.
 ##
 ## Rebuilt from scratch on every refresh() rather than diffed - simple and
 ## correct matters more here than avoiding a bit of node churn a few times a
@@ -15,6 +21,12 @@ extends Control
 
 const ICON_SIZE := Vector2(48, 48)
 const CYCLE_SUFFIXES: Array[String] = ["", " II", " III", " IV", " V", " VI"]
+
+const TYPE_LABELS: Dictionary = {
+	Colonist.Type.RESOURCE: "Resource",
+	Colonist.Type.CARGO: "Cargo",
+	Colonist.Type.SPEED: "Speed",
+}
 
 var _list: VBoxContainer
 
@@ -41,49 +53,12 @@ func refresh() -> void:
 	if Game.run == null:
 		return
 
-	_list.add_child(_build_colonist_pool_row())
-	_list.add_child(HSeparator.new())
-
+	var next_slot_index: int = _next_to_found_slot_index()
 	for slot: Dictionary in Game.run.colony_slots:
-		_list.add_child(_build_row(slot))
+		var slot_index: int = int(slot["slot_index"])
+		if bool(slot["founded"]) or slot_index == next_slot_index:
+			_list.add_child(_build_row(slot))
 	_list.add_child(HSeparator.new())
-
-
-const TYPE_LABELS: Dictionary = {
-	Colonist.Type.RESOURCE: "Resource",
-	Colonist.Type.CARGO: "Cargo",
-	Colonist.Type.SPEED: "Speed",
-}
-
-
-## Docs/GAME_DESIGN.md §4's "central tension," now with real shape to it
-## (rework: typed colonist roster) - Influence (a currency separate from
-## gold - see Balance's influence_earn_rate_per_gold placeholder for how
-## it's earned for now) recruits individual, typed colonists here; assigning
-## one to a colony below is what actually boosts that colony's output.
-func _build_colonist_pool_row() -> Control:
-	var box := VBoxContainer.new()
-
-	var summary := Label.new()
-	summary.text = "Influence: %s   Colonists owned: %d   Idle: %d" % [
-		Format.number(Game.colonists.influence(), 1), Game.colonists.colonists_owned(), Game.colonists.idle_colonists().size()
-	]
-	box.add_child(summary)
-
-	var recruit_row := HBoxContainer.new()
-	box.add_child(recruit_row)
-	var cost: float = Game.colonists.next_recruit_cost()
-	for type: Colonist.Type in [Colonist.Type.RESOURCE, Colonist.Type.CARGO, Colonist.Type.SPEED]:
-		var button := Button.new()
-		button.text = "Recruit %s (%s)" % [TYPE_LABELS[type], Format.number(cost, 1)]
-		button.disabled = Game.colonists.influence() < cost
-		button.pressed.connect(func() -> void:
-			Game.colonists.recruit(type)
-			refresh()
-		)
-		recruit_row.add_child(button)
-
-	return box
 
 
 func _build_row(slot: Dictionary) -> Control:
@@ -108,13 +83,8 @@ func _build_row(slot: Dictionary) -> Control:
 	var colony: Colony = Game.colonies.get_colony(StringName("slot_%d" % slot_index))
 	if colony != null:
 		info.add_child(_build_founded_stats(colony))
-	elif _is_next_to_found(slot_index):
-		info.add_child(_build_found_button(slot_index, slot))
 	else:
-		var locked := Label.new()
-		locked.text = "Locked"
-		locked.modulate = Color(1, 1, 1, 0.5)
-		info.add_child(locked)
+		info.add_child(_build_found_button(slot_index, slot))
 
 	return row
 
@@ -133,9 +103,11 @@ func _display_name(tier_def: ColonyDef, slot_index: int) -> String:
 	return tier_def.display_name + suffix
 
 
-func _is_next_to_found(slot_index: int) -> bool:
+func _next_to_found_slot_index() -> int:
 	var next: Dictionary = Game.colonies.next_to_found()
-	return not next.is_empty() and int(next["slot_index"]) == slot_index
+	if next.is_empty():
+		return -1
+	return int(next["slot_index"])
 
 
 func _build_founded_stats(colony: Colony) -> Control:
@@ -161,7 +133,7 @@ func _build_founded_stats(colony: Colony) -> Control:
 		status.text = "%s - %s route, distance %.1f" % [state_text, route_kind, colony.distance()]
 		box.add_child(status)
 
-	box.add_child(_build_colonist_assignment_row(colony))
+	box.add_child(_build_colonist_summary(colony))
 
 	var buttons := HBoxContainer.new()
 	box.add_child(buttons)
@@ -181,66 +153,20 @@ func _build_founded_stats(colony: Colony) -> Control:
 	return box
 
 
-## Rework: typed colonist roster - a colony has exactly one slot per type
-## (never two Resource colonists at once). Each slot is either empty (an
-## "Assign" button, enabled only if a matching idle colonist exists - hands
-## over the highest-level one) or shows the assigned colonist's level with
-## Upgrade/Unassign buttons.
-func _build_colonist_assignment_row(colony: Colony) -> Control:
-	var box := VBoxContainer.new()
+## Read-only - actually assigning/upgrading a colonist happens on the
+## Colonists tab now (direct request). Still worth one line here so a
+## colony's row answers "who's working here" without a tab switch.
+func _build_colonist_summary(colony: Colony) -> Control:
+	var parts: Array[String] = []
 	for type: Colonist.Type in [Colonist.Type.RESOURCE, Colonist.Type.CARGO, Colonist.Type.SPEED]:
-		box.add_child(_build_colonist_slot(colony, type))
-	return box
-
-
-func _build_colonist_slot(colony: Colony, type: Colonist.Type) -> Control:
-	var row := HBoxContainer.new()
-
-	var colonist: Colonist = Game.colonists.colonist_at(colony.colony_id, type)
+		var colonist: Colonist = Game.colonists.colonist_at(colony.colony_id, type)
+		if colonist == null:
+			parts.append("%s: empty" % TYPE_LABELS[type])
+		else:
+			parts.append("%s: level %d" % [TYPE_LABELS[type], colonist.level])
 	var label := Label.new()
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-
-	if colonist == null:
-		label.text = "%s: empty" % TYPE_LABELS[type]
-		row.add_child(label)
-
-		var has_idle_match := false
-		for c: Colonist in Game.colonists.idle_colonists():
-			if c.type == type:
-				has_idle_match = true
-				break
-
-		var assign_button := Button.new()
-		assign_button.text = "Assign"
-		assign_button.disabled = not has_idle_match
-		assign_button.pressed.connect(func() -> void:
-			Game.colonists.assign_best(colony.colony_id, type)
-			refresh()
-		)
-		row.add_child(assign_button)
-	else:
-		label.text = "%s: level %d" % [TYPE_LABELS[type], colonist.level]
-		row.add_child(label)
-
-		var upgrade_cost: float = Game.colonists.next_upgrade_cost(colonist.id)
-		var upgrade_button := Button.new()
-		upgrade_button.text = "Upgrade (%s)" % Format.number(upgrade_cost, 1)
-		upgrade_button.disabled = Game.colonists.influence() < upgrade_cost
-		upgrade_button.pressed.connect(func() -> void:
-			Game.colonists.upgrade(colonist.id)
-			refresh()
-		)
-		row.add_child(upgrade_button)
-
-		var unassign_button := Button.new()
-		unassign_button.text = "Unassign"
-		unassign_button.pressed.connect(func() -> void:
-			Game.colonists.unassign(colonist.id)
-			refresh()
-		)
-		row.add_child(unassign_button)
-
-	return row
+	label.text = "  ".join(parts)
+	return label
 
 
 func _build_found_button(slot_index: int, slot: Dictionary) -> Control:

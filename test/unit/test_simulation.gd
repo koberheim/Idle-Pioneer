@@ -25,6 +25,7 @@ func test_tick_is_a_no_op_with_no_active_run() -> void:
 
 
 func test_tick_advances_colony_production() -> void:
+	Game.routing.set_mode(&"timber", Game.routing.RESERVE)
 	# Capital is bootstrapped automatically - base rate 1.0 timber/s.
 	Game.simulation.tick(3.0)
 	assert_almost_eq(Game.inventory.get_amount(&"timber"), 3.0, 0.0001)

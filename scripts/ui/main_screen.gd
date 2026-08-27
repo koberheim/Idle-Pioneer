@@ -9,13 +9,19 @@
 ## to route through yet, so a fresh run always starts there.
 ##
 ## Layout, direct request: the map fills the entire screen behind
-## everything else; the 4 tabs collapse to a plain strip pinned to the
-## bottom edge; tapping one slides a content sheet up to cover ~45% of the
-## screen (tapping the same tab again slides it back down). MapArea/TopBar/
-## NotificationBar all stay full-width and manage their own vertical slot
-## via anchors - only SheetPanel and TabBarPanel need pixel-precise manual
-## positioning, since their height (SheetPanel) and vertical offset (both)
-## change at runtime as the sheet opens and closes.
+## everything else; the 5 tabs (Colonies/Market/Crafting/Colonists/
+## Discoveries) collapse to a plain strip pinned to the bottom edge; tapping
+## one slides a content sheet up to cover ~45% of the screen (tapping the
+## same tab again slides it back down). MapArea/TopBar/NotificationBar all
+## stay full-width and manage their own vertical slot via anchors - only
+## SheetPanel and TabBarPanel need pixel-precise manual positioning, since
+## their height (SheetPanel) and vertical offset (both) change at runtime as
+## the sheet opens and closes.
+##
+## Prestige and Save moved out of the tab strip entirely, direct request -
+## into a small popup opened from a Menu button in the top-right corner
+## (MenuPopup), the way a typical app's overflow menu works. Prestige keeps
+## its own panel script/content unchanged; only where it lives moved.
 extends Control
 
 const MAP_ID: StringName = &"mvp_coast"
@@ -32,9 +38,13 @@ const SLIDE_SECONDS: float = 0.25
 @onready var _colonies_panel: Control = %Colonies
 @onready var _market_panel: Control = %Market
 @onready var _crafting_panel: Control = %Crafting
+@onready var _colonists_panel: Control = %Colonists
+@onready var _discoveries_panel: Control = %Discoveries
 @onready var _prestige_panel: Control = %Prestige
 @onready var _save_button: Button = %SaveButton
 @onready var _notification_bar: PanelContainer = %NotificationBar
+@onready var _menu_button: Button = %MenuButton
+@onready var _menu_popup: PanelContainer = %MenuPopup
 
 ## TabContainer's stock tab bar left-aligns tabs to their content width
 ## instead of spreading them evenly - these are plain SIZE_EXPAND_FILL
@@ -43,7 +53,8 @@ const SLIDE_SECONDS: float = 0.25
 @onready var _colonies_tab_button: Button = %ColoniesTabButton
 @onready var _market_tab_button: Button = %MarketTabButton
 @onready var _crafting_tab_button: Button = %CraftingTabButton
-@onready var _prestige_tab_button: Button = %PrestigeTabButton
+@onready var _colonists_tab_button: Button = %ColonistsTabButton
+@onready var _discoveries_tab_button: Button = %DiscoveriesTabButton
 @onready var _sheet_panel: PanelContainer = %SheetPanel
 @onready var _tab_bar_panel: PanelContainer = %TabBarPanel
 
@@ -68,11 +79,13 @@ func _ready() -> void:
 
 	Game.simulation.start()
 	_save_button.pressed.connect(SaveSystem.save)
+	_menu_button.pressed.connect(func() -> void: _menu_popup.visible = not _menu_popup.visible)
 
 	_colonies_tab_button.toggled.connect(func(pressed: bool) -> void: _on_tab_toggled(pressed, _colonies_panel))
 	_market_tab_button.toggled.connect(func(pressed: bool) -> void: _on_tab_toggled(pressed, _market_panel))
 	_crafting_tab_button.toggled.connect(func(pressed: bool) -> void: _on_tab_toggled(pressed, _crafting_panel))
-	_prestige_tab_button.toggled.connect(func(pressed: bool) -> void: _on_tab_toggled(pressed, _prestige_panel))
+	_colonists_tab_button.toggled.connect(func(pressed: bool) -> void: _on_tab_toggled(pressed, _colonists_panel))
+	_discoveries_tab_button.toggled.connect(func(pressed: bool) -> void: _on_tab_toggled(pressed, _discoveries_panel))
 
 	_map_view.slot_selected.connect(_on_map_slot_selected)
 
@@ -88,7 +101,7 @@ func _ready() -> void:
 func _on_tab_toggled(pressed: bool, page: Control) -> void:
 	if pressed:
 		_active_page = page
-		for p: Control in [_colonies_panel, _market_panel, _crafting_panel, _prestige_panel]:
+		for p: Control in [_colonies_panel, _market_panel, _crafting_panel, _colonists_panel, _discoveries_panel]:
 			p.visible = p == page
 		_animate_sheet_to(_target_sheet_height())
 	else:
@@ -209,4 +222,6 @@ func refresh_all() -> void:
 	_colonies_panel.refresh()
 	_market_panel.refresh()
 	_crafting_panel.refresh()
+	_colonists_panel.refresh()
+	_discoveries_panel.refresh()
 	_prestige_panel.refresh()

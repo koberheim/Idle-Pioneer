@@ -275,13 +275,27 @@ func test_save_then_load_restores_the_colonist_roster_and_influence() -> void:
 
 
 func test_save_then_load_restores_resource_routing() -> void:
-	Game.routing.set_mode(&"timber", Game.routing.SELL)
+	Game.routing.set_mode(&"timber", Game.routing.RESERVE)
 	SaveSystem.save()
 	Game.run = null
 
 	SaveSystem.load()
-	assert_eq(Game.routing.mode_for(&"timber"), Game.routing.SELL)
-	assert_eq(Game.routing.mode_for(&"cod"), Game.routing.RESERVE, "an unset resource should still default correctly")
+	assert_eq(Game.routing.mode_for(&"timber"), Game.routing.RESERVE)
+	assert_eq(Game.routing.mode_for(&"cod"), Game.routing.SELL, "an unset resource should still default correctly")
+
+
+func test_save_then_load_restores_discoveries_in_order() -> void:
+	Game.discoveries.discover_resource(&"timber")
+	Game.discoveries.discover_resource(&"cod")
+	SaveSystem.save()
+	Game.run = null
+
+	SaveSystem.load()
+	assert_eq(Game.discoveries.discovered_resources(), [&"timber", &"cod"] as Array[StringName])
+	assert_eq(
+		Game.discoveries.discovered_recipes(),
+		[&"planks_recipe", &"lumber_recipe", &"salt_cod_recipe"] as Array[StringName]
+	)
 
 
 func test_save_then_load_restores_started_at_unix() -> void:
@@ -347,6 +361,7 @@ func test_save_then_load_restores_a_routes_in_flight_state() -> void:
 ## should fast-forward production by that much, in one load() call, not
 ## require the game to have been open the whole time.
 func test_load_applies_offline_catch_up_to_colony_production() -> void:
+	Game.routing.set_mode(&"timber", Game.routing.RESERVE)
 	Game.colonies.register(Colony.new(&"tidewater_landing"))
 	SaveSystem.save()
 	_rewrite_saved_at_unix(Time.get_unix_time_from_system() - 10)
@@ -358,6 +373,7 @@ func test_load_applies_offline_catch_up_to_colony_production() -> void:
 
 
 func test_load_offline_catch_up_is_capped_at_the_configured_maximum() -> void:
+	Game.routing.set_mode(&"timber", Game.routing.RESERVE)
 	Game.colonies.register(Colony.new(&"tidewater_landing"))
 	SaveSystem.save()
 	_rewrite_saved_at_unix(Time.get_unix_time_from_system() - 999_999_999)
