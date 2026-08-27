@@ -7,31 +7,52 @@
 ##
 ## Only one map exists (mvp_coast, task F1) - there's no map-select screen
 ## to route through yet, so a fresh run always starts there.
+##
+## Layout, direct request: the map fills the entire screen behind
+## everything else; the 4 tabs collapse to a plain strip pinned to the
+## bottom edge; tapping one slides a content sheet up to cover ~45% of the
+## screen (tapping the same tab again slides it back down). MapArea/TopBar/
+## NotificationBar all stay full-width and manage their own vertical slot
+## via anchors - only SheetPanel and TabBarPanel need pixel-precise manual
+## positioning, since their height (SheetPanel) and vertical offset (both)
+## change at runtime as the sheet opens and closes.
 extends Control
 
 const MAP_ID: StringName = &"mvp_coast"
 const REFRESH_INTERVAL_SECONDS: float = 0.25
 const AUTO_SAVE_INTERVAL_SECONDS: float = 30.0
 
+const TAB_BAR_HEIGHT: float = 56.0
+const SHEET_HEIGHT_RATIO: float = 0.45
+const SLIDE_SECONDS: float = 0.25
+
 @onready var _gold_label: Label = %GoldLabel
 @onready var _liberty_label: Label = %LibertyLabel
+@onready var _map_view: MapView = %MapArea
 @onready var _colonies_panel: Control = %Colonies
 @onready var _market_panel: Control = %Market
 @onready var _crafting_panel: Control = %Crafting
 @onready var _prestige_panel: Control = %Prestige
 @onready var _save_button: Button = %SaveButton
+@onready var _notification_bar: PanelContainer = %NotificationBar
 
 ## TabContainer's stock tab bar left-aligns tabs to their content width
 ## instead of spreading them evenly - these are plain SIZE_EXPAND_FILL
-## buttons in a ButtonGroup driving manual page visibility instead.
+## buttons in a ButtonGroup (allow_unpress = true, so tapping the open tab
+## again deselects it) driving the sliding sheet below instead.
 @onready var _colonies_tab_button: Button = %ColoniesTabButton
 @onready var _market_tab_button: Button = %MarketTabButton
 @onready var _crafting_tab_button: Button = %CraftingTabButton
 @onready var _prestige_tab_button: Button = %PrestigeTabButton
-@onready var _notification_bar: PanelContainer = %NotificationBar
+@onready var _sheet_panel: PanelContainer = %SheetPanel
+@onready var _tab_bar_panel: PanelContainer = %TabBarPanel
 
 var _refresh_elapsed: float = 0.0
 var _auto_save_elapsed: float = 0.0
+
+var _sheet_height: float = 0.0  # current animated height; 0 = fully closed
+var _sheet_tween: Tween
+var _active_page: Control = null
 
 
 func _ready() -> void:
@@ -48,20 +69,39 @@ func _ready() -> void:
 	Game.simulation.start()
 	_save_button.pressed.connect(SaveSystem.save)
 
-	_colonies_tab_button.pressed.connect(func() -> void: _select_tab(_colonies_panel))
-	_market_tab_button.pressed.connect(func() -> void: _select_tab(_market_panel))
-	_crafting_tab_button.pressed.connect(func() -> void: _select_tab(_crafting_panel))
-	_prestige_tab_button.pressed.connect(func() -> void: _select_tab(_prestige_panel))
+	_colonies_tab_button.toggled.connect(func(pressed: bool) -> void: _on_tab_toggled(pressed, _colonies_panel))
+	_market_tab_button.toggled.connect(func(pressed: bool) -> void: _on_tab_toggled(pressed, _market_panel))
+	_crafting_tab_button.toggled.connect(func(pressed: bool) -> void: _on_tab_toggled(pressed, _crafting_panel))
+	_prestige_tab_button.toggled.connect(func(pressed: bool) -> void: _on_tab_toggled(pressed, _prestige_panel))
+
+	_map_view.slot_selected.connect(_on_map_slot_selected)
 
 	Game.routes.shipment_delivered.connect(_on_shipment_delivered)
 	Game.prestige.declared_independence.connect(_on_declared_independence)
 
+	_layout_sheet()
 	refresh_all()
 
 
-func _select_tab(page: Control) -> void:
-	for p: Control in [_colonies_panel, _market_panel, _crafting_panel, _prestige_panel]:
-		p.visible = p == page
+## Starts closed (map fills the whole screen, nothing selected) - opening a
+## tab is always a deliberate tap, never the default state.
+func _on_tab_toggled(pressed: bool, page: Control) -> void:
+	if pressed:
+		_active_page = page
+		for p: Control in [_colonies_panel, _market_panel, _crafting_panel, _prestige_panel]:
+			p.visible = p == page
+		_animate_sheet_to(_target_sheet_height())
+	else:
+		_active_page = null
+		_animate_sheet_to(0.0)
+
+
+## Tapping a colony marker on the map opens the Colonies tab - the one
+## place a colony's live stats and controls actually live. Scrolling to
+## that specific colony's row is a nicer follow-up, not done here.
+func _on_map_slot_selected(_slot_index: int) -> void:
+	if not _colonies_tab_button.button_pressed:
+		_colonies_tab_button.button_pressed = true
 
 
 func _on_shipment_delivered(colony: Colony, cargo: Dictionary) -> void:
@@ -104,6 +144,35 @@ func _on_declared_independence(liberty_awarded: int) -> void:
 	)
 
 
+func _target_sheet_height() -> float:
+	return get_viewport_rect().size.y * SHEET_HEIGHT_RATIO
+
+
+func _animate_sheet_to(target: float) -> void:
+	if _sheet_tween != null:
+		_sheet_tween.kill()
+	_sheet_tween = create_tween()
+	_sheet_tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	_sheet_tween.tween_method(_set_sheet_height, _sheet_height, target, SLIDE_SECONDS)
+
+
+func _set_sheet_height(height: float) -> void:
+	_sheet_height = height
+	_layout_sheet()
+
+
+## TabBarPanel stays pinned to the screen's bottom edge always; SheetPanel
+## sits directly above it and grows upward from that fixed line as
+## _sheet_height animates toward its target - the "slides up from behind
+## the tab strip" effect, without moving the tab strip itself.
+func _layout_sheet() -> void:
+	var viewport_size: Vector2 = get_viewport_rect().size
+	_tab_bar_panel.position = Vector2(0.0, viewport_size.y - TAB_BAR_HEIGHT)
+	_tab_bar_panel.size = Vector2(viewport_size.x, TAB_BAR_HEIGHT)
+	_sheet_panel.position = Vector2(0.0, viewport_size.y - TAB_BAR_HEIGHT - _sheet_height)
+	_sheet_panel.size = Vector2(viewport_size.x, _sheet_height)
+
+
 func _cargo_summary(cargo: Dictionary) -> String:
 	var parts: Array[String] = []
 	for id: StringName in cargo.keys():
@@ -136,6 +205,7 @@ func _notification(what: int) -> void:
 func refresh_all() -> void:
 	_gold_label.text = "Gold: %s" % Format.number(Game.economy.gold)
 	_liberty_label.text = "Liberty: %s" % Format.number(Game.prestige.liberty())
+	_map_view.refresh()
 	_colonies_panel.refresh()
 	_market_panel.refresh()
 	_crafting_panel.refresh()
