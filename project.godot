@@ -21,6 +21,7 @@ Db="*res://scripts/core/db.gd"
 Balance="*res://scripts/core/balance.gd"
 Game="*res://scripts/core/Game.tscn"
 SaveSystem="*res://scripts/core/save_system.gd"
+Audio="*res://scripts/core/audio.gd"
 
 [debug]
 

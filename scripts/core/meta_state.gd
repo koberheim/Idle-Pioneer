@@ -21,6 +21,14 @@ var upgrades: Dictionary = {}
 var lifetime_gold_earned: float = 0.0
 var runs_completed: int = 0
 
+## Sound settings (direct request: framework only for now, no audio assets
+## exist yet - see Audio's class doc). A device-level preference, not a
+## run-scoped one, so it lives here rather than on RunState - muting sound
+## should survive a prestige reset the same way it survives reloading a
+## save.
+var music_enabled: bool = true
+var sfx_enabled: bool = true
+
 ## Every recipe id ever successfully crafted at least once, across every run
 ## (docs/GAME_DESIGN.md §9). There's no recipe-unlock-gating mechanic built
 ## yet (§7's "unlock alongside their source colony" isn't implemented) -
@@ -47,6 +55,8 @@ func to_dict() -> Dictionary:
 		"upgrades": _stringname_int_dict_to_json(upgrades),
 		"lifetime_gold_earned": lifetime_gold_earned,
 		"runs_completed": runs_completed,
+		"music_enabled": music_enabled,
+		"sfx_enabled": sfx_enabled,
 		"recipes_ever_unlocked": recipes_ever_unlocked.map(func(id: StringName) -> String: return String(id)),
 		"stats": {
 			"best_run_gold": float(stats.get("best_run_gold", 0.0)),
@@ -64,6 +74,8 @@ static func from_dict(d: Dictionary) -> MetaState:
 	s.upgrades = _json_to_stringname_int_dict(d.get("upgrades", {}))
 	s.lifetime_gold_earned = float(d.get("lifetime_gold_earned", 0.0))
 	s.runs_completed = int(d.get("runs_completed", 0))
+	s.music_enabled = bool(d.get("music_enabled", true))
+	s.sfx_enabled = bool(d.get("sfx_enabled", true))
 
 	var recipes: Array[StringName] = []
 	for entry: Variant in (d.get("recipes_ever_unlocked", []) as Array):

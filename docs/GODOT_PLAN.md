@@ -230,6 +230,18 @@ Direct request: a `colony_names.json` in `docs/` (25 ordered names per nation - 
 
 ---
 
+### A sound framework - no assets, on purpose
+
+Direct request, explicitly with a fallback built in: "if you can generate high quality sound we can do that, otherwise put the framework and structure in and I can add later." There's no audio-generation capability available in this session, so this is the framework - real SFX/music files are a follow-up whenever they exist, not attempted here.
+
+- **`Audio`** (new autoload, `scripts/core/audio.gd`) scans `assets/audio/sfx/` and `assets/audio/music/` at boot and keys each file by its own filename, minus extension - the exact same directory-scan-and-key-by-name pattern `Db` already uses for every other content type. `play_sfx(id)`/`play_music(id)` are safe no-ops for any id with no matching file yet, which is every id right now - both directories ship with only a `README.md` (naming convention, plus a table of every id the game already calls, waiting for a file) so dropping in a real file and naming it correctly is the entire remaining step, no code changes needed.
+- **Every button in the project gets a click sound for free**, with zero per-panel wiring: `Audio` connects to `SceneTree.node_added` once at boot and hooks any `BaseButton`'s own `pressed` signal the moment it's added to the tree - which already covers every button every panel builds (and rebuilds, repeatedly - see `MainScreen`'s refresh cadence, itself a fix from an earlier pass this session) since they're all plain `Button.new()` + `add_child()`. No future button anywhere needs its own click-sound call.
+- **Named events wired at their real call sites**, direct request ("clicks, events like founding a colony, declaring independence"): `found_colony` (`Colonies.founded`), `declare_independence` (`Prestige.declared_independence`), `shipment_delivered` (`Routes.shipment_delivered`) - all three signals already existed and were already connected in `MainScreen` for the notification-toast system built earlier this session; the sound call sits right next to the matching toast call at each. Background music (`ambient`) starts once a run begins (`MainScreen._start_run()`) and loops by replaying itself on `AudioStreamPlayer.finished`, since there's no single loop flag that works uniformly across every audio format Godot supports.
+- **`Game.meta.music_enabled`/`sfx_enabled`**, direct request ("the menu will need options to turn music and sound effects on or off") - a device-level preference, not run-scoped, so it lives on `MetaState` (survives prestige and reload) rather than `RunState`, with two new toggle buttons in the `MenuPopup` (`Music: ON/OFF`, `Sound: ON/OFF`). Turning music off stops whatever's audible immediately rather than just gating the next `play_music()` call; turning it back on resumes whichever track was already selected.
+- Verified end to end with zero real audio files present - a real (non-headless) boot confirmed `Audio: loaded 0 sfx, 0 music tracks` and no errors anywhere in the flow (founding a colony, opening the menu, toggling both switches), plus GUT tests for the framework logic that's actually testable without real assets: every no-op path, the enabled/disabled settings round-tripping through save/load, and the global click-hook actually connecting to a button without erroring.
+
+---
+
 ## Environment (verified this session)
 
 | Thing | Status |

@@ -59,6 +59,8 @@ const SLIDE_SECONDS: float = 0.25
 @onready var _discoveries_panel: Control = %Discoveries
 @onready var _prestige_panel: Control = %Prestige
 @onready var _save_button: Button = %SaveButton
+@onready var _music_toggle_button: Button = %MusicToggleButton
+@onready var _sfx_toggle_button: Button = %SfxToggleButton
 @onready var _notification_bar: PanelContainer = %NotificationBar
 @onready var _menu_button: Button = %MenuButton
 @onready var _menu_popup: PanelContainer = %MenuPopup
@@ -97,6 +99,22 @@ func _ready() -> void:
 			_prestige_panel.refresh()
 	)
 
+	# Game.meta (unlike Game.run) always exists, even before a nation/run is
+	# chosen - sound settings are a device-level preference, not run-scoped.
+	_music_toggle_button.button_pressed = Game.meta.music_enabled
+	_music_toggle_button.text = "Music: ON" if Game.meta.music_enabled else "Music: OFF"
+	_music_toggle_button.toggled.connect(func(pressed: bool) -> void:
+		Audio.set_music_enabled(pressed)
+		_music_toggle_button.text = "Music: ON" if pressed else "Music: OFF"
+	)
+
+	_sfx_toggle_button.button_pressed = Game.meta.sfx_enabled
+	_sfx_toggle_button.text = "Sound: ON" if Game.meta.sfx_enabled else "Sound: OFF"
+	_sfx_toggle_button.toggled.connect(func(pressed: bool) -> void:
+		Audio.set_sfx_enabled(pressed)
+		_sfx_toggle_button.text = "Sound: ON" if pressed else "Sound: OFF"
+	)
+
 	_colonies_tab_button.toggled.connect(func(pressed: bool) -> void: _on_tab_toggled(pressed, _colonies_panel))
 	_market_tab_button.toggled.connect(func(pressed: bool) -> void: _on_tab_toggled(pressed, _market_panel))
 	_crafting_tab_button.toggled.connect(func(pressed: bool) -> void: _on_tab_toggled(pressed, _crafting_panel))
@@ -107,6 +125,7 @@ func _ready() -> void:
 
 	Game.routes.shipment_delivered.connect(_on_shipment_delivered)
 	Game.prestige.declared_independence.connect(_on_declared_independence)
+	Game.colonies.founded.connect(_on_colony_founded)
 
 	_layout_sheet()
 
@@ -130,6 +149,7 @@ func _on_nation_chosen(nation_id: StringName) -> void:
 
 func _start_run() -> void:
 	Game.simulation.start()
+	Audio.play_music(&"ambient")
 	refresh_all()
 
 
@@ -161,7 +181,12 @@ func _on_map_slot_selected(slot_index: int) -> void:
 
 
 func _on_shipment_delivered(colony: Colony, cargo: Dictionary) -> void:
+	Audio.play_sfx(&"shipment_delivered")
 	_notification_bar.push("%s delivered: %s" % [colony.display_name(), _cargo_summary(cargo)])
+
+
+func _on_colony_founded(colony: Colony) -> void:
+	Audio.play_sfx(&"found_colony")
 
 
 ## docs/GAME_DESIGN.md §11 Phase 7: "offline summary." Only shown when time
@@ -192,6 +217,7 @@ func _format_duration(seconds: float) -> String:
 ## moment the run actually resets deserves more than silently swapping
 ## numbers, even without a dedicated cutscene screen.
 func _on_declared_independence(liberty_awarded: int) -> void:
+	Audio.play_sfx(&"declare_independence")
 	_notification_bar.push(
 		"Independence declared! Earned %s Liberty. A new frontier awaits." % Format.number(liberty_awarded),
 		6.0
