@@ -63,7 +63,9 @@ func sell(id: StringName, amount: float) -> bool:
 	return true
 
 
-## Gold value of `amount` units of `id` at its base_value, before any sale.
+## Gold value of `amount` units of `id` at its base_value, adjusted only by
+## the chosen nation's gold-sell bonus (direct request - recovered from the
+## Unity project's NationalityData, see NationDef's class doc).
 ##
 ## Deliberately does NOT apply Game.progression.production_multiplier() here,
 ## even though docs/GODOT_PLAN.md's original task R2 description mentions
@@ -71,11 +73,11 @@ func sell(id: StringName, amount: float) -> bool:
 ## effect-key design: the MVP's one upgrade (primitive_tools) is
 ## EFFECT_GLOBAL_PRODUCTION_MULTIPLIER - it makes colonies produce faster, which
 ## has nothing to do with what each unit sells for. Applying a production
-## multiplier to sale price would be a bug, not a feature, so it's left out
-## until (if) an actual gold-sale-multiplier upgrade effect exists to back it -
-## see docs/CONVENTIONS.md "no system without a caller."
+## multiplier to sale price would be a bug, not a feature - the nation bonus
+## is the first *actual* gold-sale multiplier this project has, which is
+## exactly the exception that comment already carved out room for.
 func sell_value(id: StringName, amount: float) -> float:
 	var def: ResourceDef = Db.resource(id)
 	if def == null:
 		return 0.0
-	return def.base_value * amount
+	return def.base_value * amount * Game.nation_gold_sell_multiplier()

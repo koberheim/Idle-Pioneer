@@ -20,6 +20,19 @@ func test_nothing_is_discovered_at_the_start_of_a_run() -> void:
 	assert_eq(Game.discoveries.discovered_recipes(), [] as Array[StringName])
 
 
+## Found via the nation-picker screen (direct request): MainScreen now
+## calls refresh_all() - which reaches every panel's refresh(), including
+## CraftingPanel/MarketPanel's calls into these two methods - before
+## Game.new_run() has ever run, while the player is still choosing a
+## nation. An untyped `[]` literal returned from a function declared
+## `-> Array[StringName]` is a runtime type error in that case, not a
+## silently-working empty array.
+func test_discovered_resources_and_recipes_are_safe_with_no_active_run() -> void:
+	Game.run = null
+	assert_eq(Game.discoveries.discovered_resources(), [] as Array[StringName])
+	assert_eq(Game.discoveries.discovered_recipes(), [] as Array[StringName])
+
+
 func test_discover_resource_adds_it_once() -> void:
 	Game.discoveries.discover_resource(&"timber")
 	assert_true(Game.discoveries.is_resource_discovered(&"timber"))

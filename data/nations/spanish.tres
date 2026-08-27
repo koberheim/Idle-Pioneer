@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="NationDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/nation_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"spanish"
+display_name = "Spanish"
+color = Color(0.88235295, 0.6784314, 0.003921569, 1)
+bonus_description = "+25% gold from selling"
+gold_sell_multiplier = 1.25

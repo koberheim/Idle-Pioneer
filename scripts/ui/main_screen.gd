@@ -22,6 +22,13 @@
 ## into a small popup opened from a Menu button in the top-right corner
 ## (MenuPopup), the way a typical app's overflow menu works. Prestige keeps
 ## its own panel script/content unchanged; only where it lives moved.
+##
+## A fresh install (no save yet) shows the nation-picker overlay
+## (NationSelect - direct request, docs/GAME_DESIGN.md predates this
+## feature) before Game.new_run() is ever called, so the chosen nation's
+## bonus is baked into the very first frame of the run rather than applied
+## retroactively. Loading an existing save skips it entirely - a nation is
+## picked once, at the start of a run, same as the map.
 extends Control
 
 const MAP_ID: StringName = &"mvp_coast"
@@ -45,6 +52,7 @@ const SLIDE_SECONDS: float = 0.25
 @onready var _notification_bar: PanelContainer = %NotificationBar
 @onready var _menu_button: Button = %MenuButton
 @onready var _menu_popup: PanelContainer = %MenuPopup
+@onready var _nation_select: PanelContainer = %NationSelect
 
 ## TabContainer's stock tab bar left-aligns tabs to their content width
 ## instead of spreading them evenly - these are plain SIZE_EXPAND_FILL
@@ -72,12 +80,6 @@ func _ready() -> void:
 	# would miss it entirely.
 	SaveSystem.offline_progress_applied.connect(_on_offline_progress_applied)
 
-	if SaveSystem.has_save():
-		SaveSystem.load()
-	else:
-		Game.new_run(MAP_ID)
-
-	Game.simulation.start()
 	_save_button.pressed.connect(SaveSystem.save)
 	_menu_button.pressed.connect(func() -> void: _menu_popup.visible = not _menu_popup.visible)
 
@@ -93,6 +95,27 @@ func _ready() -> void:
 	Game.prestige.declared_independence.connect(_on_declared_independence)
 
 	_layout_sheet()
+
+	if SaveSystem.has_save():
+		SaveSystem.load()
+		_start_run()
+	else:
+		_nation_select.visible = true
+		_nation_select.nation_chosen.connect(_on_nation_chosen)
+		refresh_all()  # harmless with no run yet - every panel's refresh() already no-ops on Game.run == null
+
+
+## The player's one choice before their very first run - Game.new_run()
+## only ever runs after this, so the chosen nation's bonus is live from
+## this run's first frame, not applied retroactively.
+func _on_nation_chosen(nation_id: StringName) -> void:
+	_nation_select.visible = false
+	Game.new_run(MAP_ID, -1, nation_id)
+	_start_run()
+
+
+func _start_run() -> void:
+	Game.simulation.start()
 	refresh_all()
 
 

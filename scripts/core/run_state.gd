@@ -16,6 +16,14 @@ extends RefCounted
 ## this run is on.
 var map_id: StringName = &""
 
+## Which NationDef this run picked at the start screen (direct request -
+## docs/GAME_DESIGN.md predates this feature entirely; recovered from the
+## original Unity project's NationalityData assets - see NationDef's class
+## doc). Fixed for the run's whole lifetime, same as map_id - a prestige
+## reset starts a brand new run and could offer the picker again, but
+## nothing about switching nations mid-run is supported or asked for.
+var nation_id: StringName = &""
+
 ## Seeds this run's generated map (rework task: randomized map) - captured
 ## once at new_run() and never touched again, so the SAME map regenerates
 ## deterministically if ever needed, and so a save file can prove which map
@@ -137,6 +145,7 @@ var routes: Array[Dictionary] = []
 func to_dict() -> Dictionary:
 	return {
 		"map_id": String(map_id),
+		"nation_id": String(nation_id),
 		"map_seed": map_seed,
 		"map": map,
 		"colony_slots": colony_slots.map(_colony_slot_to_dict),
@@ -162,6 +171,7 @@ func to_dict() -> Dictionary:
 static func from_dict(d: Dictionary) -> RunState:
 	var s := RunState.new()
 	s.map_id = StringName(d.get("map_id", ""))
+	s.nation_id = StringName(d.get("nation_id", ""))
 	# JSON has no integer type - every number round-trips as float. Cast
 	# explicitly wherever the field is meant to be an int (see docs/GODOT_PLAN.md
 	# Phase 8, task G1's stated regression risk).

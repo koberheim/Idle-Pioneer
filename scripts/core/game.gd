@@ -53,12 +53,20 @@ func has_run() -> bool:
 ## generates a new one - see RunState.map's class doc). `seed_value` is an
 ## explicit override for reproducibility/testing; -1 (the default) picks a
 ## real random seed.
-func new_run(map_id: StringName, seed_value: int = -1) -> void:
+##
+## `nation_id` defaults to empty - "no nation chosen," which every
+## nation_*_multiplier() below treats as neutral (1.0, no bonus). That
+## keeps every existing caller that predates the nation-picker screen (and
+## every test that calls new_run() without one) exactly as they were -
+## picking a nation is something a caller opts into, never an implicit
+## default bonus.
+func new_run(map_id: StringName, seed_value: int = -1, nation_id: StringName = &"") -> void:
 	if has_run():
 		run_ended.emit()
 
 	var fresh := RunState.new()
 	fresh.map_id = map_id
+	fresh.nation_id = nation_id
 	fresh.started_at_unix = Time.get_unix_time_from_system()
 	fresh.map_seed = seed_value if seed_value >= 0 else randi()
 
@@ -116,3 +124,43 @@ func new_run(map_id: StringName, seed_value: int = -1) -> void:
 		colonies.register(capital)
 
 	run_started.emit()
+
+
+## The chosen nation's data, or null if none was chosen (see new_run()'s
+## doc) or the id doesn't resolve to real content. Every nation_*_multiplier()
+## below goes through this rather than reading Db.nation() itself, so
+## "no nation" only has to be handled once.
+func current_nation() -> NationDef:
+	if run == null or run.nation_id == &"":
+		return null
+	return Db.nation(run.nation_id)
+
+
+func nation_extraction_rate_multiplier() -> float:
+	var n: NationDef = current_nation()
+	return n.extraction_rate_multiplier if n != null else 1.0
+
+
+func nation_ship_speed_multiplier() -> float:
+	var n: NationDef = current_nation()
+	return n.ship_speed_multiplier if n != null else 1.0
+
+
+func nation_wagon_speed_multiplier() -> float:
+	var n: NationDef = current_nation()
+	return n.wagon_speed_multiplier if n != null else 1.0
+
+
+func nation_colony_cost_multiplier() -> float:
+	var n: NationDef = current_nation()
+	return n.colony_cost_multiplier if n != null else 1.0
+
+
+func nation_gold_sell_multiplier() -> float:
+	var n: NationDef = current_nation()
+	return n.gold_sell_multiplier if n != null else 1.0
+
+
+func nation_liberty_generation_multiplier() -> float:
+	var n: NationDef = current_nation()
+	return n.liberty_generation_multiplier if n != null else 1.0

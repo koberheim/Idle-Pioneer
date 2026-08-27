@@ -42,9 +42,14 @@ func can_declare_independence() -> bool:
 
 ## What declare_independence() would pay out right now - the "projected
 ## Liberty" figure §8's confirmation screen is supposed to show before the
-## player commits.
+## player commits. Scaled by the chosen nation's Liberty bonus, if any
+## (direct request - recovered from the Unity project's NationalityData,
+## see NationDef's class doc) - applied after Balance's own formula rather
+## than to lifetime_gold_earned_this_run() beforehand, since it's a bonus to
+## the payout itself, not a claim the run actually earned more gold.
 func projected_liberty_payout() -> int:
-	return Balance.prestige_liberty_payout(lifetime_gold_earned_this_run())
+	var base: int = Balance.prestige_liberty_payout(lifetime_gold_earned_this_run())
+	return int(round(float(base) * Game.nation_liberty_generation_multiplier()))
 
 
 ## Pays out Liberty for this run's earnings, then wipes the run (Game.new_run()

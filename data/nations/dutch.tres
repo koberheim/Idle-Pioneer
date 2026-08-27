@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="NationDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/nation_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"dutch"
+display_name = "Dutch"
+color = Color(0.7529412, 0.38269812, 0, 1)
+bonus_description = "+15% production from every colony"
+extraction_rate_multiplier = 1.15

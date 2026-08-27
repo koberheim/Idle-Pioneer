@@ -112,12 +112,15 @@ func production_rate() -> float:
 		def.base_production_rate,
 		production_level,
 		_colonist_level(Colonist.Type.RESOURCE),
-		# Two independent multipliers, combined here rather than in Balance:
-		# Progression's run-scoped upgrade (resets every run) and Prestige's
-		# Industry branch (permanent, §8). Balance.colony_production_rate()
-		# only ever takes one combined "prestige_multiplier" - it doesn't
-		# need to know these are two separate systems.
-		Game.progression.production_multiplier() * Game.prestige.production_multiplier()
+		# Three independent multipliers, combined here rather than in Balance:
+		# Progression's run-scoped upgrade (resets every run), Prestige's
+		# Industry branch (permanent, §8), and the chosen nation's bonus, if
+		# any (direct request - recovered from the Unity project's
+		# NationalityData, see NationDef's class doc).
+		# Balance.colony_production_rate() only ever takes one combined
+		# "prestige_multiplier" - it doesn't need to know these are three
+		# separate systems.
+		Game.progression.production_multiplier() * Game.prestige.production_multiplier() * Game.nation_extraction_rate_multiplier()
 	)
 
 
@@ -132,13 +135,20 @@ func cargo_capacity() -> float:
 
 
 ## Full round-trip travel time in seconds for a Route serving this colony.
+## The nation's speed bonus (direct request) picks ship or wagon by which
+## kind of route this actually is - an English bonus does nothing for a
+## land route, same as a Portuguese one does nothing for a sea route.
 func round_trip_seconds() -> float:
 	var def: ColonyDef = Db.colony(tier_id)
 	if def == null:
 		return 0.0
+	var is_sea: bool = route_type == RouteType.SEA
+	var nation_speed_multiplier: float = (
+		Game.nation_ship_speed_multiplier() if is_sea else Game.nation_wagon_speed_multiplier()
+	)
 	return Balance.route_round_trip_seconds(
-		distance(), route_type == RouteType.SEA, def.base_speed, speed_level, _colonist_level(Colonist.Type.SPEED),
-		Game.prestige.speed_multiplier()
+		distance(), is_sea, def.base_speed, speed_level, _colonist_level(Colonist.Type.SPEED),
+		Game.prestige.speed_multiplier() * nation_speed_multiplier
 	)
 
 

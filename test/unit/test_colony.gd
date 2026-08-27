@@ -198,3 +198,40 @@ func test_unknown_colony_id_is_a_safe_no_op() -> void:
 	assert_eq(colony.resource_id(), &"")
 	assert_almost_eq(colony.production_rate(), 0.0, 0.0001)
 	assert_almost_eq(colony.cargo_capacity(), 0.0, 0.0001)
+
+
+## Direct request: nation bonuses (see NationDef's class doc). Dutch gets
+## +15% production - applies to every colony, not just the Capital.
+func test_dutch_nation_boosts_production_rate() -> void:
+	Game.new_run(&"mvp_coast", -1, &"dutch")
+	var colony := Colony.new(&"cape_harbour")
+	assert_almost_eq(colony.production_rate(), 1.0 * 1.15, 0.0001)
+
+
+## English gets +10% ship (sea) speed - a coastal colony's round trip.
+func test_english_nation_speeds_up_sea_routes_only() -> void:
+	Game.new_run(&"mvp_coast", -1, &"english")
+	var sea_colony := Colony.new(&"chesapeake_fields")
+	sea_colony.distance_cells = 2.0
+	sea_colony.is_coastal = true
+	var land_colony := Colony.new(&"cape_harbour")
+	land_colony.distance_cells = 2.0
+	land_colony.is_coastal = false
+
+	# route_time_factor_sea (22.0) / _land (12.0) - see data/balance.tres.
+	assert_almost_eq(sea_colony.round_trip_seconds(), (2.0 * 22.0) / 1.1, 0.0001)
+	assert_almost_eq(land_colony.round_trip_seconds(), 2.0 * 12.0, 0.0001, "land route unaffected by a ship bonus")
+
+
+## Portuguese gets +30% land (wagon) speed - the inverse of the English case.
+func test_portuguese_nation_speeds_up_land_routes_only() -> void:
+	Game.new_run(&"mvp_coast", -1, &"portuguese")
+	var land_colony := Colony.new(&"cape_harbour")
+	land_colony.distance_cells = 2.0
+	land_colony.is_coastal = false
+	var sea_colony := Colony.new(&"chesapeake_fields")
+	sea_colony.distance_cells = 2.0
+	sea_colony.is_coastal = true
+
+	assert_almost_eq(land_colony.round_trip_seconds(), (2.0 * 12.0) / 1.3, 0.0001)
+	assert_almost_eq(sea_colony.round_trip_seconds(), 2.0 * 22.0, 0.0001, "sea route unaffected by a wagon bonus")

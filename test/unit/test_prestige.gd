@@ -156,3 +156,13 @@ func test_settlement_discounts_the_next_colonist_recruit_cost() -> void:
 func test_settlement_discounts_the_next_colony_slot_cost() -> void:
 	Game.meta.upgrades[&"settlement"] = 1  # 0.93x
 	assert_almost_eq(Balance.next_colony_slot_cost(1, Game.prestige.cost_discount_multiplier()), 250.0 * 0.93, 0.0001)
+
+
+## Direct request: Italian nation bonus is +15% Liberty earned on
+## Independence (see NationDef's class doc). §6's formula:
+## liberty = floor(6 x sqrt(gold / 2e9)) - 2e9 gold makes the sqrt term
+## exactly 1.0, so the base payout is exactly 6 before the nation bonus.
+func test_italian_nation_boosts_liberty_payout() -> void:
+	Game.new_run(&"mvp_coast", -1, &"italian")
+	Game.run.lifetime_gold_earned_this_run = 2_000_000_000.0
+	assert_eq(Game.prestige.projected_liberty_payout(), int(round(6.0 * 1.15)))

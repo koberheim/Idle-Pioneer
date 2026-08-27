@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="NationDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/nation_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"english"
+display_name = "English"
+color = Color(0.54509807, 0, 0, 1)
+bonus_description = "+10% sea route speed"
+ship_speed_multiplier = 1.1

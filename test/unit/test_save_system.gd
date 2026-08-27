@@ -307,6 +307,19 @@ func test_save_then_load_restores_started_at_unix() -> void:
 	assert_eq(Game.run.started_at_unix, stamped)
 
 
+## Direct request: nation selection (see NationDef's class doc) - the
+## chosen nation, and its bonus, must survive a save/reload same as
+## everything else run-scoped.
+func test_save_then_load_restores_the_chosen_nation() -> void:
+	Game.new_run(&"mvp_coast", -1, &"dutch")
+	SaveSystem.save()
+	Game.run = null
+
+	SaveSystem.load()
+	assert_eq(Game.run.nation_id, &"dutch")
+	assert_almost_eq(Game.nation_extraction_rate_multiplier(), 1.15, 0.0001)
+
+
 func test_save_then_load_restores_recipes_ever_unlocked_and_stats() -> void:
 	Game.inventory.add(&"timber", 2.0)
 	Crafting.craft(&"lumber_recipe")

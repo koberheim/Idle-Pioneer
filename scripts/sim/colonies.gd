@@ -96,7 +96,13 @@ func found(slot_index: int) -> bool:
 	if tier_def == null:
 		return false
 
-	var cost: float = Balance.next_colony_slot_cost(slot_index, Game.prestige.cost_discount_multiplier())
+	# Nation's colony-cost bonus (direct request) combines with Settlement's
+	# discount the same way - both are a straight multiplier on the base
+	# cost, so Balance.next_colony_slot_cost() doesn't need to know there
+	# are two separate sources for it.
+	var cost: float = Balance.next_colony_slot_cost(
+		slot_index, Game.prestige.cost_discount_multiplier() * Game.nation_colony_cost_multiplier()
+	)
 	if not Game.economy.try_spend(cost):
 		return false
 

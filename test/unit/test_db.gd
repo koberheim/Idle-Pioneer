@@ -384,3 +384,44 @@ func test_full_musket_chain_crafts_end_to_end() -> void:
 	assert_almost_eq(Game.inventory.get_amount(&"planks"), 0.0, 0.0001)
 
 	Game.run = null
+
+
+## Direct request: 6 nations recovered from the Unity project's
+## NationalityData assets (Assets/03_Data/Nationalities/*.asset) - see
+## NationDef's class doc for the archaeology.
+func test_all_six_nations_are_loaded() -> void:
+	for id: StringName in [&"dutch", &"english", &"french", &"italian", &"portuguese", &"spanish"]:
+		assert_not_null(Db.nation(id), "missing nation: %s" % id)
+
+
+func test_all_nations_returns_six_sorted_by_display_name() -> void:
+	var nations: Array[NationDef] = Db.all_nations()
+	assert_eq(nations.size(), 6)
+	for i in range(1, nations.size()):
+		assert_true(
+			nations[i - 1].display_name <= nations[i].display_name, "expected ascending display_name order"
+		)
+
+
+func test_each_nation_carries_exactly_its_own_original_bonus() -> void:
+	var expected: Dictionary = {
+		&"dutch": {"field": "extraction_rate_multiplier", "value": 1.15},
+		&"english": {"field": "ship_speed_multiplier", "value": 1.1},
+		&"french": {"field": "colony_cost_multiplier", "value": 0.8},
+		&"italian": {"field": "liberty_generation_multiplier", "value": 1.15},
+		&"portuguese": {"field": "wagon_speed_multiplier", "value": 1.3},
+		&"spanish": {"field": "gold_sell_multiplier", "value": 1.25},
+	}
+	var all_fields: Array[String] = [
+		"ship_speed_multiplier", "wagon_speed_multiplier", "colony_cost_multiplier",
+		"gold_sell_multiplier", "extraction_rate_multiplier", "liberty_generation_multiplier",
+	]
+	for id: StringName in expected.keys():
+		var def: NationDef = Db.nation(id)
+		var bonus_field: String = expected[id]["field"]
+		for field: String in all_fields:
+			var value: float = def.get(field)
+			if field == bonus_field:
+				assert_almost_eq(value, expected[id]["value"], 0.0001, "%s.%s" % [id, field])
+			else:
+				assert_almost_eq(value, 1.0, 0.0001, "%s.%s should be neutral" % [id, field])

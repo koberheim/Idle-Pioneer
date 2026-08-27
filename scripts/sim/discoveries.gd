@@ -24,11 +24,15 @@ signal recipe_discovered(recipe_id: StringName)
 
 
 func discovered_resources() -> Array[StringName]:
-	return Game.run.discovered_resources if Game.run != null else []
+	if Game.run == null:
+		return [] as Array[StringName]
+	return Game.run.discovered_resources
 
 
 func discovered_recipes() -> Array[StringName]:
-	return Game.run.discovered_recipes if Game.run != null else []
+	if Game.run == null:
+		return [] as Array[StringName]
+	return Game.run.discovered_recipes
 
 
 func is_resource_discovered(resource_id: StringName) -> bool:

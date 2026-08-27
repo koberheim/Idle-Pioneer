@@ -159,3 +159,13 @@ func test_tier_order_for_slot_cycles_through_the_seven_non_capital_tiers() -> vo
 	assert_eq(Game.colonies.tier_order_for_slot(8), 1, "wraps back to tier 1 after a full cycle")
 	assert_eq(Game.colonies.tier_order_for_slot(14), 7)
 	assert_eq(Game.colonies.tier_order_for_slot(15), 1)
+
+
+## Direct request: French nation bonus is -20% colony founding cost (see
+## NationDef's class doc). Slot 1's base cost is 250.0 gold.
+func test_french_nation_discounts_colony_founding_cost() -> void:
+	Game.new_run(&"mvp_coast", -1, &"french")
+	Game.economy.add_gold(250.0 * 0.8)
+
+	assert_true(Game.colonies.found(1))
+	assert_almost_eq(Game.economy.gold, 0.0, 0.0001)

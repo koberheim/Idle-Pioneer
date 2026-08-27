@@ -112,3 +112,10 @@ func test_operations_without_an_active_run_are_safe_no_ops() -> void:
 	assert_false(Game.economy.try_spend(10.0))
 	# add_gold() should not crash even with no run to write into.
 	Game.economy.add_gold(10.0)
+
+
+## Direct request: Spanish nation bonus is +25% gold from selling (see
+## NationDef's class doc).
+func test_spanish_nation_boosts_sell_value() -> void:
+	Game.new_run(&"mvp_coast", -1, &"spanish")
+	assert_almost_eq(Game.economy.sell_value(&"timber", 5.0), 5.0 * 1.25, 0.0001)  # timber base_value 1.0

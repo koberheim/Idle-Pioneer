@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="NationDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/nation_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"portuguese"
+display_name = "Portuguese"
+color = Color(0.8235294, 0.7058824, 0.54901963, 1)
+bonus_description = "+30% land route speed"
+wagon_speed_multiplier = 1.3

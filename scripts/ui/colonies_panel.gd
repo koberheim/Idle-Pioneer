@@ -187,7 +187,9 @@ func _build_colonist_summary(colony: Colony) -> Control:
 
 
 func _build_found_button(slot_index: int, slot: Dictionary) -> Control:
-	var cost: float = Balance.next_colony_slot_cost(slot_index, Game.prestige.cost_discount_multiplier())
+	var cost: float = Balance.next_colony_slot_cost(
+		slot_index, Game.prestige.cost_discount_multiplier() * Game.nation_colony_cost_multiplier()
+	)
 	var button := Button.new()
 	button.text = "Found for %s gold (distance %.1f, %s)" % [
 		Format.number(cost), float(slot["distance_cells"]), "sea" if bool(slot["is_coastal"]) else "land"

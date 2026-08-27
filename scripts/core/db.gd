@@ -11,6 +11,7 @@ const RECIPES_DIR: String = "res://data/recipes/"
 const REGIONS_DIR: String = "res://data/regions/"
 const UPGRADES_DIR: String = "res://data/upgrades/"
 const COLONIES_DIR: String = "res://data/colonies/"
+const NATIONS_DIR: String = "res://data/nations/"
 
 ## MVP has exactly one map. A per-region `map_id` field (and a dictionary of
 ## loaded grids keyed by it) is the obvious extension once a second map exists -
@@ -22,6 +23,7 @@ var _recipes: Dictionary = {}  # StringName -> RecipeDef
 var _regions: Dictionary = {}  # StringName -> RegionDef (dormant - see design realignment, docs/GODOT_PLAN.md)
 var _upgrades: Dictionary = {}  # StringName -> UpgradeDef
 var _colonies: Dictionary = {}  # StringName -> ColonyDef
+var _nations: Dictionary = {}  # StringName -> NationDef
 var _map_grid: MapGrid = null
 
 
@@ -31,6 +33,7 @@ func _ready() -> void:
 	var regions_result: Dictionary = _evaluate_directory(REGIONS_DIR)
 	var upgrades_result: Dictionary = _evaluate_directory(UPGRADES_DIR)
 	var colonies_result: Dictionary = _evaluate_directory(COLONIES_DIR)
+	var nations_result: Dictionary = _evaluate_directory(NATIONS_DIR)
 
 	# A region whose cell isn't a valid colony site on the map is exactly as
 	# unusable as one with a duplicate id - see _placement_problems for why
@@ -48,10 +51,11 @@ func _ready() -> void:
 	_regions = clean_regions
 	_upgrades = upgrades_result.valid
 	_colonies = colonies_result.valid
+	_nations = nations_result.valid
 
 	print(
-		"Db: loaded %d resources, %d recipes, %d regions, %d upgrades, %d colonies" % [
-			_resources.size(), _recipes.size(), _regions.size(), _upgrades.size(), _colonies.size()
+		"Db: loaded %d resources, %d recipes, %d regions, %d upgrades, %d colonies, %d nations" % [
+			_resources.size(), _recipes.size(), _regions.size(), _upgrades.size(), _colonies.size(), _nations.size()
 		]
 	)
 
@@ -63,6 +67,7 @@ func _ready() -> void:
 	all_problems.append_array(upgrades_result.problems)
 	all_problems.append_array(colonies_result.problems)
 	all_problems.append_array(_colony_table_problems(_colonies))
+	all_problems.append_array(nations_result.problems)
 	for problem: String in all_problems:
 		push_error("Db: %s" % problem)
 
@@ -187,6 +192,25 @@ func has_resource(id: StringName) -> bool:
 	return _resources.has(id)
 
 
+func nation(id: StringName) -> NationDef:
+	var found: Variant = _nations.get(id)
+	if found == null:
+		push_error("Db.nation: no NationDef with id '%s'" % id)
+		return null
+	return found as NationDef
+
+
+## Sorted by display_name so the nation-picker screen has a stable,
+## predictable order rather than whatever order the directory scan happens
+## to return.
+func all_nations() -> Array[NationDef]:
+	var out: Array[NationDef] = []
+	for def: NationDef in _nations.values():
+		out.append(def)
+	out.sort_custom(func(a: NationDef, b: NationDef) -> bool: return a.display_name < b.display_name)
+	return out
+
+
 ## The MVP's one map (task M5 - see the MAP_PATH doc comment above), loaded
 ## once and cached. Returns null (with a push_error already emitted by
 ## MapLoader) if the file is missing or malformed.
@@ -224,6 +248,8 @@ func validate() -> Array[String]:
 	var colonies_result: Dictionary = _evaluate_directory(COLONIES_DIR)
 	problems.append_array(colonies_result.problems)
 	problems.append_array(_colony_table_problems(colonies_result.valid))
+
+	problems.append_array(_evaluate_directory(NATIONS_DIR).problems)
 
 	return problems
 

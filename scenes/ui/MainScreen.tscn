@@ -10,6 +10,7 @@
 [ext_resource type="Script" path="res://scripts/ui/discoveries_panel.gd" id="8"]
 [ext_resource type="Script" path="res://scripts/ui/notification_bar.gd" id="9"]
 [ext_resource type="Script" path="res://scripts/ui/prestige_panel.gd" id="10"]
+[ext_resource type="Script" path="res://scripts/ui/nation_select_panel.gd" id="11"]
 
 [sub_resource type="ButtonGroup" id="TabGroup"]
 allow_unpress = true
@@ -207,3 +208,14 @@ size_flags_horizontal = 3
 toggle_mode = true
 button_group = SubResource("TabGroup")
 text = "Discoveries"
+
+[node name="NationSelect" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("11")

@@ -136,3 +136,31 @@ func test_starting_a_second_run_emits_run_ended_for_the_first() -> void:
 	Game.new_run(&"mvp_coast")
 	assert_signal_emitted(Game, "run_ended")
 	assert_signal_emitted(Game, "run_started")
+
+
+## Direct request: nation selection (docs/GAME_DESIGN.md predates this -
+## see NationDef's class doc for where the bonus data came from). Default
+## (no nation_id argument) must stay neutral - every existing caller that
+## predates this feature, and every other test in this suite, calls
+## new_run() without one and must see exactly the behavior it always has.
+func test_new_run_without_a_nation_has_no_nation_bonus() -> void:
+	Game.new_run(&"mvp_coast")
+	assert_null(Game.current_nation())
+	assert_almost_eq(Game.nation_extraction_rate_multiplier(), 1.0, 0.0001)
+	assert_almost_eq(Game.nation_ship_speed_multiplier(), 1.0, 0.0001)
+	assert_almost_eq(Game.nation_wagon_speed_multiplier(), 1.0, 0.0001)
+	assert_almost_eq(Game.nation_colony_cost_multiplier(), 1.0, 0.0001)
+	assert_almost_eq(Game.nation_gold_sell_multiplier(), 1.0, 0.0001)
+	assert_almost_eq(Game.nation_liberty_generation_multiplier(), 1.0, 0.0001)
+
+
+func test_new_run_with_a_nation_id_picks_up_its_bonus() -> void:
+	Game.new_run(&"mvp_coast", -1, &"dutch")
+	assert_eq(Game.current_nation().id, &"dutch")
+	assert_almost_eq(Game.nation_extraction_rate_multiplier(), 1.15, 0.0001)
+	assert_almost_eq(Game.nation_ship_speed_multiplier(), 1.0, 0.0001, "dutch's bonus is production-only")
+
+
+func test_new_run_persists_the_nation_id_on_run_state() -> void:
+	Game.new_run(&"mvp_coast", -1, &"spanish")
+	assert_eq(Game.run.nation_id, &"spanish")
