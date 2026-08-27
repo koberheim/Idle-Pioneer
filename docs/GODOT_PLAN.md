@@ -181,6 +181,14 @@ Direct, itemized feedback from actually playing with the new map, same format as
 - **Zoom/pan**: `MapView` now supports mouse-wheel/pinch zoom (1x-4x, zoom-to-cursor - the point under the cursor stays put rather than the view always zooming toward the top-left) and drag-to-pan, clamped so the grid can never be panned past its own edges. A single `_zoom` factor and `_pan` pixel offset, applied uniformly in `_draw()` and in tap hit-testing - there's no `Camera2D` involved, this is 2D `Control` drawing, not a world scene. A press has to move past a small threshold before it counts as a pan rather than a tap, so clicking a marker still works.
 - **Real art on markers**: colony markers now draw each tier's actual `ColonyDef.icon` (the same art `ColoniesPanel`'s rows already use), with the gold/green/blue color-coding surviving as a ring around the icon rather than the icon's fill color; a tier with no icon still falls back to the old flat dot.
 
+### Offline play - closing the one real gap left
+
+The live simulation clock and offline catch-up (see "The game actually runs now," above) were already built and correctly tested well before this - opening the game after time away already fast-forwards colonies, shipping, and crafting through exactly however long the save's `saved_at_unix` timestamp says was missed. What was still missing wasn't the simulation, it was making sure that timestamp is trustworthy in every way the app can stop running, not just a clean desktop quit.
+
+- `MainScreen` only ever saved on `NOTIFICATION_WM_CLOSE_REQUEST` (desktop window close) plus a 30-second periodic autosave. Backgrounding the app - switching apps on mobile, the OS suspending or later killing it without ever calling back in - never fires that notification, leaving up to 30 seconds of staleness on the one timestamp offline catch-up depends on.
+- Now also saves immediately on `NOTIFICATION_APPLICATION_FOCUS_OUT` and `NOTIFICATION_APPLICATION_PAUSED` - between the three, every way the app actually stops running is covered, not just a graceful quit.
+- Verified directly (not screenshot-based, since there's no visual surface to check): a manual script called `_notification()` with each value on a live `MainScreen` and confirmed a save file existed afterward.
+
 ---
 
 ## Environment (verified this session)

@@ -216,6 +216,21 @@ func _notification(what: int) -> void:
 		SaveSystem.save()
 		get_tree().quit()
 
+	# Real-time offline play (docs/GAME_DESIGN.md §11 Phase 7's "keeps
+	# running while the app is closed") already works end to end - the live
+	# simulation clock (Game.simulation) advances every system correctly
+	# while open, and SaveSystem's offline catch-up fast-forwards through
+	# however long the save's saved_at_unix timestamp says was missed. What
+	# was still missing was a save trustworthy enough for that timestamp:
+	# NOTIFICATION_WM_CLOSE_REQUEST only fires on a clean desktop quit -
+	# backgrounding the app (switching apps on mobile, the OS suspending or
+	# later killing it without ever calling back in) never triggers it, and
+	# the 30s periodic autosave alone leaves up to 30s of staleness on the
+	# timestamp everything else depends on. These two notifications cover
+	# every other way the app stops actually running.
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_APPLICATION_PAUSED:
+		SaveSystem.save()
+
 
 func refresh_all() -> void:
 	_gold_label.text = "Gold: %s" % Format.number(Game.economy.gold)
