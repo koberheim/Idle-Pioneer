@@ -109,12 +109,14 @@ func _on_tab_toggled(pressed: bool, page: Control) -> void:
 		_animate_sheet_to(0.0)
 
 
-## Tapping a colony marker on the map opens the Colonies tab - the one
-## place a colony's live stats and controls actually live. Scrolling to
-## that specific colony's row is a nicer follow-up, not done here.
-func _on_map_slot_selected(_slot_index: int) -> void:
+## Tapping a colony marker on the map opens the Colonies tab (the one place
+## a colony's live stats and controls actually live) and scrolls straight
+## to that colony's row, so the tap actually lands on something instead of
+## just landing "somewhere in the list."
+func _on_map_slot_selected(slot_index: int) -> void:
 	if not _colonies_tab_button.button_pressed:
 		_colonies_tab_button.button_pressed = true
+	_colonies_panel.scroll_to_slot(slot_index)
 
 
 func _on_shipment_delivered(colony: Colony, cargo: Dictionary) -> void:

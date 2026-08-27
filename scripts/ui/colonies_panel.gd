@@ -28,17 +28,23 @@ const TYPE_LABELS: Dictionary = {
 	Colonist.Type.SPEED: "Speed",
 }
 
+var _scroll: ScrollContainer
 var _list: VBoxContainer
+
+## slot_index -> its row Control, rebuilt every refresh() - what
+## scroll_to_slot() (MapView marker taps, MainScreen) uses to find where to
+## scroll without keeping its own separate lookup.
+var _row_by_slot: Dictionary = {}
 
 
 func _ready() -> void:
-	var scroll := ScrollContainer.new()
-	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(scroll)
+	_scroll = ScrollContainer.new()
+	_scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(_scroll)
 
 	_list = VBoxContainer.new()
 	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_list)
+	_scroll.add_child(_list)
 
 	# No initial refresh() here - MainScreen calls it once boot (a real run,
 	# via new_run() or a loaded save) actually exists. Godot readies children
@@ -49,6 +55,7 @@ func _ready() -> void:
 func refresh() -> void:
 	for child: Node in _list.get_children():
 		child.queue_free()
+	_row_by_slot.clear()
 
 	if Game.run == null:
 		return
@@ -57,8 +64,18 @@ func refresh() -> void:
 	for slot: Dictionary in Game.run.colony_slots:
 		var slot_index: int = int(slot["slot_index"])
 		if bool(slot["founded"]) or slot_index == next_slot_index:
-			_list.add_child(_build_row(slot))
+			var row: Control = _build_row(slot)
+			_list.add_child(row)
+			_row_by_slot[slot_index] = row
 	_list.add_child(HSeparator.new())
+
+
+## Scrolls this tab so `slot_index`'s row is visible - a no-op if that slot
+## isn't currently shown (hidden/locked, or refresh() hasn't run yet).
+func scroll_to_slot(slot_index: int) -> void:
+	var row: Control = _row_by_slot.get(slot_index)
+	if row != null:
+		_scroll.ensure_control_visible(row)
 
 
 func _build_row(slot: Dictionary) -> Control:
