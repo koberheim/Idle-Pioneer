@@ -21,6 +21,14 @@ const AUTO_SAVE_INTERVAL_SECONDS: float = 30.0
 @onready var _prestige_panel: Control = %Prestige
 @onready var _save_button: Button = %SaveButton
 
+## TabContainer's stock tab bar left-aligns tabs to their content width
+## instead of spreading them evenly - these are plain SIZE_EXPAND_FILL
+## buttons in a ButtonGroup driving manual page visibility instead.
+@onready var _colonies_tab_button: Button = %ColoniesTabButton
+@onready var _market_tab_button: Button = %MarketTabButton
+@onready var _crafting_tab_button: Button = %CraftingTabButton
+@onready var _prestige_tab_button: Button = %PrestigeTabButton
+
 var _refresh_elapsed: float = 0.0
 var _auto_save_elapsed: float = 0.0
 
@@ -33,7 +41,18 @@ func _ready() -> void:
 
 	Game.simulation.start()
 	_save_button.pressed.connect(SaveSystem.save)
+
+	_colonies_tab_button.pressed.connect(func() -> void: _select_tab(_colonies_panel))
+	_market_tab_button.pressed.connect(func() -> void: _select_tab(_market_panel))
+	_crafting_tab_button.pressed.connect(func() -> void: _select_tab(_crafting_panel))
+	_prestige_tab_button.pressed.connect(func() -> void: _select_tab(_prestige_panel))
+
 	refresh_all()
+
+
+func _select_tab(page: Control) -> void:
+	for p: Control in [_colonies_panel, _market_panel, _crafting_panel, _prestige_panel]:
+		p.visible = p == page
 
 
 func _process(delta: float) -> void:

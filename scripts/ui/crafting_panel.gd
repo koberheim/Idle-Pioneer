@@ -8,7 +8,7 @@ extends Control
 
 const ICON_SIZE := Vector2(40, 40)
 
-var _list: VBoxContainer
+var _grid: GridContainer
 
 
 func _ready() -> void:
@@ -16,23 +16,25 @@ func _ready() -> void:
 	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(scroll)
 
-	_list = VBoxContainer.new()
-	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_list)
+	_grid = GridContainer.new()
+	_grid.columns = 2
+	_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_grid)
 
 	# No initial refresh() here - see ColoniesPanel's class doc: MainScreen
 	# calls it once real boot state (new_run()/a loaded save) exists.
 
 
 func refresh() -> void:
-	for child: Node in _list.get_children():
+	for child: Node in _grid.get_children():
 		child.queue_free()
 	for recipe: RecipeDef in Db.all_recipes():
-		_list.add_child(_build_row(recipe))
+		_grid.add_child(_build_row(recipe))
 
 
 func _build_row(recipe: RecipeDef) -> Control:
 	var row := PanelContainer.new()
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var vbox := VBoxContainer.new()
 	row.add_child(vbox)
 
@@ -40,13 +42,10 @@ func _build_row(recipe: RecipeDef) -> Control:
 	var header := HBoxContainer.new()
 	vbox.add_child(header)
 
-	if output_def != null and output_def.icon != null:
-		var icon := TextureRect.new()
-		icon.texture = output_def.icon
-		icon.custom_minimum_size = ICON_SIZE
-		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		icon.stretch_mode = TextureRect.STRETCH_SCALE
-		header.add_child(icon)
+	var icon_texture: Texture2D = recipe.icon
+	if icon_texture == null and output_def != null:
+		icon_texture = output_def.icon
+	header.add_child(_make_icon_or_placeholder(icon_texture, recipe.id))
 
 	var label := Label.new()
 	label.text = "%s: %s -> %d %s (%.1fs)" % [
@@ -81,6 +80,27 @@ func _build_row(recipe: RecipeDef) -> Control:
 	buttons.add_child(auto_toggle)
 
 	return row
+
+
+## No recipe art exists yet (RecipeDef.icon is unset everywhere) - a flat
+## colored square, keyed off the recipe's id so it's stable and visually
+## distinct per recipe, stands in until real sprites are authored.
+func _make_icon_or_placeholder(texture: Texture2D, recipe_id: StringName) -> Control:
+	if texture != null:
+		var icon := TextureRect.new()
+		icon.texture = texture
+		icon.custom_minimum_size = ICON_SIZE
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_SCALE
+		icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		return icon
+
+	var placeholder := ColorRect.new()
+	placeholder.custom_minimum_size = ICON_SIZE
+	placeholder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var hash_val: int = hash(recipe_id)
+	placeholder.color = Color.from_hsv(float(hash_val % 360) / 360.0, 0.45, 0.75)
+	return placeholder
 
 
 func _inputs_text(recipe: RecipeDef) -> String:

@@ -274,4 +274,8 @@ func _make_icon(texture: Texture2D) -> TextureRect:
 	icon.custom_minimum_size = ICON_SIZE
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_SCALE
+	# Rows can grow much taller than the icon (colonist slots, upgrade
+	# buttons) - without pinning vertical size the HBoxContainer stretches
+	# the icon to match the row's full height, distorting the texture.
+	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	return icon
