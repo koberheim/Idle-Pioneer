@@ -6,6 +6,6 @@
 script = ExtResource("1")
 id = &"english"
 display_name = "English"
-color = Color(0.54509807, 0, 0, 1)
+color = Color(0.62, 0.31, 0.28, 1)
 bonus_description = "+10% sea route speed"
 ship_speed_multiplier = 1.1

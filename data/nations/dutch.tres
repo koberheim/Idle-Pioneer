@@ -6,6 +6,6 @@
 script = ExtResource("1")
 id = &"dutch"
 display_name = "Dutch"
-color = Color(0.7529412, 0.38269812, 0, 1)
+color = Color(0.73, 0.52, 0.28, 1)
 bonus_description = "+15% production from every colony"
 extraction_rate_multiplier = 1.15

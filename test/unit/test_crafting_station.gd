@@ -5,6 +5,10 @@ extends GutTest
 
 func before_each() -> void:
 	Game.new_run(&"mvp_coast")
+	# Routing defaults to SELL and crafted output is routed through it too
+	# (see test_crafting.gd's before_each for the full explanation) - these
+	# tests are about the crafting cycle, not Sell/Reserve.
+	Game.routing.set_mode(&"salt_cod", Game.routing.RESERVE)
 
 
 func after_each() -> void:

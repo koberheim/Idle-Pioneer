@@ -360,6 +360,11 @@ func test_barrels_recipe_consumes_crafted_goods_not_just_raw_ones() -> void:
 ## 4 Planks (= 8 Timber) and 6 Pig Iron (= 12 Iron Ore) in total.
 func test_full_musket_chain_crafts_end_to_end() -> void:
 	Game.new_run(&"mvp_coast")
+	# Routing defaults to SELL and crafted output is routed through it too
+	# (see test_crafting.gd's before_each) - every intermediate good in this
+	# chain has to stay in inventory to feed the next step, not get sold.
+	for id: StringName in [&"planks", &"pig_iron", &"tools", &"muskets"]:
+		Game.routing.set_mode(id, Game.routing.RESERVE)
 
 	Game.inventory.add(&"timber", 8.0)
 	Game.inventory.add(&"iron_ore", 12.0)

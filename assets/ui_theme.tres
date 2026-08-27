@@ -1,6 +1,6 @@
 [gd_resource type="Theme" load_steps=7 format=3]
 
-[ext_resource type="FontFile" path="res://assets/fonts/Almendra-Regular.ttf" id="1"]
+[ext_resource type="FontFile" path="res://assets/fonts/LibreBaskerville-Regular.ttf" id="1"]
 
 [sub_resource type="StyleBoxFlat" id="PanelBg"]
 bg_color = Color(0.8980392, 0.8392157, 0.7019608, 1)
@@ -8,7 +8,7 @@ border_width_left = 2
 border_width_top = 2
 border_width_right = 2
 border_width_bottom = 2
-border_color = Color(0.5568628, 0.3607843, 0.1882353, 1)
+border_color = Color(0.42, 0.36, 0.3, 1)
 corner_radius_top_left = 4
 corner_radius_top_right = 4
 corner_radius_bottom_left = 4
@@ -19,7 +19,7 @@ content_margin_right = 10.0
 content_margin_bottom = 8.0
 
 [sub_resource type="StyleBoxFlat" id="ButtonNormal"]
-bg_color = Color(0.5568628, 0.3607843, 0.1882353, 1)
+bg_color = Color(0.1568627, 0.3960784, 0.4156863, 1)
 corner_radius_top_left = 4
 corner_radius_top_right = 4
 corner_radius_bottom_left = 4
@@ -30,7 +30,7 @@ content_margin_right = 14.0
 content_margin_bottom = 8.0
 
 [sub_resource type="StyleBoxFlat" id="ButtonHover"]
-bg_color = Color(0.6588235, 0.4470588, 0.2431373, 1)
+bg_color = Color(0.2196078, 0.509804, 0.5294118, 1)
 corner_radius_top_left = 4
 corner_radius_top_right = 4
 corner_radius_bottom_left = 4
@@ -41,7 +41,7 @@ content_margin_right = 14.0
 content_margin_bottom = 8.0
 
 [sub_resource type="StyleBoxFlat" id="ButtonPressed"]
-bg_color = Color(0.4117647, 0.2588235, 0.1254902, 1)
+bg_color = Color(0.09803922, 0.2666667, 0.282353, 1)
 corner_radius_top_left = 4
 corner_radius_top_right = 4
 corner_radius_bottom_left = 4
@@ -52,7 +52,7 @@ content_margin_right = 14.0
 content_margin_bottom = 8.0
 
 [sub_resource type="StyleBoxFlat" id="ButtonDisabled"]
-bg_color = Color(0.6, 0.58, 0.54, 1)
+bg_color = Color(0.56, 0.57, 0.56, 1)
 corner_radius_top_left = 4
 corner_radius_top_right = 4
 corner_radius_bottom_left = 4
@@ -69,13 +69,13 @@ default_font_size = 22
 Button/colors/font_color = Color(0.9647059, 0.9137255, 0.7960784, 1)
 Button/colors/font_hover_color = Color(1, 0.9686275, 0.8666667, 1)
 Button/colors/font_pressed_color = Color(0.9647059, 0.9137255, 0.7960784, 1)
-Button/colors/font_disabled_color = Color(0.4, 0.38, 0.35, 1)
+Button/colors/font_disabled_color = Color(0.32, 0.32, 0.32, 1)
 Button/styles/normal = SubResource("ButtonNormal")
 Button/styles/hover = SubResource("ButtonHover")
 Button/styles/pressed = SubResource("ButtonPressed")
 Button/styles/disabled = SubResource("ButtonDisabled")
 
-Label/colors/font_color = Color(0.2313726, 0.1647059, 0.09803922, 1)
+Label/colors/font_color = Color(0.2, 0.18, 0.17, 1)
 Label/font_sizes/font_size = 22
 
 Panel/styles/panel = SubResource("PanelBg")

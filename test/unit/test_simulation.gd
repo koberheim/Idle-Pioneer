@@ -48,6 +48,7 @@ func test_tick_advances_shipping() -> void:
 
 
 func test_tick_advances_auto_craft() -> void:
+	Game.routing.set_mode(&"salt_cod", Game.routing.RESERVE)
 	Game.inventory.add(&"cod", 3.0)
 	var station: CraftingStation = Game.crafting_stations.get_or_create(&"salt_cod_recipe")
 	station.auto_craft = true

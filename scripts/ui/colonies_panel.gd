@@ -137,6 +137,7 @@ func _build_founded_stats(colony: Colony) -> Control:
 	stats.text = "Rate %.2f/s   Cargo %.1f   Round trip %.1fs" % [
 		colony.production_rate(), colony.cargo_capacity(), colony.round_trip_seconds()
 	]
+	stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(stats)
 
 	if not colony.is_capital:
@@ -151,6 +152,7 @@ func _build_founded_stats(colony: Colony) -> Control:
 					state_text = "Returning (%d%%)" % int(route.progress() * 100.0)
 		var route_kind := "Sea" if colony.route_type == Colony.RouteType.SEA else "Land"
 		status.text = "%s - %s route, distance %.1f" % [state_text, route_kind, colony.distance()]
+		status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		box.add_child(status)
 
 	box.add_child(_build_colonist_summary(colony))
@@ -166,7 +168,7 @@ func _build_founded_stats(colony: Colony) -> Control:
 func _build_upgrade_buttons(colony: Colony) -> Control:
 	var box := VBoxContainer.new()
 	box.add_child(_upgrade_button(
-		"Production Lv %d\n+25%% (%sg)" % [colony.production_level, Format.number(colony.next_production_level_cost())],
+		"Prod. Lv %d\n+25%% (%sg)" % [colony.production_level, Format.number(colony.next_production_level_cost())],
 		colony.next_production_level_cost(), colony.purchase_production_level
 	))
 	box.add_child(_upgrade_button(
@@ -193,6 +195,7 @@ func _build_colonist_summary(colony: Colony) -> Control:
 			parts.append("%s: level %d" % [TYPE_LABELS[type], colonist.level])
 	var label := Label.new()
 	label.text = "  ".join(parts)
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return label
 
 
@@ -212,9 +215,20 @@ func _build_found_button(slot_index: int, slot: Dictionary) -> Control:
 	return button
 
 
+const UPGRADE_BUTTON_WIDTH: float = 120.0
+
+
+## Fixed, capped width (direct request: stack these on the right instead of
+## a full-width row) - without a cap, a GridContainer-style "size to fit the
+## widest cell" problem shows up here too: the button's natural (unwrapped)
+## text width can push the whole row past the screen's right edge instead
+## of wrapping. autowrap + a fixed width instead let the button grow
+## taller, never wider.
 func _upgrade_button(text: String, cost: float, purchase_fn: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
+	button.custom_minimum_size.x = UPGRADE_BUTTON_WIDTH
+	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	button.disabled = Game.economy.gold < cost
 	button.pressed.connect(func() -> void:
 		purchase_fn.call()

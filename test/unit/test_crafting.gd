@@ -7,6 +7,13 @@ extends GutTest
 func before_each() -> void:
 	Game.new_run(&"mvp_coast")
 	Game.meta = MetaState.new()
+	# Routing defaults to SELL (docs/GAME_DESIGN.md's own default) and
+	# crafted output is now routed through it too (a real bug fixed this
+	# pass: Auto Sell previously had no effect on crafted goods at all) -
+	# these tests are about crafting mechanics, not Sell/Reserve, so pin
+	# RESERVE for the one crafted good used throughout rather than touch
+	# every assertion.
+	Game.routing.set_mode(&"lumber", Game.routing.RESERVE)
 
 
 func after_each() -> void:
@@ -37,6 +44,23 @@ func test_can_craft_false_with_no_ingredients() -> void:
 
 func test_can_craft_false_for_unknown_recipe_id() -> void:
 	assert_false(Crafting.can_craft(&"does_not_exist"))
+
+
+## The exact reported bug: crafted output used to go straight to
+## Game.inventory.add(), bypassing Routing entirely - the Auto Sell toggle
+## had no effect on crafted goods, which piled up in inventory regardless
+## of it (real raw resources always respected it correctly). craft_recipe()
+## now routes output through Routing.deliver(), same as any resource
+## arriving at the Capital.
+func test_craft_output_respects_auto_sell_when_routed_to_sell() -> void:
+	Game.routing.set_mode(&"lumber", Game.routing.SELL)
+	var gold_before: float = Game.economy.gold
+	Game.inventory.add(&"timber", 2.0)
+
+	Crafting.craft(&"lumber_recipe")
+
+	assert_almost_eq(Game.inventory.get_amount(&"lumber"), 0.0, 0.0001, "should have sold, not stockpiled")
+	assert_almost_eq(Game.economy.gold, gold_before + Db.resource(&"lumber").base_value, 0.0001)
 
 
 func test_craft_consumes_inputs_and_produces_output() -> void:

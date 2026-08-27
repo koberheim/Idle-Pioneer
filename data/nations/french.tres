@@ -6,6 +6,6 @@
 script = ExtResource("1")
 id = &"french"
 display_name = "French"
-color = Color(0, 0.13725491, 0.4, 1)
+color = Color(0.32, 0.38, 0.5, 1)
 bonus_description = "-20% colony founding cost"
 colony_cost_multiplier = 0.8

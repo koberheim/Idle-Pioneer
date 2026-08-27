@@ -47,8 +47,14 @@ static func craft_recipe(recipe: RecipeDef) -> bool:
 			)
 			return false
 
-	Game.inventory.add(recipe.output_id, recipe.output_amount)
-	Game.discoveries.discover_resource(recipe.output_id)
+	# Routed through Routing.deliver(), not a direct Game.inventory.add() -
+	# a crafted good is exactly as subject to the Market's Auto Sell toggle
+	# as a raw resource is. A real bug this pass: output used to bypass
+	# routing entirely, so Auto Sell had no effect on crafted goods at all -
+	# they piled up in inventory regardless of the toggle. deliver() also
+	# calls Game.discoveries.discover_resource() itself, so that no longer
+	# needs a separate call here.
+	Game.routing.deliver(recipe.output_id, recipe.output_amount)
 
 	# "Unlocked" is read pragmatically as "ever successfully crafted" - see
 	# MetaState.recipes_ever_unlocked's class doc for why (no recipe-gating
