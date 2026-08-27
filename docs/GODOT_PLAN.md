@@ -175,6 +175,12 @@ Direct, itemized feedback from actually playing with the new map, same format as
 - **Prestige and Save moved out of the tab strip into a top-right menu popup** (`MenuPopup`, opened by a new "Menu" button replacing the old inline Save button in `TopBar`) - direct request, the way a typical app's overflow menu works. `PrestigePanel`'s own script/content is unchanged, only where it's instantiated moved; its labels picked up `autowrap_mode` since the popup (340px) is narrower than the full-width tab sheet it used to live in - without that, several lines were clipped at the popup's edge rather than wrapping.
 - Verified the same way as every UI change this session: a manual verify script fast-forwarded the simulation and forced enough gold/inventory/crafting to exercise every changed surface at once, then took a real (non-headless) screenshot of each - closed map, Colonies (no Locked rows), Colonists, Market's both sub-tabs, Crafting's grid, the Discoveries placeholder, and the Menu popup - catching one real bug along the way (the popup text-clipping above) before it shipped.
 
+### Map polish - the follow-ups deferred from the first map pass
+
+- **Tap-to-scroll**: tapping a colony marker used to just open the Colonies tab generically; `ColoniesPanel.scroll_to_slot()` (a `slot_index -> row` map rebuilt every `refresh()`, `ScrollContainer.ensure_control_visible()`) now scrolls straight to that colony's row too.
+- **Zoom/pan**: `MapView` now supports mouse-wheel/pinch zoom (1x-4x, zoom-to-cursor - the point under the cursor stays put rather than the view always zooming toward the top-left) and drag-to-pan, clamped so the grid can never be panned past its own edges. A single `_zoom` factor and `_pan` pixel offset, applied uniformly in `_draw()` and in tap hit-testing - there's no `Camera2D` involved, this is 2D `Control` drawing, not a world scene. A press has to move past a small threshold before it counts as a pan rather than a tap, so clicking a marker still works.
+- **Real art on markers**: colony markers now draw each tier's actual `ColonyDef.icon` (the same art `ColoniesPanel`'s rows already use), with the gold/green/blue color-coding surviving as a ring around the icon rather than the icon's fill color; a tier with no icon still falls back to the old flat dot.
+
 ---
 
 ## Environment (verified this session)
