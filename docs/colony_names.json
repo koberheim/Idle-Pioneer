@@ -1,0 +1,44 @@
+{
+  "english": [
+    "St. John's", "Jamestown", "Cuper's Cove", "Henricus", "St. George's",
+    "Plymouth", "Sandy Point Town", "Salem", "Bridgetown", "Charlestown",
+    "Boston", "St. Mary's City", "Hartford", "Providence", "New Haven",
+    "Port Royal", "New York", "Charleston", "Philadelphia", "Kingston",
+    "Annapolis", "Williamsburg", "Baltimore", "Savannah", "Halifax"
+  ],
+  "french": [
+    "Fort Caroline", "Tadoussac", "Port Royal", "Quebec", "Plaisance",
+    "Trois-Rivieres", "Fort Royal", "Montreal", "Basse-Terre", "Cayenne",
+    "Cap-Francais", "Fort Frontenac", "Grand-Pre", "Biloxi", "Detroit",
+    "Mobile", "Kaskaskia", "Natchitoches", "Louisbourg", "New Orleans",
+    "Baton Rouge", "Vincennes", "Port-au-Prince", "Fort Duquesne", "St. Louis"
+  ],
+  "spanish": [
+    "La Isabela", "Santo Domingo", "Trinidad", "Baracoa", "Santiago de Cuba",
+    "Havana", "Panama City", "San Juan", "Santiago de los Caballeros", "Granada",
+    "Leon", "San Salvador", "Ciudad Real", "Comayagua", "Campeche",
+    "Merida", "St. Augustine", "Portobelo", "Santa Fe", "Matanzas",
+    "Pensacola", "Albuquerque", "San Antonio", "San Diego", "San Francisco"
+  ],
+  "dutch": [
+    "Fort Nassau", "Fort Orange", "New Amsterdam", "Rensselaerswyck", "Swaanendael",
+    "Willemstad", "Breukelen", "Vlissingen", "Gravesend", "New Amstel",
+    "Beverwijck", "Wiltwyck", "Midwout", "New Utrecht", "New Harlem",
+    "Bushwick", "Schenectady", "New Dorp", "Oranjestad", "Philipsburg",
+    "New Zeeland", "New Utrecht Landing", "New Delft", "New Rotterdam", "New Haarlemmermeer"
+  ],
+  "portuguese": [
+    "Labrador", "Terra Nova", "Porto Seguro", "Itamaraca", "Sao Vicente",
+    "Igarassu", "Olinda", "Santos", "Salvador", "Vitoria",
+    "Sao Paulo", "Angra dos Reis", "Rio de Janeiro", "Joao Pessoa", "Natal",
+    "Sao Luis", "Cabo Frio", "Belem", "Sao Sebastiao", "Fortaleza",
+    "Sao Francisco do Sul", "Paraty", "Desterro", "Colonia do Sacramento", "Mariana"
+  ],
+  "swedish": [
+    "Fort Christina", "Finland", "Torne", "Nya Goteborg", "Printzhof",
+    "Fort Nya Elfsborg", "Upland", "Wicaco", "Fort Nya Korsholm", "Kingsessing",
+    "Passyunk", "Carolusborg", "Fort Witsen", "Fort Batenstein", "Christiansborg",
+    "Ruy Coninck", "Fort Trefaldighet", "Apollonia", "Cabelon", "Gustavia",
+    "New Uppsala", "New Kalmar", "New Falun", "New Visby", "New Karlskrona"
+  ]
+}

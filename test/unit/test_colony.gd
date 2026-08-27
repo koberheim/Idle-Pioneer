@@ -235,3 +235,29 @@ func test_portuguese_nation_speeds_up_land_routes_only() -> void:
 
 	assert_almost_eq(land_colony.round_trip_seconds(), (2.0 * 12.0) / 1.3, 0.0001)
 	assert_almost_eq(sea_colony.round_trip_seconds(), 2.0 * 22.0, 0.0001, "sea route unaffected by a wagon bonus")
+
+
+## Direct request: nation selection includes a real, ordered per-nation
+## colony name list (docs/colony_names.json) - a colony's display_name()
+## uses it by slot_index, replacing the old generic tier-name scheme.
+func test_display_name_uses_the_nations_name_list_by_slot_index() -> void:
+	Game.new_run(&"mvp_coast", -1, &"dutch")
+	var colony := Colony.new(&"cape_harbour")
+	colony.slot_index = 1
+	assert_eq(colony.display_name(), Db.colony_name_for(&"dutch", 1))
+
+
+func test_display_name_falls_back_to_the_tier_name_with_no_nation_chosen() -> void:
+	Game.new_run(&"mvp_coast")  # no nation
+	var colony := Colony.new(&"cape_harbour")
+	colony.slot_index = 1
+	assert_eq(colony.display_name(), "Cape Harbour")
+
+
+## Past the name list's length (25, matching Balance.max_colonies()), falls
+## back to the old tier-name + cycle-suffix scheme rather than an empty string.
+func test_display_name_falls_back_past_the_end_of_the_name_list() -> void:
+	Game.new_run(&"mvp_coast", -1, &"dutch")
+	var colony := Colony.new(&"cape_harbour")
+	colony.slot_index = 999
+	assert_eq(colony.display_name(), "Cape Harbour x143")

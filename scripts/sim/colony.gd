@@ -86,6 +86,38 @@ func resource_id() -> StringName:
 	return def.resource_id if def != null else &""
 
 
+## Cycle suffixes for once a run's colony slots outrun the name list below
+## (or no nation was chosen at all) - the old fallback naming scheme,
+## unchanged, just demoted to a fallback instead of the only scheme.
+const CYCLE_SUFFIXES: Array[String] = ["", " II", " III", " IV", " V", " VI"]
+
+
+## What this colony is actually called - direct request: nation selection
+## includes a real, ordered per-nation colony name list
+## (docs/colony_names.json, Db.colony_name_for() - see COLONY_NAMES_PATH's
+## doc comment for why that's plain JSON, not a Resource). Every slot index
+## maps 1:1 to a name (index 0 is the Capital's own name, matching how
+## Balance.max_colonies() was already sized to exactly this list's length),
+## so this replaces the old "tier's generic name + a cycle suffix once
+## tiers start repeating" scheme entirely - that scheme still exists here,
+## demoted to a fallback for when no nation was chosen or a run somehow
+## outgrows the list.
+func display_name() -> String:
+	var nation_id: StringName = Game.run.nation_id if Game.run != null else &""
+	var named: String = Db.colony_name_for(nation_id, slot_index)
+	if named != "":
+		return named
+
+	var def: ColonyDef = Db.colony(tier_id)
+	if def == null:
+		return "Unknown"
+	if slot_index == 0:
+		return def.display_name
+	var cycle: int = (slot_index - 1) / 7
+	var suffix: String = CYCLE_SUFFIXES[cycle] if cycle < CYCLE_SUFFIXES.size() else " x%d" % (cycle + 1)
+	return def.display_name + suffix
+
+
 ## Real distance from the Capital, in grid cells (rework task: randomized
 ## map) - previously a 0-7 index doubling as ColonyDef.order; now a real
 ## generated number, independent of which tier this colony is.

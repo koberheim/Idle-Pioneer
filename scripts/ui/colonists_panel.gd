@@ -147,5 +147,4 @@ func _build_assigned_status(colonist: Colonist) -> Control:
 
 
 func _colony_display_name(colony: Colony) -> String:
-	var tier_def: ColonyDef = Db.colony(colony.tier_id)
-	return tier_def.display_name if tier_def != null else String(colony.tier_id)
+	return colony.display_name()

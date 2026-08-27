@@ -161,9 +161,7 @@ func _on_map_slot_selected(slot_index: int) -> void:
 
 
 func _on_shipment_delivered(colony: Colony, cargo: Dictionary) -> void:
-	var tier_def: ColonyDef = Db.colony(colony.tier_id)
-	var colony_name: String = tier_def.display_name if tier_def != null else String(colony.tier_id)
-	_notification_bar.push("%s delivered: %s" % [colony_name, _cargo_summary(cargo)])
+	_notification_bar.push("%s delivered: %s" % [colony.display_name(), _cargo_summary(cargo)])
 
 
 ## docs/GAME_DESIGN.md §11 Phase 7: "offline summary." Only shown when time

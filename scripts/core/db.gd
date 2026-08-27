@@ -18,12 +18,23 @@ const NATIONS_DIR: String = "res://data/nations/"
 ## not built ahead of that need, per docs/GODOT_PLAN.md Phase 10 rule 5.
 const MAP_PATH: String = "res://data/maps/mvp_coast.txt"
 
+## Per-nation ordered colony name lists (direct request) - plain JSON, not a
+## Resource/.tres, deliberately: this is exactly the kind of content a
+## designer wants to update/replace/expand later without touching Godot or
+## GDScript at all, and a hand-edited JSON array is far more approachable
+## for that than .tres syntax. `docs/colony_names.json` is the same file,
+## kept there too as the design-reference copy (mirrors how GAME_DESIGN.md/
+## GODOT_PLAN.md are mirrored between the two repos this project lives in) -
+## this path is the one actually loaded at runtime.
+const COLONY_NAMES_PATH: String = "res://data/colony_names.json"
+
 var _resources: Dictionary = {}  # StringName -> ResourceDef
 var _recipes: Dictionary = {}  # StringName -> RecipeDef
 var _regions: Dictionary = {}  # StringName -> RegionDef (dormant - see design realignment, docs/GODOT_PLAN.md)
 var _upgrades: Dictionary = {}  # StringName -> UpgradeDef
 var _colonies: Dictionary = {}  # StringName -> ColonyDef
 var _nations: Dictionary = {}  # StringName -> NationDef
+var _colony_names: Dictionary = {}  # StringName (nation_id) -> Array[String]
 var _map_grid: MapGrid = null
 
 
@@ -53,9 +64,13 @@ func _ready() -> void:
 	_colonies = colonies_result.valid
 	_nations = nations_result.valid
 
+	var names_result: Dictionary = _load_colony_names()
+	_colony_names = names_result.valid
+
 	print(
-		"Db: loaded %d resources, %d recipes, %d regions, %d upgrades, %d colonies, %d nations" % [
-			_resources.size(), _recipes.size(), _regions.size(), _upgrades.size(), _colonies.size(), _nations.size()
+		"Db: loaded %d resources, %d recipes, %d regions, %d upgrades, %d colonies, %d nations, %d colony name lists" % [
+			_resources.size(), _recipes.size(), _regions.size(), _upgrades.size(), _colonies.size(), _nations.size(),
+			_colony_names.size(),
 		]
 	)
 
@@ -68,6 +83,7 @@ func _ready() -> void:
 	all_problems.append_array(colonies_result.problems)
 	all_problems.append_array(_colony_table_problems(_colonies))
 	all_problems.append_array(nations_result.problems)
+	all_problems.append_array(names_result.problems)
 	for problem: String in all_problems:
 		push_error("Db: %s" % problem)
 
@@ -211,6 +227,52 @@ func all_nations() -> Array[NationDef]:
 	return out
 
 
+## The name for colony slot `slot_index` under `nation_id` (docs/colony_names.json
+## - see COLONY_NAMES_PATH's doc comment), or "" if that nation has no list
+## or the list doesn't reach that far. Colony.display_name() is the actual
+## caller-facing entry point for "what does this colony show as" - this is
+## the raw lookup underneath it.
+func colony_name_for(nation_id: StringName, slot_index: int) -> String:
+	var names: Array = _colony_names.get(nation_id, [])
+	if slot_index < 0 or slot_index >= names.size():
+		return ""
+	return String(names[slot_index])
+
+
+## Loads COLONY_NAMES_PATH: a JSON object of nation_id -> ordered array of
+## colony names. Plain JSON, not scanned like the *_DIR content directories
+## above (there's exactly one file, not one-file-per-entry), but reported
+## through the same {valid, problems} shape so _ready()'s error sweep and
+## validate() don't need a special case for it.
+func _load_colony_names() -> Dictionary:
+	var problems: Array[String] = []
+
+	if not FileAccess.file_exists(COLONY_NAMES_PATH):
+		problems.append("%s: file not found" % COLONY_NAMES_PATH)
+		return {"valid": {}, "problems": problems}
+
+	var file: FileAccess = FileAccess.open(COLONY_NAMES_PATH, FileAccess.READ)
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	file.close()
+
+	if not (parsed is Dictionary):
+		problems.append("%s: not a JSON object" % COLONY_NAMES_PATH)
+		return {"valid": {}, "problems": problems}
+
+	var out: Dictionary = {}
+	for key: String in (parsed as Dictionary).keys():
+		var raw_list: Variant = (parsed as Dictionary)[key]
+		if not (raw_list is Array):
+			problems.append("%s: '%s' is not a list of names" % [COLONY_NAMES_PATH, key])
+			continue
+		var names: Array[String] = []
+		for entry: Variant in (raw_list as Array):
+			names.append(String(entry))
+		out[StringName(key)] = names
+
+	return {"valid": out, "problems": problems}
+
+
 ## The MVP's one map (task M5 - see the MAP_PATH doc comment above), loaded
 ## once and cached. Returns null (with a push_error already emitted by
 ## MapLoader) if the file is missing or malformed.
@@ -250,6 +312,7 @@ func validate() -> Array[String]:
 	problems.append_array(_colony_table_problems(colonies_result.valid))
 
 	problems.append_array(_evaluate_directory(NATIONS_DIR).problems)
+	problems.append_array((_load_colony_names().problems as Array[String]))
 
 	return problems
 

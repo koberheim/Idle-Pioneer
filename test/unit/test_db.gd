@@ -430,3 +430,32 @@ func test_each_nation_carries_exactly_its_own_original_bonus() -> void:
 				assert_almost_eq(value, expected[id]["value"], 0.0001, "%s.%s" % [id, field])
 			else:
 				assert_almost_eq(value, 1.0, 0.0001, "%s.%s should be neutral" % [id, field])
+
+
+## Direct request: per-nation ordered colony name lists
+## (docs/colony_names.json, Db.COLONY_NAMES_PATH's doc comment for why this
+## is plain JSON rather than a Resource - a designer should be able to
+## update/replace/expand it later without touching Godot or GDScript).
+func test_colony_name_for_returns_the_nations_first_name_at_slot_zero() -> void:
+	assert_eq(Db.colony_name_for(&"english", 0), "St. John's")
+	assert_eq(Db.colony_name_for(&"dutch", 0), "Fort Nassau")
+
+
+func test_colony_name_for_is_empty_past_the_end_of_the_list() -> void:
+	assert_eq(Db.colony_name_for(&"english", 999), "")
+
+
+func test_colony_name_for_is_empty_for_an_unknown_nation() -> void:
+	assert_eq(Db.colony_name_for(&"does_not_exist", 0), "")
+
+
+## Balance.max_colonies() (25) was sized to exactly match this list's
+## length - every possible colony slot (0 = Capital through 24) should
+## resolve to a real name for every nation, not just the first few.
+func test_every_nation_has_a_name_for_every_possible_colony_slot() -> void:
+	for id: StringName in [&"dutch", &"english", &"french", &"swedish", &"portuguese", &"spanish"]:
+		for slot_index: int in range(Balance.max_colonies()):
+			assert_ne(
+				Db.colony_name_for(id, slot_index), "",
+				"%s has no name for slot %d" % [id, slot_index]
+			)

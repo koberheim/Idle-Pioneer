@@ -93,11 +93,12 @@ func _build_row(slot: Dictionary) -> Control:
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hbox.add_child(info)
 
+	var colony: Colony = Game.colonies.get_colony(StringName("slot_%d" % slot_index))
+
 	var name_label := Label.new()
-	name_label.text = _display_name(tier_def, slot_index)
+	name_label.text = colony.display_name() if colony != null else _display_name(tier_def, slot_index)
 	info.add_child(name_label)
 
-	var colony: Colony = Game.colonies.get_colony(StringName("slot_%d" % slot_index))
 	if colony != null:
 		info.add_child(_build_founded_stats(colony))
 		# Direct request: stacked on the right side of the row instead of a
@@ -109,11 +110,16 @@ func _build_row(slot: Dictionary) -> Control:
 	return row
 
 
-## Founded colonies beyond the 7th (once tiers start repeating) get a
-## cycle-count suffix so nothing reads as an accidental duplicate - see the
-## class doc. A real per-tier name pool (ColonyDef.name_pool) can replace
-## this later without touching slot generation at all.
+## For a slot with no live Colony yet (not founded) - Colony.display_name()
+## covers the founded case, including the same nation-name lookup this
+## mirrors, so a not-yet-founded slot's preview name (its Found button)
+## matches exactly what it'll actually be called once founded.
 func _display_name(tier_def: ColonyDef, slot_index: int) -> String:
+	var nation_id: StringName = Game.run.nation_id if Game.run != null else &""
+	var named: String = Db.colony_name_for(nation_id, slot_index)
+	if named != "":
+		return named
+
 	if tier_def == null:
 		return "Unknown"
 	if slot_index == 0:
