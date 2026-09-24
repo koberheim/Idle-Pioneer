@@ -37,15 +37,38 @@ static func icon(name: String) -> Texture2D:
 	return tex("res://assets/sprites/icons/crate.png")
 
 
+## Texture margins of each frame in assets/sprites/ui (see tools/gen_ui.py):
+## [left, top, right, bottom], and whether the centre tiles (paper, wood) or
+## stretches (buttons, whose paint is a vertical gradient).
+const FRAME_MARGINS := {
+	"panel": [12, 12, 12, 12], "panel_dark": [8, 8, 8, 8], "panel_navy": [8, 8, 8, 8],
+	"card": [8, 8, 8, 8], "tab": [8, 8, 8, 8], "tab_active": [8, 8, 8, 8],
+}
+const BUTTON_MARGINS := [10, 10, 10, 12]
+
+
 static func frame(name: String, margin: float = 14.0, content: float = 14.0) -> StyleBoxTexture:
 	var sb := StyleBoxTexture.new()
 	sb.texture = tex("res://assets/sprites/ui/%s.png" % name)
-	sb.set_texture_margin_all(8)
+	var is_button: bool = name.begins_with("button")
+	var m: Array = BUTTON_MARGINS if is_button else FRAME_MARGINS.get(name, [4, 4, 4, 4])
+	sb.texture_margin_left = m[0]
+	sb.texture_margin_top = m[1]
+	sb.texture_margin_right = m[2]
+	sb.texture_margin_bottom = m[3]
 	sb.set_content_margin_all(content)
 	sb.content_margin_top = content - 2.0
 	sb.content_margin_bottom = content - 2.0
-	sb.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
-	sb.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
+	if is_button:
+		# Raised buttons: the face sits above a lip; pressing drops it.
+		var shift: float = 3.0 if name.ends_with("_pressed") else -1.0
+		sb.content_margin_top = content - 2.0 + shift
+		sb.content_margin_bottom = content + 1.0 - shift
+		sb.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
+		sb.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
+	else:
+		sb.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_TILE_FIT
+		sb.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_TILE_FIT
 	return sb
 
 
@@ -116,13 +139,19 @@ static func wrap_label(text: String = "", size: int = SIZE_SMALL, color: Color =
 	return l
 
 
+## Icons are drawn at 48 px. Shown that size or larger they stay crisp
+## pixels; shown smaller they are filtered from mipmaps so no pixels drop out.
+static func icon_filter(shown_px: float) -> CanvasItem.TextureFilter:
+	return CanvasItem.TEXTURE_FILTER_NEAREST if shown_px >= 44.0 else CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+
+
 static func icon_rect(texture: Texture2D, px: float = 32.0) -> TextureRect:
 	var r := TextureRect.new()
 	r.texture = texture
 	r.custom_minimum_size = Vector2(px, px)
 	r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	r.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	r.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	r.texture_filter = icon_filter(px)
 	r.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return r

@@ -166,7 +166,7 @@ func _build_top_bar() -> Control:
 	_favor.custom_minimum_size.x = 132
 	_favor.icon = UI.icon("star")
 	_favor.expand_icon = true
-	_favor.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_favor.texture_filter = UI.icon_filter(26)
 	_favor.add_theme_constant_override("icon_max_width", 26)
 	_favor.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
 	_favor.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -185,7 +185,7 @@ func _build_top_bar() -> Control:
 	gear.expand_icon = true
 	gear.focus_mode = Control.FOCUS_NONE
 	gear.custom_minimum_size = Vector2(68, 68)
-	gear.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	gear.texture_filter = UI.icon_filter(40)
 	gear.add_theme_constant_override("icon_max_width", 40)
 	gear.pressed.connect(_show_settings)
 	row.add_child(gear)
@@ -206,7 +206,7 @@ func _build_nav() -> Control:
 		b.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
 		b.add_theme_constant_override("icon_max_width", 44)
 		b.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
-		b.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		b.texture_filter = UI.icon_filter(44)
 		b.focus_mode = Control.FOCUS_NONE
 		b.custom_minimum_size.y = 104
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL

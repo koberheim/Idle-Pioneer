@@ -3,7 +3,9 @@
 Each art pixel is one image pixel; Godot draws them with nearest filtering at
 2-3x. UI frames are pre-scaled 3x so 9-slice borders stay crisp.
 
-Re-run after editing: python tools/gen_sprites.py
+Re-run after editing: python tools/gen_sprites.py (then tools/gen_ui.py and
+tools/gen_decor.py). The final step runs tools/hd/*, which redraws icons,
+portraits and map sprites at 48 px / double density.
 """
 import os
 import random
@@ -1282,52 +1284,7 @@ for fid, (hair, hair_s, skin, skin_s, coat, trim) in FATHERS.items():
     art(rows, "portrait_" + fid)
 
 
-# ------------------------------------------------------------------ ui frames
-def frame(name, fill, border, inner, hi=None, lo=None, size=16, noise=0, scale=2, corner_cut=True):
-    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    px = img.load()
-    r = random.Random(name)
-    for y in range(size):
-        for x in range(size):
-            edge = min(x, y, size - 1 - x, size - 1 - y)
-            if corner_cut and (x in (0, size - 1)) and (y in (0, size - 1)):
-                continue
-            if edge == 0:
-                c = border
-            elif edge == 1 and inner:
-                c = inner
-            else:
-                c = fill
-                if hi and (y == 2 or x == 2) and edge == 2:
-                    c = hi
-                if lo and (y == size - 3 or x == size - 3) and edge == 2:
-                    c = lo
-                if noise:
-                    d = r.randint(-noise, noise)
-                    c = tuple(max(0, min(255, v + d)) for v in c)
-            px[x, y] = c + (255,)
-    img = img.resize((size * scale, size * scale), Image.NEAREST)
-    img.save(os.path.join(OUT, "ui", name + ".png"))
-
-
-frame("panel", (236, 220, 180), (58, 38, 24), (170, 128, 60), noise=4)
-frame("panel_dark", (60, 44, 32), (20, 14, 10), (120, 88, 48), noise=3)
-frame("panel_navy", (30, 44, 78), (12, 16, 30), (170, 128, 60), noise=2)
-frame("card", (244, 232, 200), (96, 70, 44), None, noise=3)
-frame("button", (62, 92, 150), (16, 20, 36), None, hi=(112, 146, 204), lo=(38, 58, 104))
-frame("button_hover", (74, 108, 170), (16, 20, 36), None, hi=(132, 166, 220), lo=(46, 70, 120))
-frame("button_pressed", (40, 62, 110), (16, 20, 36), None, hi=(30, 46, 86), lo=(60, 88, 140))
-frame("button_disabled", (150, 140, 124), (70, 62, 54), None, hi=(176, 168, 152), lo=(124, 116, 102))
-frame("button_buy", (66, 128, 58), (16, 30, 14), None, hi=(118, 180, 96), lo=(40, 88, 36))
-frame("button_buy_pressed", (46, 96, 42), (16, 30, 14), None, hi=(36, 76, 32), lo=(70, 130, 60))
-frame("button_gold", (206, 156, 46), (60, 38, 10), None, hi=(246, 212, 110), lo=(150, 104, 24))
-frame("button_gold_pressed", (170, 122, 30), (60, 38, 10), None, hi=(140, 96, 20), lo=(206, 156, 46))
-frame("tab", (60, 44, 32), (20, 14, 10), None, hi=(86, 64, 46), lo=(44, 32, 22))
-frame("tab_active", (236, 220, 180), (20, 14, 10), (170, 128, 60))
-frame("bar_bg", (46, 36, 28), (20, 14, 10), None)
-frame("bar_fill", (224, 176, 60), (20, 14, 10), None, hi=(250, 220, 120))
-frame("bar_fill_blue", (90, 140, 210), (20, 14, 10), None, hi=(150, 190, 240))
-frame("bar_fill_green", (96, 168, 72), (20, 14, 10), None, hi=(150, 210, 120))
+# UI frames are drawn by tools/gen_ui.py.
 
 # app icon: capital on a sea tile inside a gold frame
 icon = Image.new("RGBA", (64, 64), (22, 52, 110, 255))
@@ -1376,3 +1333,11 @@ for path in glob.glob(os.path.join(OUT, "icons", "*.png")):
     if im.width <= 20:
         epx(im).save(path)
 print("sprites written to", OUT)
+
+# The high-density art in tools/hd/ replaces the 16 px icons, portraits and
+# map sprites written above; it must run last.
+import subprocess
+import sys
+for _script in ("samples.py", "goods_raw.py", "goods_crafted.py", "ui_icons.py", "portraits.py", "map_sprites.py"):
+    subprocess.run([sys.executable, os.path.join(ROOT, "tools", "hd", _script)], check=True)
+print("high-density art written")

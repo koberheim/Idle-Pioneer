@@ -231,7 +231,96 @@ for i in range(3):
 for i in range(2):
     sprites["peak%d" % i] = mountain(95 + i, False)
 
-# Pack into rows.
+def serpent(seed):
+    """A sea serpent in three humps, head raised: an engraver's flourish."""
+    rng = random.Random(seed)
+    img = canvas(30, 14)
+    px = img.load()
+    body = (86, 112, 104)
+    for hump, (cx, r) in enumerate(((7, 3.4), (14, 3.8), (21, 3.2))):
+        for x in range(int(cx - r - 1), int(cx + r + 2)):
+            for y in range(4, 13):
+                dx = (x + 0.5 - cx) / r
+                top = 11 - (1 - dx * dx) * r * 1.6 if abs(dx) < 1 else 99
+                if y >= top and y <= 11 and abs(dx) < 1:
+                    k = 1.2 if dx < 0 else 0.8
+                    if y > top + 1.5 and (x + y) % 2 == 0:
+                        k *= 0.8
+                    px[x, y] = shade(body, k)
+    # neck and head
+    for i in range(7):
+        x, y = 25 + i * 0.5, 10 - i * 1.1
+        for dx in range(-1, 2):
+            xx = int(x + dx)
+            if 0 <= xx < 30 and 0 <= int(y) < 14:
+                px[xx, int(y)] = shade(body, 1.1 if dx < 0 else 0.85)
+    for x in range(26, 30):
+        px[x, 3] = shade(body, 1.1)
+        px[x, 4] = shade(body, 0.9)
+    px[28, 3] = (240, 230, 200, 255)
+    # waterline ripples
+    for x in range(1, 29):
+        if x % 3 and rng.random() < 0.8:
+            px[x, 12] = (190, 214, 206, 255)
+    return outline(img, 0.3)
+
+
+def whale(seed):
+    img = canvas(26, 14)
+    px = img.load()
+    body = (72, 84, 92)
+    for x in range(3, 24):
+        t = (x - 3) / 21
+        top = 8 - math.sin(t * math.pi) * 4.5
+        for y in range(int(top), 12):
+            k = 1.2 if y < top + 1.5 else (0.85 if (x + y) % 2 == 0 and y > 9 else 1.0)
+            px[x, y] = shade(body, k)
+    # tail flukes
+    for y in range(3, 8):
+        px[2, y] = shade(body, 1.0)
+        px[1, y - 1] = shade(body, 1.1)
+    px[19, 7] = (230, 226, 210, 255)
+    # spout
+    for i, (x, y) in enumerate(((17, 1), (18, 0), (16, 0), (17, 2), (17, 3), (19, 1), (15, 1))):
+        px[x, y] = (214, 232, 236, 255)
+    for x in range(0, 26):
+        if x % 3:
+            px[x, 12] = (190, 214, 206, 255)
+    return outline(img, 0.3)
+
+
+def ink(img, seed):
+    """The engraved-chart variant of a sprite: sepia tones, ink outline, and
+    hatched shadows, like the woodcut trees of an old map."""
+    rng = random.Random(seed)
+    w, h = img.size
+    src = img.load()
+    out = canvas(w, h)
+    dst = out.load()
+    ink_c = (58, 38, 24)
+    paper = (232, 208, 160)
+    lums = sorted(0.3 * p[0] + 0.55 * p[1] + 0.15 * p[2] for p in img.getdata() if p[3])
+    mid = lums[len(lums) // 2] if lums else 100
+    for y in range(h):
+        for x in range(w):
+            p = src[x, y]
+            if not p[3]:
+                continue
+            lum = 0.3 * p[0] + 0.55 * p[1] + 0.15 * p[2]
+            t = max(0.0, min(1.0, (lum - 30) / 170.0))
+            base = tuple(int(ink_c[i] + (paper[i] - ink_c[i]) * t) for i in range(3))
+            # keep a hint of the original hue
+            c = tuple(int(base[i] * 0.8 + p[i] * 0.2) for i in range(3))
+            if lum < mid * 0.92 and (x - y) % 2 == 0:
+                c = tuple(int(v * 0.62) for v in c)
+            dst[x, y] = c + (255,)
+    return out
+
+
+sprites["serpent0"] = serpent(100)
+sprites["whale0"] = whale(101)
+
+# Pack into rows. The engraved variant uses the same regions.
 atlas_w = 256
 x = y = row_h = 0
 regions = {}
@@ -243,13 +332,16 @@ for name, img in sprites.items():
         y += row_h + 1
         row_h = 0
     regions[name] = [x, y, w, h]
-    placed.append((img, x, y))
+    placed.append((name, img, x, y))
     x += w + 1
     row_h = max(row_h, h)
 atlas = canvas(atlas_w, y + row_h + 1)
-for img, ax, ay in placed:
+inked = canvas(atlas_w, y + row_h + 1)
+for i, (name, img, ax, ay) in enumerate(placed):
     atlas.alpha_composite(img, (ax, ay))
+    inked.alpha_composite(img if name in ("serpent0", "whale0") else ink(img, i), (ax, ay))
 atlas.save(os.path.join(ROOT, "assets", "sprites", "decor.png"))
+inked.save(os.path.join(ROOT, "assets", "sprites", "decor_ink.png"))
 with open(os.path.join(ROOT, "data", "decor.json"), "w") as f:
     json.dump(regions, f, indent=1)
 print("decor atlas", atlas.size, len(regions), "sprites")

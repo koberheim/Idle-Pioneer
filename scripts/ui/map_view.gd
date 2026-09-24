@@ -13,6 +13,8 @@ signal overview_requested
 const TERRAIN_SHADER := preload("res://assets/shaders/terrain.gdshader")
 const TILE := 24.0
 const ART := TILE / 16.0
+## Map sprites are drawn at twice the decor density (see tools/hd/map_sprites.py).
+const SPRITE_DENSITY := 2.0
 const DRAG_THRESHOLD := 14.0
 const EUROPE_TRIP_SECONDS := 40.0
 const MIN_ZOOM_FLOOR := 0.35
@@ -70,13 +72,13 @@ func _ready() -> void:
 	_decor.draw.connect(_draw_decor)
 	world.add_child(_decor)
 	_dynamic = Node2D.new()
-	_dynamic.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_dynamic.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
 	_dynamic.draw.connect(_draw_dynamic)
 	world.add_child(_dynamic)
 	_labels = Control.new()
 	_labels.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_labels.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_labels.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_labels.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_labels.draw.connect(_draw_labels)
 	add_child(_labels)
 	_build_buttons()
@@ -114,7 +116,7 @@ func _build_buttons() -> void:
 	m.expand_icon = true
 	m.focus_mode = Control.FOCUS_NONE
 	m.custom_minimum_size = Vector2(64, 64)
-	m.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	m.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	m.add_theme_constant_override("icon_max_width", 40)
 	m.tooltip_text = "Continental map"
 	m.pressed.connect(func() -> void:
@@ -624,7 +626,7 @@ func _draw_unit(c: RunState.ColonyState) -> void:
 	var dx: float = float(at[1]) if going_out else -float(at[1])
 	var sea: bool = Balance.is_sea(Game.run, c)
 	var tex: Texture2D = _sprites["ship"] if sea else _sprites["wagon"]
-	var sz: Vector2 = tex.get_size() * ART * 0.8
+	var sz: Vector2 = tex.get_size() / SPRITE_DENSITY * ART * 0.8
 	var bob: float = sin(_time * 3.0 + float(c.tier)) * (1.2 if sea else 0.4)
 	var r := Rect2(p - Vector2(sz.x / 2, sz.y * 0.8) + Vector2(0, bob), sz)
 	if dx < 0:
@@ -647,7 +649,7 @@ func _draw_europe_ship() -> void:
 	var at: Array = _point_along(pts, 0.06 + f * 0.94)
 	var p: Vector2 = at[0]
 	var tex: Texture2D = _sprites["merchantman"]
-	var sz: Vector2 = tex.get_size() * ART
+	var sz: Vector2 = tex.get_size() / SPRITE_DENSITY * ART
 	var r := Rect2(p - Vector2(sz.x / 2, sz.y * 0.8) + Vector2(0, sin(_time * 2.2)), sz)
 	if phase >= 0.5:
 		_dynamic.draw_texture_rect(tex, Rect2(r.position + Vector2(sz.x, 0), Vector2(-sz.x, sz.y)), false)
@@ -658,7 +660,7 @@ func _draw_europe_ship() -> void:
 func _draw_colony(c: RunState.ColonyState, nation_col: Color) -> void:
 	var center: Vector2 = colony_world(c)
 	var tex: Texture2D = _sprites[UI.colony_sprite_name(c)]
-	var sz: Vector2 = tex.get_size() * ART * 1.35
+	var sz: Vector2 = tex.get_size() / SPRITE_DENSITY * ART * 1.35
 	var r := Rect2(center - Vector2(sz.x / 2, sz.y * 0.62), sz)
 	if c.id == _highlight:
 		var pulse: float = 0.5 + 0.5 * sin(_time * 5.0)
@@ -689,7 +691,7 @@ func _draw_site(site_index: int) -> void:
 		var pulse: float = 0.5 + 0.5 * sin(_time * 4.0)
 		_dynamic.draw_circle(center + Vector2(0, -4), 26.0 + pulse * 4.0, Color(1, 0.85, 0.4, 0.22 + pulse * 0.15))
 	var tex: Texture2D = _sprites["site"]
-	var sz: Vector2 = tex.get_size() * ART * 1.2
+	var sz: Vector2 = tex.get_size() / SPRITE_DENSITY * ART * 1.2
 	var bob: float = sin(_time * 2.5) * 1.5
 	_dynamic.draw_texture_rect(tex, Rect2(center - Vector2(sz.x / 2, sz.y * 0.85 - bob), sz), false)
 
@@ -736,7 +738,7 @@ func _draw_treasure() -> void:
 		return
 	var p: Vector2 = _treasure
 	var tex: Texture2D = _sprites["chest"]
-	var sz: Vector2 = tex.get_size() * ART * 1.3
+	var sz: Vector2 = tex.get_size() / SPRITE_DENSITY * ART * 1.3
 	var bob: float = sin(_time * 3.0) * 2.0
 	var fade: float = clampf((Balance.v("treasure_lifetime_seconds") - _treasure_age) / 3.0, 0.0, 1.0)
 	var pulse: float = 0.5 + 0.5 * sin(_time * 5.0)

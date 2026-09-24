@@ -11,7 +11,8 @@ uniform sampler2D data_l : filter_linear;
 uniform sampler2D relief : filter_linear;
 uniform vec2 grid = vec2(64.0, 96.0);
 uniform float px_per_tile = 16.0;
-// 0 = painted terrain, 1 = old parchment chart
+// 0 = painted terrain, 1 = old parchment chart, 2 = engraved map (sepia land,
+// ink hatching, teal sea with water-lining)
 uniform int style = 0;
 
 const vec3 PAL[12] = vec3[12](
@@ -46,6 +47,8 @@ float vnoise(vec2 p) {
 	return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }
 
+const vec3 INK = vec3(0.24, 0.16, 0.10);
+
 float fbm(vec2 p) {
 	return vnoise(p) * 0.5 + vnoise(p * 2.03) * 0.3 + vnoise(p * 4.1) * 0.2;
 }
@@ -63,7 +66,28 @@ void fragment() {
 
 	float land = texture(data_l, uv_of(tw)).g;
 	land += (vnoise(q * 2.7) - 0.5) * 0.22;
+	if (style == 2) {
+		// Seen from afar, coasts are smoothed into flowing curves.
+		vec2 cw2 = q + warp * 1.8;
+		float sl2 = 0.0;
+		for (int i = 0; i < 8; i++) {
+			float a = float(i) * 0.785;
+			sl2 += texture(data_l, uv_of(cw2 + vec2(cos(a), sin(a)) * 0.8)).g;
+		}
+		land = sl2 / 8.0 + (vnoise(q * 3.3) - 0.5) * 0.16;
+	}
 	float explored = texture(data_l, uv_of(q + warp * 1.4)).a;
+	if (style == 2) {
+		// The chart is seen from far away: soften the edge of the known world
+		// into ragged, hand-drawn curves instead of tile steps.
+		vec2 cw = q + (vec2(fbm(q * 0.35 + 3.1), fbm(q * 0.35 + 9.7)) - 0.5) * 3.0;
+		explored = 0.0;
+		for (int i = 0; i < 8; i++) {
+			float a = float(i) * 0.785;
+			explored += texture(data_l, uv_of(cw + vec2(cos(a), sin(a)) * 1.1)).a;
+		}
+		explored = explored / 8.0 + (fbm(q * 1.7) - 0.5) * 0.2;
+	}
 	float depth = texture(data_l, uv_of(tw)).b * 12.0;
 
 	vec3 col;
@@ -91,6 +115,25 @@ void fragment() {
 			col *= 1.0 - hatch * clamp((hx + hy) * 6.0, 0.0, 0.18);
 			if (land < 0.56) col = vec3(0.36, 0.26, 0.16);
 		}
+		if (style == 2) {
+			vec2 ap = floor(tile * px_per_tile);
+			vec3 paper = vec3(0.86, 0.76, 0.56);
+			col = mix(paper, PAL[clamp(id, 0, 11)] * 1.45, 0.16);
+			col *= 0.9 + 0.16 * fbm(q * 1.3);
+			col *= 0.97 + 0.05 * grain;
+			float sl = hx + hy;
+			col *= clamp(1.0 - sl * 1.4, 0.82, 1.12);
+			// Engraver's hatching on the shaded slopes.
+			float diag = mod(ap.x - ap.y, 3.0);
+			float hatch = step(diag, 0.5) * smoothstep(0.015, 0.09, sl);
+			col = mix(col, INK, hatch * 0.42);
+			// Ink coastline with a pale strand inside it.
+			if (land < 0.53) {
+				col = INK;
+			} else if (land < 0.575) {
+				col = mix(col, vec3(0.93, 0.86, 0.68), 0.55);
+			}
+		}
 	} else {
 		float d = clamp(depth / 7.0, 0.0, 1.0);
 		vec3 shallow = vec3(0.30, 0.60, 0.64);
@@ -111,6 +154,30 @@ void fragment() {
 			float ring = fract(depth * 0.9);
 			col *= 1.0 - step(0.9, ring) * step(depth, 4.0) * 0.18;
 		}
+		if (style == 2) {
+			vec2 ap = floor(tile * px_per_tile);
+			vec3 shallow = vec3(0.34, 0.52, 0.54);
+			vec3 deepc = vec3(0.14, 0.29, 0.34);
+			// Smooth the tile-by-tile depth into soft contours.
+			float sd = 0.0;
+			for (int i = 0; i < 8; i++) {
+				float a = float(i) * 0.785;
+				sd += texture(data_l, uv_of(tw + vec2(cos(a), sin(a)) * 1.6)).b * 12.0;
+			}
+			depth = sd / 8.0;
+			col = mix(shallow, deepc, smoothstep(0.0, 2.5, depth));
+			col *= 0.94 + 0.1 * fbm(q * 0.3);
+			col *= 0.95 + 0.08 * fbm(q * 0.7);
+			// Water-lining: pale rings that follow the coast, slowly drifting.
+			float ring = fract(depth * 1.5 - TIME * 0.04);
+			col = mix(col, vec3(0.66, 0.78, 0.74), step(0.84, ring) * (1.0 - smoothstep(0.8, 3.2, depth)) * 0.55);
+			// Sparse horizontal burin strokes in open water.
+			float stroke = step(0.75, fract(ap.y / 4.0)) * step(0.62, vnoise(vec2(ap.x * 0.07, ap.y * 0.5)));
+			col *= 1.0 - stroke * 0.14 * smoothstep(0.15, 0.6, d);
+			col = mix(col, vec3(0.80, 0.88, 0.84), step(0.95, wv) * 0.25 * smoothstep(0.2, 0.5, d));
+			// Dark ragged shadow just off the shore.
+			col = mix(col, INK, smoothstep(0.42, 0.5, land) * 0.55);
+		}
 	}
 
 	// Terra incognita: parchment where the map hasn't been scouted.
@@ -120,6 +187,12 @@ void fragment() {
 			parch = mix(parch, col * 0.55 + parch * 0.2, 0.0);
 		}
 		float edge = smoothstep(0.3, 0.5, explored);
+		if (style == 2) {
+			parch = vec3(0.90, 0.82, 0.64) * (0.93 + 0.09 * fbm(q * 0.45));
+			// A scorched band where the known world ends.
+			float band = smoothstep(0.12, 0.32, explored) * (1.0 - edge);
+			parch = mix(parch, vec3(0.62, 0.47, 0.30), band * 0.55);
+		}
 		col = mix(parch, col, edge);
 	}
 	COLOR = vec4(col, 1.0);
