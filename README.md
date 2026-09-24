@@ -9,6 +9,10 @@ permanent reforms and starting a new expedition.
 
 Godot 4.7, GDScript, portrait 720×1280, GL Compatibility renderer.
 
+## Playing
+
+Double-click **Play Idle Pioneer.cmd** in the project folder to play without opening the editor (edit the Godot path inside it if Godot lives elsewhere).
+
 ## Run it
 
 Open the folder in Godot 4.7 and press Play, or:

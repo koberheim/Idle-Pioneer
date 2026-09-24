@@ -129,6 +129,8 @@ func _ready() -> void:
 		"relic":
 			main.call("_on_relic", "orrery", "treasure")
 	await _frames(40)
+	if OS.get_cmdline_user_args().has("clipcheck=1"):
+		_check_clipping(get_tree().root)
 	if OS.get_cmdline_user_args().has("burst=1"):
 		# Several frames in a row, to catch layout jitter.
 		for i in 6:
@@ -197,3 +199,29 @@ func _dump_wide(n: Node, depth: int) -> void:
 			print("  ".repeat(depth), c.get_class(), " ", c.name, " min_w=", w, " ", t)
 	for ch: Node in n.get_children():
 		_dump_wide(ch, depth + 1)
+
+
+## Prints every visible label whose wrapped text needs more lines than fit.
+func _check_clipping(n: Node) -> void:
+	if n is Label and (n as Label).is_visible_in_tree():
+		var l: Label = n
+		var pr: Control = l.get_parent() as Control
+		var card: Node = l.get_parent()
+		while card != null and not (card is PanelContainer):
+			card = card.get_parent()
+		if card != null:
+			var cr: Rect2 = (card as Control).get_global_rect()
+			var lr: Rect2 = l.get_global_rect()
+			if lr.end.y > cr.end.y - 2.0 or lr.end.x > cr.end.x + 1.0:
+				print("CARD-OVERFLOW '%s' label=%s card=%s" % [l.text.left(40), lr, cr])
+				var a: Node = l
+				while a != card.get_parent():
+					var ac: Control = a as Control
+					print("    ", ac.get_class(), " rect=", ac.get_global_rect(), " min=", ac.get_combined_minimum_size(), " custom=", ac.custom_minimum_size)
+					a = a.get_parent()
+		if pr != null and l.get_global_rect().end.y > pr.get_global_rect().end.y + 1.0:
+			print("OVERFLOW by %.0f '%s' parent=%s %s" % [l.get_global_rect().end.y - pr.get_global_rect().end.y, l.text.left(50), pr.get_class(), pr.get_parent().get_class()])
+		if l.get_line_count() > l.get_visible_line_count():
+			print("CLIPPED lines %d/%d h=%.0f min=%.0f w=%.0f '%s'" % [l.get_visible_line_count(), l.get_line_count(), l.size.y, l.get_combined_minimum_size().y, l.size.x, l.text.left(50)])
+	for c: Node in n.get_children():
+		_check_clipping(c)
