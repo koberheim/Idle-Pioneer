@@ -133,8 +133,11 @@ func test_workshop_levels_scale_exponentially() -> void:
 	var w := run.workshop("lumber")
 	w.colonists = 1
 	var s0: float = Balance.workshop_speed(run, meta, w)
-	w.level = 10
-	assert_almost_eq(Balance.workshop_speed(run, meta, w), s0 * pow(Balance.v("workshop_speed_growth"), 10), 0.001)
+	w.level = 24
+	assert_almost_eq(Balance.workshop_speed(run, meta, w), s0 * pow(Balance.v("workshop_speed_growth"), 24), 0.001)
+	# Level 25 is a milestone: the bench doubles on top of the level growth.
+	w.level = 25
+	assert_almost_eq(Balance.workshop_speed(run, meta, w), s0 * pow(Balance.v("workshop_speed_growth"), 25) * Balance.v("milestone_workshop_mult"), 0.001)
 
 
 func test_discovery_records_first_arrival() -> void:

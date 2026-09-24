@@ -34,6 +34,8 @@ var _charter_title: Label
 var _charter_costs: HFlowContainer
 var _charter_button: BuyButton
 var _charter_level: int = -1
+var _spec_box: VBoxContainer
+var _spec_key: String = ""
 
 const FLAVOR := {
 	"timber": "Tall stands of oak and pine, ready for the axe.",
@@ -168,6 +170,10 @@ func _init() -> void:
 	ch_v.add_child(_charter_costs)
 	_manage_box.add_child(ch_card)
 
+	# A chartered colony chooses what kind of town it becomes.
+	_spec_box = UI.vbox(8)
+	_manage_box.add_child(_spec_box)
+
 	# --- the next site ---
 	_found_box = UI.vbox(12)
 	_body.add_child(_found_box)
@@ -270,6 +276,7 @@ func refresh() -> void:
 	_plus.disabled = run.colonists_idle() <= 0
 	_refresh_governor(c)
 	_refresh_charter(c)
+	_refresh_spec(c)
 
 	_update_row("prod", c, "Production", func() -> String:
 		var before: float = Balance.production_rate(run, meta, c)
@@ -330,6 +337,8 @@ func _update_row(track: String, c: RunState.ColonyState, label_text: String, pre
 	if n > 1:
 		title += "  (+%d)" % n
 	row.set_values(title, preview.call(), cost, Game.run.gold >= cost)
+	var per: float = Balance.v({"prod": "milestone_prod_mult", "cargo": "milestone_cargo_mult", "speed": "milestone_speed_mult"}[track])
+	row.set_milestone(Balance.track_level(c, track), "×%s %s" % [Format.mult(per), {"prod": "output", "cargo": "cargo", "speed": "speed"}[track]])
 
 
 func _open_governor_picker() -> void:
@@ -374,6 +383,56 @@ func _refresh_governor(c: RunState.ColonyState) -> void:
 	_gov_label.text = "Governor %s\n%s %s  ·  ×%s %s" % [g["name"], t.get("title", ""), "★".repeat(int(g["rank"])), Format.rate(Balance.governor_multiplier_for_rank(int(g["rank"]))), t.get("desc", "")]
 	_gov_button.text = "Change"
 	_gov_button.disabled = false
+
+
+func _refresh_spec(c: RunState.ColonyState) -> void:
+	_spec_box.visible = Balance.unlocked(Game.meta, "specializations")
+	var key: String = "%s:%s:%d" % [c.id, c.spec, mini(c.charter, 1)]
+	if key == _spec_key:
+		return
+	_spec_key = key
+	for n: Node in _spec_box.get_children():
+		n.queue_free()
+	var offered: Array[Dictionary] = Balance.specs_offered(Game.run, c)
+	if c.spec != "":
+		var s: Dictionary = Content.specialization(c.spec)
+		_spec_box.add_child(_spec_card(s, "Chosen", null))
+		return
+	var head := UI.label("Specialization" + ("" if c.charter >= 1 else "  (after the first charter)"), UI.SIZE_BODY, UI.GOLD, true)
+	_spec_box.add_child(head)
+	_spec_box.add_child(UI.wrap_label("Choose one. It can't be changed this run.", UI.SIZE_SMALL, UI.LIGHT_SOFT))
+	for s: Dictionary in offered:
+		var id: String = str(s["id"])
+		_spec_box.add_child(_spec_card(s, "Choose" if c.charter >= 1 else "Locked", func() -> void:
+			if Game.choose_specialization(colony_id, id):
+				Sfx.play("father")
+				_spec_key = ""
+				refresh()
+			else:
+				Sfx.play("deny")))
+
+
+func _spec_card(s: Dictionary, button_text: String, action: Variant) -> PanelContainer:
+	var card := UI.card("card")
+	var row := UI.hbox(10)
+	card.add_child(row)
+	row.add_child(UI.icon_rect(UI.icon("spec_" + str(s["id"])), 48))
+	var v := UI.vbox(0)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.add_child(UI.label(str(s["name"]), UI.SIZE_BODY, UI.INK, true))
+	v.add_child(UI.wrap_label(str(s["desc"]), UI.SIZE_SMALL, UI.INK_SOFT))
+	row.add_child(v)
+	if action == null:
+		var tag := UI.label("★ " + button_text, UI.SIZE_SMALL, UI.GREEN)
+		row.add_child(tag)
+	else:
+		var b := UI.button(button_text, "button_gold" if button_text == "Choose" else "button", 56)
+		b.custom_minimum_size.x = 120
+		b.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
+		b.disabled = button_text != "Choose"
+		b.pressed.connect(action as Callable)
+		row.add_child(b)
+	return card
 
 
 func _refresh_charter(c: RunState.ColonyState) -> void:

@@ -209,9 +209,11 @@ func _update_card(id: String) -> void:
 	var n: int = Game.workshop_levels(w)
 	var cost: float = Balance.workshop_upgrade_cost(run, w, n)
 	var g: float = Balance.v("workshop_speed_growth")
-	var before: float = pow(g, w.level)
-	var after: float = pow(g, w.level + n)
+	var mm: float = Balance.v("milestone_workshop_mult")
+	var before: float = pow(g, w.level) * Balance.milestone_mult(w.level, mm)
+	var after: float = pow(g, w.level + n) * Balance.milestone_mult(w.level + n, mm)
 	up.set_values("Tools & Benches  Lv %d%s" % [w.level, ("  (+%d)" % n) if n > 1 else ""], "Speed ×%s → ×%s" % [Format.rate(before), Format.rate(after)], cost, run.gold >= cost)
+	up.set_milestone(w.level, "×%s speed" % Format.mult(Balance.v("milestone_workshop_mult")))
 
 	var held: bool = run.is_held(id)
 	(card.get_meta("sell_label") as Label).text = "%s sell for %s. In store: %s" % [Content.resource_name(id), Format.num(price), Format.num(run.stock_of(id))]

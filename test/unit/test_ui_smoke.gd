@@ -112,6 +112,6 @@ func test_independence_ceremony_ends_the_run() -> void:
 	overlay.emit_signal("signed")
 	await wait_process_frames(2)
 	assert_null(Game.run)
-	# Swedish bonus: 6 * sqrt(9) * 1.15 = 20.7
-	assert_eq(Game.meta.liberty, 20)
+	# Swedish bonus: liberty_base * sqrt(9) * 1.15
+	assert_eq(Game.meta.liberty, int(floor(Balance.v("liberty_base") * 3.0 * 1.15)))
 	assert_not_null(main.get("_nation_select"))

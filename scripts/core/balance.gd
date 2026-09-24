@@ -1,7 +1,7 @@
 ## Every tunable number and formula in one place. Constants come from
 ## data/balance.json; multipliers are gathered from the nation, Founding
-## Fathers, Liberty reforms, governors and charters so no other code needs to
-## know where a bonus comes from.
+## Fathers, relics, Liberty reforms, governors, charters, specializations and
+## milestones so no other code needs to know where a bonus comes from.
 extends Node
 
 const BALANCE_PATH := "res://data/balance.json"
@@ -42,6 +42,36 @@ func father_bonus(run: RunState, effect: String) -> float:
 	return m
 
 
+## Relics are permanent: each owned relic with this effect multiplies it, and
+## a completed set adds its own bonus. offline_hours adds instead.
+func relic_bonus(meta: MetaState, effect: String) -> float:
+	if meta == null:
+		return 1.0
+	var additive: bool = effect == "offline_hours"
+	var m: float = 0.0 if additive else 1.0
+	for id: String in meta.relics:
+		var r: Dictionary = Content.relic(id)
+		if r.get("effect", "") == effect:
+			if additive:
+				m += float(r["value"])
+			else:
+				m *= float(r["value"])
+	if not additive:
+		for s: Dictionary in Content.relic_sets:
+			if s.get("effect", "") == effect and meta.set_complete(str(s["id"])):
+				m *= float(s["value"])
+	return m
+
+
+## Founding Fathers (this run) and relics (forever) share effect names.
+func bonus(run: RunState, meta: MetaState, effect: String) -> float:
+	return father_bonus(run, effect) * relic_bonus(meta, effect)
+
+
+func _meta_or_game(meta: MetaState) -> MetaState:
+	return meta if meta != null else Game.meta
+
+
 func liberty_mult(meta: MetaState, upgrade_id: String) -> float:
 	var def: Dictionary = Content.liberty_upgrade(upgrade_id)
 	var lvl: int = meta.level(upgrade_id)
@@ -75,10 +105,12 @@ func base_units(run: RunState, c: RunState.ColonyState) -> float:
 func production_rate(run: RunState, meta: MetaState, c: RunState.ColonyState) -> float:
 	var rate: float = base_units(run, c)
 	rate *= 1.0 + v("prod_per_level") * c.prod_level
-	rate *= 1.0 + v("colonist_production_bonus") * c.colonists
+	rate *= milestone_mult(c.prod_level, v("milestone_prod_mult"))
+	rate *= 1.0 + v("colonist_production_bonus") * c.colonists * spec_mult(c, "colonist")
 	rate *= liberty_mult(meta, "industry")
 	rate *= nation_bonus(run, "production")
-	rate *= father_bonus(run, "production")
+	rate *= bonus(run, meta, "production")
+	rate *= spec_mult(c, "prod")
 	rate *= charter_mult(c)
 	rate *= governor_mult(run, meta, c, "prod")
 	if run.favor_seconds > 0.0:
@@ -99,8 +131,10 @@ func cargo_capacity(run: RunState, meta: MetaState, c: RunState.ColonyState) -> 
 	var factor: float = v("sea_cargo_factor") if is_sea(run, c) else v("land_cargo_factor")
 	var cap: float = factor * pow(length, v("cargo_distance_exponent")) * base_units(run, c)
 	cap *= 1.0 + v("cargo_per_level") * c.cargo_level
+	cap *= milestone_mult(c.cargo_level, v("milestone_cargo_mult"))
 	cap *= liberty_mult(meta, "navigation")
-	cap *= father_bonus(run, "cargo")
+	cap *= bonus(run, meta, "cargo")
+	cap *= spec_mult(c, "cargo")
 	cap *= charter_mult(c)
 	cap *= governor_mult(run, meta, c, "cargo")
 	return cap
@@ -113,12 +147,14 @@ func round_trip_seconds(run: RunState, meta: MetaState, c: RunState.ColonyState)
 	var sea: bool = is_sea(run, c)
 	var t: float = 2.0 * length * (v("sea_seconds_per_step") if sea else v("land_seconds_per_step"))
 	var speed: float = 1.0 + v("speed_per_level") * c.speed_level
+	speed *= milestone_mult(c.speed_level, v("milestone_speed_mult"))
 	speed *= liberty_mult(meta, "navigation")
 	speed *= governor_mult(run, meta, c, "speed")
+	speed *= spec_mult(c, "speed")
 	if sea:
-		speed *= nation_bonus(run, "sea_speed") * father_bonus(run, "sea_speed")
+		speed *= nation_bonus(run, "sea_speed") * bonus(run, meta, "sea_speed")
 	else:
-		speed *= nation_bonus(run, "land_speed") * father_bonus(run, "land_speed")
+		speed *= nation_bonus(run, "land_speed") * bonus(run, meta, "land_speed")
 	return t / speed
 
 
@@ -129,6 +165,93 @@ func route_throughput(run: RunState, meta: MetaState, c: RunState.ColonyState) -
 	if rt <= 0.0:
 		return INF
 	return cargo_capacity(run, meta, c) / rt
+
+
+# --- Unlocks ------------------------------------------------------------------
+
+## Newer systems open up over successive expeditions so a first run stays
+## simple: the number of independences declared before `feature` appears.
+func unlock_runs(feature: String) -> int:
+	return int((k.get("unlock_after_runs", {}) as Dictionary).get(feature, 0))
+
+
+func unlocked(meta: MetaState, feature: String) -> bool:
+	return meta != null and meta.runs_completed >= unlock_runs(feature)
+
+
+# --- Milestones ---------------------------------------------------------------
+
+## Upgrade levels that double a track's output: the listed thresholds, then
+## every milestone_step_after levels past the last one.
+func milestone_count(level: int) -> int:
+	var list: Array = k.get("milestones", [])
+	var n: int = 0
+	for t: Variant in list:
+		if level >= int(t):
+			n += 1
+	if not list.is_empty() and level > int(list[-1]):
+		n += (level - int(list[-1])) / int(v("milestone_step_after"))
+	return n
+
+
+## The next milestone level above `level`.
+func next_milestone(level: int) -> int:
+	var list: Array = k.get("milestones", [])
+	for t: Variant in list:
+		if int(t) > level:
+			return int(t)
+	var last: int = int(list[-1]) if not list.is_empty() else 0
+	var step: int = int(v("milestone_step_after"))
+	return last + ((level - last) / step + 1) * step
+
+
+## The milestone at or below `level` (0 before the first).
+func prev_milestone(level: int) -> int:
+	var prev: int = 0
+	var m: int = next_milestone(-1)
+	while m <= level:
+		prev = m
+		m = next_milestone(m)
+	return prev
+
+
+func milestone_mult(level: int, per: float) -> float:
+	return pow(per, milestone_count(level))
+
+
+# --- Specializations -----------------------------------------------------------
+
+func spec_mult(c: RunState.ColonyState, effect: String) -> float:
+	if c.spec == "":
+		return 1.0
+	var s: Dictionary = Content.specialization(c.spec)
+	return float(s["value"]) if s.get("effect", "") == effect else 1.0
+
+
+## The two specializations offered to a colony, fixed per colony and run.
+func specs_offered(run: RunState, c: RunState.ColonyState) -> Array[Dictionary]:
+	var route: String = "none" if c.tier == 0 else str(run.site_of(c)["route"])
+	var pool: Array[Dictionary] = []
+	for s: Dictionary in Content.specializations:
+		if s["route"] == "any" or s["route"] == route:
+			pool.append(s)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([run.map_seed, c.id, "spec"])
+	for i in range(pool.size() - 1, 0, -1):
+		var j: int = rng.randi_range(0, i)
+		var tmp: Dictionary = pool[i]
+		pool[i] = pool[j]
+		pool[j] = tmp
+	return pool.slice(0, 2)
+
+
+## A Market Town makes its good sell higher everywhere.
+func market_town_mult(run: RunState, resource_id: String) -> float:
+	var m: float = 1.0
+	for c: RunState.ColonyState in run.colonies:
+		if c.spec == "market_town" and run.resource_of(c) == resource_id:
+			m = maxf(m, spec_mult(c, "price"))
+	return m
 
 
 func charter_mult(c: RunState.ColonyState) -> float:
@@ -199,17 +322,17 @@ func found_cost_for_tier(tier: int) -> float:
 
 func found_cost(run: RunState, meta: MetaState) -> float:
 	var base: float = found_cost_for_tier(run.colonies.size())
-	return base * nation_bonus(run, "colony_cost") * father_bonus(run, "colony_cost") * liberty_mult(meta, "settlement")
+	return base * nation_bonus(run, "colony_cost") * bonus(run, meta, "colony_cost") * liberty_mult(meta, "settlement")
 
 
-func explore_mult(run: RunState) -> float:
-	return father_bonus(run, "explore")
+func explore_mult(run: RunState, meta: MetaState = null) -> float:
+	return bonus(run, _meta_or_game(meta), "explore")
 
 
 # --- Colonists --------------------------------------------------------------
 
 func colonist_base(run: RunState, meta: MetaState) -> float:
-	return v("colonist_cost_base") * father_bonus(run, "colonist_cost") * liberty_mult(meta, "settlement")
+	return v("colonist_cost_base") * bonus(run, meta, "colonist_cost") * liberty_mult(meta, "settlement")
 
 
 func colonist_cost(run: RunState, meta: MetaState, count: int = 1) -> float:
@@ -226,7 +349,8 @@ func craft_seconds(run: RunState, meta: MetaState, w: RunState.WorkshopState) ->
 
 func workshop_speed(run: RunState, meta: MetaState, w: RunState.WorkshopState) -> float:
 	var speed: float = w.colonists * pow(v("workshop_speed_growth"), w.level)
-	speed *= father_bonus(run, "craft_speed") * liberty_mult(meta, "manufacture")
+	speed *= milestone_mult(w.level, v("milestone_workshop_mult"))
+	speed *= bonus(run, meta, "craft_speed") * liberty_mult(meta, "manufacture")
 	return speed
 
 
@@ -247,9 +371,10 @@ func workshop_upgrade_cost(run: RunState, w: RunState.WorkshopState, levels: int
 func sell_price(run: RunState, meta: MetaState, resource_id: String) -> float:
 	var p: float = Content.price(resource_id)
 	p *= nation_bonus(run, "sell_price")
-	p *= father_bonus(run, "sell_price")
+	p *= bonus(run, meta, "sell_price")
 	p *= liberty_mult(meta, "commerce")
-	p *= father_bonus(run, "crafted_price") if Content.is_crafted(resource_id) else father_bonus(run, "raw_price")
+	p *= bonus(run, meta, "crafted_price") if Content.is_crafted(resource_id) else bonus(run, meta, "raw_price")
+	p *= market_town_mult(run, resource_id)
 	p *= market_mult(run, resource_id)
 	return p
 
@@ -328,8 +453,8 @@ func fathers_offered(run: RunState) -> Array[Dictionary]:
 
 # --- Independence -----------------------------------------------------------
 
-func offline_cap_seconds(run: RunState) -> float:
-	var hours: float = v("offline_cap_hours")
+func offline_cap_seconds(run: RunState, meta: MetaState = null) -> float:
+	var hours: float = v("offline_cap_hours") + relic_bonus(_meta_or_game(meta), "offline_hours")
 	for id: String in run.fathers:
 		var f: Dictionary = Content.father(id)
 		if f.get("effect", "") == "offline_hours":
@@ -342,11 +467,11 @@ func independence_ready(run: RunState) -> bool:
 		and int(run.crafted.get("muskets", 0)) >= int(v("independence_muskets"))
 
 
-func liberty_payout(run: RunState) -> int:
+func liberty_payout(run: RunState, meta: MetaState = null) -> int:
 	if run.lifetime_gold < v("independence_gold"):
 		return 0
 	var raw: float = v("liberty_base") * sqrt(run.lifetime_gold / v("independence_gold"))
-	raw *= nation_bonus(run, "liberty") * father_bonus(run, "liberty")
+	raw *= nation_bonus(run, "liberty") * bonus(run, _meta_or_game(meta), "liberty")
 	return int(floor(raw))
 
 

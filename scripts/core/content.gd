@@ -15,12 +15,18 @@ var charters: Array[Dictionary] = []
 var governor_types: Array[Dictionary] = []
 var governor_names: Array = []
 var colony_names: Dictionary = {}
+var relics: Array[Dictionary] = []
+var relic_sets: Array[Dictionary] = []
+var specializations: Array[Dictionary] = []
 
 var _resource_by_id: Dictionary = {}
 var _recipe_by_id: Dictionary = {}
 var _father_by_id: Dictionary = {}
 var _nation_by_id: Dictionary = {}
 var _upgrade_by_id: Dictionary = {}
+var _relic_by_id: Dictionary = {}
+var _relic_set_by_id: Dictionary = {}
+var _spec_by_id: Dictionary = {}
 
 
 func _init() -> void:
@@ -32,6 +38,9 @@ func _init() -> void:
 	nations = _typed(data.get("nations", []))
 	liberty_upgrades = _typed(data.get("liberty_upgrades", []))
 	charters = _typed(data.get("charters", []))
+	relics = _typed(data.get("relics", []))
+	relic_sets = _typed(data.get("relic_sets", []))
+	specializations = _typed(data.get("specializations", []))
 	governor_types = _typed(data.get("governor_types", []))
 	governor_names = data.get("governor_names", [])
 	colony_names = _load_json(NAMES_PATH)
@@ -41,6 +50,9 @@ func _init() -> void:
 	_index(fathers, _father_by_id)
 	_index(nations, _nation_by_id)
 	_index(liberty_upgrades, _upgrade_by_id)
+	_index(relics, _relic_by_id)
+	_index(relic_sets, _relic_set_by_id)
+	_index(specializations, _spec_by_id)
 	_validate()
 
 
@@ -62,6 +74,26 @@ func nation(id: String) -> Dictionary:
 
 func liberty_upgrade(id: String) -> Dictionary:
 	return _upgrade_by_id.get(id, {})
+
+
+func relic(id: String) -> Dictionary:
+	return _relic_by_id.get(id, {})
+
+
+func relic_set(id: String) -> Dictionary:
+	return _relic_set_by_id.get(id, {})
+
+
+func relics_in_set(set_id: String) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for r: Dictionary in relics:
+		if r["set"] == set_id:
+			out.append(r)
+	return out
+
+
+func specialization(id: String) -> Dictionary:
+	return _spec_by_id.get(id, {})
 
 
 func governor_type(type_id: String) -> Dictionary:

@@ -3,8 +3,10 @@
 extends Control
 
 const REFRESH_SECONDS := 0.2
-const TAB_NAMES: Array[String] = ["New World", "Workshops", "Europe", "Congress"]
-const TAB_ICONS: Array[String] = ["map", "hammer", "ship_icon", "quill"]
+const TAB_NAMES: Array[String] = ["New World", "Workshops", "Europe", "Congress", "Ledger"]
+const TAB_ICONS: Array[String] = ["map", "hammer", "ship_icon", "quill", "ledger"]
+## Music context per tab index (Sfx.set_music_context); unlisted tabs use the theme.
+const TAB_MUSIC: Dictionary = {2: "europe", 3: "congress"}
 
 var _gold_label: Label
 var _income_label: Label
@@ -51,6 +53,14 @@ func _ready() -> void:
 		for id: String in m["up"]:
 			names.append(Content.resource_name(id))
 		_toasts.push("News from Europe: demand soars for %s." % ", ".join(names), "ship_icon", 4.0))
+	Game.milestone_reached.connect(_on_milestone)
+	Game.relic_found.connect(_on_relic)
+	Game.almanac_gained.connect(func(count: int, source: String) -> void:
+		if source == "independence":
+			return
+		Sfx.play("father")
+		_toasts.push("You found %s of the Almanac! Read %s in the Ledger." % ["a page" if count == 1 else "%d pages" % count, "it" if count == 1 else "them"], "almanac", 4.0))
+	Game.almanac_read.connect(_on_almanac_read)
 	get_tree().root.size_changed.connect(_layout_sheet)
 
 	if Game.boot():
@@ -102,7 +112,9 @@ func _build() -> void:
 	var europe := EuropePage.new()
 	var congress := CongressPage.new()
 	congress.declare_requested.connect(_show_independence)
-	for p: Control in [workshops, europe, congress]:
+	var ledger := LedgerPage.new()
+	ledger.modal_requested.connect(func(m: Control) -> void: _overlay.add_child(m))
+	for p: Control in [workshops, europe, congress, ledger]:
 		p.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		p.visible = false
 		_content.add_child(p)
@@ -242,9 +254,43 @@ func _show_nation_select() -> void:
 		_nation_select.queue_free()
 		_nation_select = null
 		_start_ui()
-		_toasts.push("Your ships make landfall. Welcome to %s!" % Content.colony_name(id, 0), "ship_icon", 4.0))
+		_toasts.push("Your ships make landfall. Welcome to %s!" % Content.colony_name(id, 0), "ship_icon", 4.0)
+		_announce_unlocks())
 	_overlay.add_child(_nation_select)
 	_overlay.move_child(_nation_select, 0)
+
+
+## New systems open up over successive expeditions; introduce each once.
+const UNLOCK_NOTES := {
+	"ledger": ["ledger", "The Ledger", "A new tab with your colonial record, from gold earned to the oxen who deserve a rest."],
+	"relics": ["relic_locked", "Relics", "Pieces of colonial history turn up in drifting wrecks, at each independence, and when you settle more colonies than ever before. Each gives a lasting bonus; full sets give more."],
+	"almanac": ["almanac", "The Almanac", "Rare almanac pages skip an hour ahead when read, all at once. Find them in the Ledger."],
+	"specializations": ["spec_boomtown", "Specializations", "When a colony earns its first charter, choose what kind of town it becomes: a Boomtown, a Market Town, a Deepwater Harbor..."],
+}
+
+
+func _announce_unlocks() -> void:
+	var fresh: Array = []
+	for f: String in UNLOCK_NOTES.keys():
+		var n: int = Balance.unlock_runs(f)
+		if n > 0 and Game.meta.runs_completed >= n and not Game.meta.hints_seen.has("unlock_" + f):
+			Game.mark_hint_seen("unlock_" + f)
+			fresh.append(f)
+	if fresh.is_empty():
+		return
+	var m := Modal.new("New in the Colonies")
+	for f: String in fresh:
+		var note: Array = UNLOCK_NOTES[f]
+		var row := UI.hbox(12)
+		row.add_child(UI.icon_rect(UI.icon(str(note[0])), 56))
+		var v := UI.vbox(2)
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		v.add_child(UI.label(str(note[1]), UI.SIZE_BIG, UI.INK, true))
+		v.add_child(UI.wrap_label(str(note[2]), UI.SIZE_SMALL, UI.INK_SOFT))
+		row.add_child(v)
+		m.body.add_child(row)
+	m.add_button("Onward", "button_gold")
+	_overlay.add_child(m)
 
 
 func _start_ui() -> void:
@@ -262,6 +308,7 @@ func _select_tab(i: int) -> void:
 		_close_sheet()
 	_style_tabs()
 	_advisor.visible = false
+	Sfx.set_music_context(TAB_MUSIC.get(i, "theme"))
 	_refresh()
 
 
@@ -348,7 +395,7 @@ func _show_independence() -> void:
 
 func _on_offline(seconds: float, ev: SimEvents) -> void:
 	var m := Modal.new("While You Were Away")
-	var capped: float = minf(seconds, Balance.offline_cap_seconds(Game.run))
+	var capped: float = minf(seconds, Balance.offline_cap_seconds(Game.run, Game.meta))
 	m.add_text("Your colonies kept working for %s." % Format.duration(capped), UI.SIZE_BODY, UI.INK_SOFT)
 	if seconds > capped + 1.0:
 		m.add_text("(Colonists rest after %s without their governor.)" % Format.duration(Balance.offline_cap_seconds(Game.run)), UI.SIZE_SMALL, UI.INK_SOFT)
@@ -363,6 +410,53 @@ func _on_offline(seconds: float, ev: SimEvents) -> void:
 	m.add_button("Splendid", "button_gold")
 	_overlay.add_child(m)
 	Sfx.play("coin")
+
+
+func _on_milestone(what: String, track: String, level: int) -> void:
+	Sfx.play("father")
+	var name: String
+	var effect: String
+	if track == "workshop":
+		name = str(Content.recipe(what)["building"])
+		effect = "works ×%s faster" % Format.mult(Balance.v("milestone_workshop_mult"))
+	else:
+		var c: RunState.ColonyState = Game.run.colony(what)
+		name = Content.colony_name(Game.run.nation_id, c.tier)
+		effect = {"prod": "produces ×%s", "cargo": "carries ×%s", "speed": "travels ×%s faster"}[track] % Format.mult(Balance.v("milestone_%s_mult" % track))
+	_toasts.push("Milestone! %s reaches level %d and %s." % [name, level, effect], "milestone", 3.5)
+
+
+func _on_relic(id: String, source: String) -> void:
+	var r: Dictionary = Content.relic(id)
+	var how: String = {"treasure": "Among the salvage you find something remarkable.",
+		"independence": "A keepsake of independence, carried home.",
+		"record": "Your largest settlement yet turns up a piece of history."}.get(source, "")
+	var m := Modal.new("A Relic Found!")
+	var icon := UI.icon_rect(UI.icon("relic_" + id), 144)
+	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	m.body.add_child(icon)
+	m.add_text(str(r["name"]) + "  (%d)" % int(r["year"]), UI.SIZE_BIG, UI.INK)
+	if how != "":
+		m.add_text(how, UI.SIZE_SMALL, UI.INK_SOFT)
+	m.add_text(str(r["lore"]), UI.SIZE_SMALL, UI.INK)
+	m.add_text(str(r["desc"]) + ", forever.", UI.SIZE_BODY, UI.GREEN)
+	if Game.meta.set_complete(str(r["set"])):
+		var s: Dictionary = Content.relic_set(str(r["set"]))
+		m.add_text("Set complete: %s! %s." % [s["name"], s["desc"]], UI.SIZE_BODY, UI.GREEN)
+	m.add_button("Into the Ledger", "button_gold")
+	_overlay.add_child(m)
+	Sfx.play("father")
+
+
+func _on_almanac_read(seconds: float, ev: SimEvents) -> void:
+	var m := Modal.new("A Page of the Almanac")
+	m.add_text("You turn the page, and %s pass in the colonies." % Format.duration(seconds), UI.SIZE_BODY, UI.INK_SOFT)
+	m.add_line("gold", "+%s gold" % Format.num(ev.gold_earned))
+	if ev.shipments.size() > 0:
+		m.add_line("ship_icon", "%d shipment%s landed" % [ev.shipments.size(), "" if ev.shipments.size() == 1 else "s"])
+	m.add_button("Splendid", "button_gold")
+	_overlay.add_child(m)
+	_refresh()
 
 
 func _on_founded(id: String) -> void:
@@ -544,3 +638,4 @@ func _refresh() -> void:
 	# Flag tabs that have something to act on.
 	var ready: bool = Balance.independence_ready(run)
 	_tab_buttons[3].text = TAB_NAMES[3] + (" !" if ready else "")
+	_tab_buttons[4].visible = Balance.unlocked(Game.meta, "ledger")

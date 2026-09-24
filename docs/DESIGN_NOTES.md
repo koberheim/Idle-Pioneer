@@ -37,8 +37,8 @@ lives in `data/balance.json` or `data/content.json`.
    every 30 minutes: four goods wanted (×1.6), three in glut (×0.6).
 9. **Congress**: 16 Founding Fathers are offered each run (4 per tier) out of
    38, for gold plus kept goods.
-10. **Independence** at 1B gold earned and a Musket crafted pays Liberty
-    (`6 × sqrt(earned / 1B)`, boosted by some Fathers and Sweden).
+10. **Independence** at 2.5B gold earned and a Musket crafted pays Liberty
+    (`9.5 × sqrt(earned / 2.5B)`, boosted by some Fathers and Sweden).
 11. **Liberty** buys compounding **Reforms** (Industry, Navigation,
     Settlement, Commerce, Manufacture — ×1.12–1.15 per level, costs ×1.3 per level)
     and **Governors**, a permanent roster posted to colonies.
@@ -47,6 +47,21 @@ Smaller systems: **Colony Charters** (Township → Free City, paid in crafted
 goods, +50% production and cargo each), **drifting treasure** to tap, and
 **Royal Favor** (×2 production for 15 minutes every 2 hours, free — there is no
 monetization).
+
+## Systems that open up over time
+
+A first run shows only the core loop. Newer systems appear after successive
+independences (`unlock_after_runs` in balance.json), each introduced once by a
+"New in the Colonies" note:
+
+| After independence | Opens |
+|---|---|
+| — | **Milestones**: colony upgrade levels 25, 50, 100, 150, 200, 300, 400, 500 (then every 250) double that track (production and cargo ×2, speed ×1.5); workshop levels double workshop speed. |
+| 1st | **The Ledger** tab (statistics and curiosities), **Relics** (30 real colonial artifacts in 6 sets; permanent small bonuses, set bonuses; from treasure 4%, each independence, and new colony-count records at 5/10/15/20/25), **the Almanac** (rare pages that skip an hour when read: one per independence, 1% from treasure, one per new colony record from 10). |
+| 2nd | **Specializations**: after its first charter a colony picks one of two (Boomtown, Market Town, Frontier Fort, Post Road, Supply Depot, Deepwater Harbor, Entrepot). |
+| 3rd | **Research** (planned, see RESEARCH_PLAN.md): in-run, resets each expedition. |
+
+Deferred ideas are in BACKLOG.md.
 
 ## Production chains (audit)
 

@@ -16,6 +16,8 @@ class ColonyState:
 	var speed_level: int = 0
 	## Charter rank, bought with crafted goods.
 	var charter: int = 0
+	## Specialization chosen once chartered ("" until then).
+	var spec: String = ""
 	var stock: float = 0.0
 	var cargo: float = 0.0
 	## Round-trip progress, 0..1. 0 means waiting at the colony; the outbound
@@ -26,7 +28,7 @@ class ColonyState:
 		return {
 			"id": id, "tier": tier, "site": site, "colonists": colonists,
 			"prod_level": prod_level, "cargo_level": cargo_level, "speed_level": speed_level,
-			"charter": charter, "stock": stock, "cargo": cargo, "trip": trip,
+			"charter": charter, "spec": spec, "stock": stock, "cargo": cargo, "trip": trip,
 		}
 
 	static func from_dict(d: Dictionary) -> ColonyState:
@@ -39,6 +41,7 @@ class ColonyState:
 		c.cargo_level = int(d.get("cargo_level", 0))
 		c.speed_level = int(d.get("speed_level", 0))
 		c.charter = int(d.get("charter", 0))
+		c.spec = str(d.get("spec", ""))
 		c.stock = float(d.get("stock", 0.0))
 		c.cargo = float(d.get("cargo", 0.0))
 		c.trip = clampf(float(d.get("trip", 0.0)), 0.0, 0.999999)

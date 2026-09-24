@@ -1338,6 +1338,6 @@ print("sprites written to", OUT)
 # map sprites written above; it must run last.
 import subprocess
 import sys
-for _script in ("samples.py", "goods_raw.py", "goods_crafted.py", "ui_icons.py", "portraits.py", "map_sprites.py"):
+for _script in ("samples.py", "goods_raw.py", "goods_crafted.py", "ui_icons.py", "portraits.py", "map_sprites.py", "relics_a.py", "relics_b.py", "feature_icons.py"):
     subprocess.run([sys.executable, os.path.join(ROOT, "tools", "hd", _script)], check=True)
 print("high-density art written")

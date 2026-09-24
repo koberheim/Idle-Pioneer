@@ -17,6 +17,14 @@ var governors: Array[Dictionary] = []
 var next_governor_id: int = 1
 ## Real-world time the Royal Favor can next be requested.
 var favor_ready_unix: float = 0.0
+## Relics found, by id. Permanent.
+var relics: Array[String] = []
+## Almanac pages: each skips ahead an hour of production.
+var almanacs: int = 0
+## Most colonies ever founded in one run (relic and almanac rewards).
+var best_colonies: int = 1
+## Counters for the Ledger: stat id -> float. See Game.stat().
+var stats: Dictionary = {}
 
 
 func governor(governor_id: int) -> Dictionary:
@@ -24,6 +32,25 @@ func governor(governor_id: int) -> Dictionary:
 		if int(g["id"]) == governor_id:
 			return g
 	return {}
+
+
+func has_relic(id: String) -> bool:
+	return relics.has(id)
+
+
+func set_complete(set_id: String) -> bool:
+	for r: Dictionary in Content.relics_in_set(set_id):
+		if not relics.has(str(r["id"])):
+			return false
+	return true
+
+
+func stat(id: String) -> float:
+	return float(stats.get(id, 0.0))
+
+
+func add_stat(id: String, amount: float = 1.0) -> void:
+	stats[id] = float(stats.get(id, 0.0)) + amount
 
 
 func level(upgrade_id: String) -> int:
@@ -37,6 +64,8 @@ func to_dict() -> Dictionary:
 		"fastest_run_seconds": fastest_run_seconds, "music_on": music_on, "sfx_on": sfx_on,
 		"hints_seen": hints_seen.duplicate(), "tips_on": tips_on, "governors": governors.duplicate(true),
 		"next_governor_id": next_governor_id, "favor_ready_unix": favor_ready_unix,
+		"relics": relics.duplicate(), "almanacs": almanacs, "best_colonies": best_colonies,
+		"stats": stats.duplicate(),
 	}
 
 
@@ -60,4 +89,11 @@ static func from_dict(d: Dictionary) -> MetaState:
 			"type": str(g.get("type", "prod")), "rank": int(g.get("rank", 1))})
 	m.favor_ready_unix = float(d.get("favor_ready_unix", 0.0))
 	m.next_governor_id = int(d.get("next_governor_id", m.governors.size() + 1))
+	for v: Variant in d.get("relics", []):
+		if not Content.relic(str(v)).is_empty() and not m.relics.has(str(v)):
+			m.relics.append(str(v))
+	m.almanacs = int(d.get("almanacs", 0))
+	m.best_colonies = int(d.get("best_colonies", 1))
+	for k: String in (d.get("stats", {}) as Dictionary).keys():
+		m.stats[k] = float(d["stats"][k])
 	return m

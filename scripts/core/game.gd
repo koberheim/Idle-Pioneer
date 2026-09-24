@@ -15,6 +15,11 @@ signal offline_progress(seconds: float, ev: SimEvents)
 signal purchased
 signal market_changed
 signal treasure_collected(amount: float)
+## An upgrade crossed a milestone. `what` is a colony id or a recipe id.
+signal milestone_reached(what: String, track: String, level: int)
+signal relic_found(relic_id: String, source: String)
+signal almanac_gained(count: int, source: String)
+signal almanac_read(seconds: float, ev: SimEvents)
 
 var save_path: String = "user://save.json"
 const AUTOSAVE_SECONDS := 15.0
@@ -51,6 +56,7 @@ func boot() -> bool:
 	if data.is_empty():
 		return false
 	meta = MetaState.from_dict(data.get("meta", {}))
+	meta.add_stat("app_opens")
 	var run_data: Variant = data.get("run")
 	if run_data is Dictionary and not (run_data as Dictionary).is_empty():
 		run = RunState.from_dict(run_data)
@@ -92,6 +98,7 @@ func _process(delta: float) -> void:
 		Sim.step(run, meta, tick, ev)
 	_dispatch(ev)
 	_track_income(ev.gold_earned, delta)
+	meta.add_stat("seconds_played", minf(delta, 1.0))
 	var period: int = int(Balance.market_state(run)["period"])
 	if period != _market_period:
 		if _market_period >= 0:
@@ -105,12 +112,30 @@ func _process(delta: float) -> void:
 
 
 func _dispatch(ev: SimEvents) -> void:
+	_record(ev)
 	for id: String in ev.discovered:
 		resource_discovered.emit(id)
 	for s: Dictionary in ev.shipments:
 		shipment_arrived.emit(s["colony"], s["resource"], s["qty"])
 	if ev.gold_earned > 0.0:
 		gold_earned.emit(ev.gold_earned)
+
+
+## Adds a batch of simulation results to the Ledger's lifetime counters.
+func _record(ev: SimEvents) -> void:
+	if ev.gold_earned > 0.0:
+		meta.add_stat("gold_earned", ev.gold_earned)
+	for s: Dictionary in ev.shipments:
+		meta.add_stat("shipments")
+		var c: RunState.ColonyState = run.colony(str(s["colony"])) if run != null else null
+		if c != null:
+			var leagues: float = Balance.route_length(run, c) * 2.0
+			meta.add_stat("sea_leagues" if Balance.is_sea(run, c) else "land_leagues", leagues)
+	for id: String in ev.delivered.keys():
+		meta.add_stat("delivered_" + id, float(ev.delivered[id]))
+	for id: String in ev.crafted.keys():
+		meta.add_stat("crafted", float(ev.crafted[id]))
+		meta.add_stat("crafted_" + id, float(ev.crafted[id]))
 
 
 func _track_income(earned: float, delta: float) -> void:
@@ -126,7 +151,7 @@ func _track_income(earned: float, delta: float) -> void:
 func _catch_up(seconds: float) -> void:
 	if run == null or seconds < 1.0:
 		return
-	var capped: float = minf(seconds, Balance.offline_cap_seconds(run))
+	var capped: float = minf(seconds, Balance.offline_cap_seconds(run, meta))
 	var ev := SimEvents.new()
 	var chunk: float = Balance.v("offline_step_seconds")
 	var remaining: float = capped
@@ -134,6 +159,8 @@ func _catch_up(seconds: float) -> void:
 		var s: float = minf(chunk, remaining)
 		Sim.step(run, meta, s, ev)
 		remaining -= s
+	_record(ev)
+	meta.add_stat("offline_seconds", capped)
 	for id: String in ev.discovered:
 		resource_discovered.emit(id)
 	if seconds >= 60.0:
@@ -210,12 +237,21 @@ func upgrade_colony(colony_id: String, track: String) -> bool:
 	var n: int = colony_track_levels(c, track)
 	if not _spend(Balance.colony_upgrade_cost(run, track, c, n)):
 		return false
+	var before: int = Balance.track_level(c, track)
 	match track:
 		"prod": c.prod_level += n
 		"cargo": c.cargo_level += n
 		"speed": c.speed_level += n
+	meta.add_stat("upgrades_bought", n)
+	_check_milestone(colony_id, track, before, before + n)
 	purchased.emit()
 	return true
+
+
+func _check_milestone(what: String, track: String, before: int, after: int) -> void:
+	if Balance.milestone_count(after) > Balance.milestone_count(before):
+		meta.add_stat("milestones")
+		milestone_reached.emit(what, track, after)
 
 
 ## Founds the next colony on its pre-rolled site.
@@ -225,10 +261,27 @@ func found_colony() -> bool:
 	if not _spend(Balance.found_cost(run, meta)):
 		return false
 	var c: RunState.ColonyState = run.found_next()
+	meta.add_stat("colonies_founded")
+	meta.add_stat("sea_colonies" if Balance.is_sea(run, c) else "land_colonies")
 	colony_founded.emit(c.id)
+	_check_colony_record()
 	purchased.emit()
 	save()
 	return true
+
+
+## A new record for colonies in one run can turn up a relic or an almanac page.
+func _check_colony_record() -> void:
+	var n: int = run.colonies.size()
+	if n <= meta.best_colonies:
+		return
+	meta.best_colonies = n
+	if not Balance.unlocked(meta, "relics"):
+		return
+	if (Balance.k.get("relic_colony_records", []) as Array).has(float(n)) or (Balance.k.get("relic_colony_records", []) as Array).has(n):
+		grant_relic("record")
+	if n >= int(Balance.v("almanac_record_from")) and Balance.unlocked(meta, "almanac"):
+		grant_almanac(1, "record")
 
 
 func recruit_colonists() -> bool:
@@ -236,6 +289,7 @@ func recruit_colonists() -> bool:
 	if not _spend(Balance.colonist_cost(run, meta, n)):
 		return false
 	run.colonists_owned += n
+	meta.add_stat("colonists_recruited", n)
 	purchased.emit()
 	return true
 
@@ -296,7 +350,10 @@ func upgrade_workshop(recipe_id: String) -> bool:
 	var n: int = workshop_levels(w)
 	if not _spend(Balance.workshop_upgrade_cost(run, w, n)):
 		return false
+	var before: int = w.level
 	w.level += n
+	meta.add_stat("upgrades_bought", n)
+	_check_milestone(recipe_id, "workshop", before, w.level)
 	purchased.emit()
 	return true
 
@@ -356,6 +413,8 @@ func join_father(father_id: String) -> bool:
 		else:
 			run.warehouse[key] = run.stock_of(key) - float(cost[key])
 	run.fathers.append(father_id)
+	meta.add_stat("fathers_joined")
+	meta.add_stat("father_" + father_id)
 	var def: Dictionary = Content.father(father_id)
 	if def.get("effect", "") == "free_colonists":
 		run.colonists_owned += int(def["value"])
@@ -368,7 +427,8 @@ func join_father(father_id: String) -> bool:
 func declare_independence() -> int:
 	if run == null or not Balance.independence_ready(run):
 		return 0
-	var liberty: int = Balance.liberty_payout(run)
+	var liberty: int = Balance.liberty_payout(run, meta)
+	meta.add_stat("liberty_earned", liberty)
 	meta.liberty += liberty
 	meta.lifetime_liberty += liberty
 	meta.runs_completed += 1
@@ -377,6 +437,11 @@ func declare_independence() -> int:
 		meta.fastest_run_seconds = run.play_seconds
 	run = null
 	running = false
+	# Every declaration brings home a keepsake and a page of the almanac.
+	if Balance.unlocked(meta, "relics"):
+		grant_relic("independence")
+	if Balance.unlocked(meta, "almanac"):
+		grant_almanac(int(Balance.v("almanac_per_independence")), "independence")
 	save()
 	independence_declared.emit(liberty)
 	return liberty
@@ -470,7 +535,7 @@ func recall_governor(colony_id: String) -> void:
 ## Reward for tapping the treasure that drifts past on the map.
 func treasure_value() -> float:
 	var base: float = maxf(Balance.v("treasure_min_gold"), income_rate * Balance.v("treasure_income_seconds"))
-	return base * Balance.father_bonus(run, "treasure")
+	return base * Balance.bonus(run, meta, "treasure")
 
 
 func collect_treasure() -> float:
@@ -479,7 +544,13 @@ func collect_treasure() -> float:
 	var amount: float = treasure_value()
 	run.gold += amount
 	run.lifetime_gold += amount
+	meta.add_stat("treasures")
+	meta.add_stat("treasure_gold", amount)
 	treasure_collected.emit(amount)
+	if Balance.unlocked(meta, "relics") and _rng.randf() < Balance.v("relic_treasure_chance"):
+		grant_relic("treasure")
+	elif Balance.unlocked(meta, "almanac") and _rng.randf() < Balance.v("almanac_treasure_chance"):
+		grant_almanac(1, "treasure")
 	return amount
 
 
@@ -492,7 +563,77 @@ func request_favor() -> bool:
 	if run == null or favor_ready_in() > 0.0:
 		return false
 	run.favor_seconds += Balance.v("favor_seconds")
+	meta.add_stat("favors")
 	meta.favor_ready_unix = Time.get_unix_time_from_system() + Balance.v("favor_cooldown_seconds")
+	purchased.emit()
+	save()
+	return true
+
+
+# --- Specializations, relics and the almanac ----------------------------------
+
+func choose_specialization(colony_id: String, spec_id: String) -> bool:
+	var c: RunState.ColonyState = run.colony(colony_id) if run != null else null
+	if c == null or c.spec != "" or c.charter < 1 or not Balance.unlocked(meta, "specializations"):
+		return false
+	var ok: bool = false
+	for s: Dictionary in Balance.specs_offered(run, c):
+		if s["id"] == spec_id:
+			ok = true
+	if not ok:
+		return false
+	c.spec = spec_id
+	meta.add_stat("specializations")
+	purchased.emit()
+	save()
+	return true
+
+
+## Gives a random relic not yet found; once all are found, a page of the
+## almanac instead. Returns the relic id or "".
+func grant_relic(source: String) -> String:
+	var missing: Array[String] = []
+	for r: Dictionary in Content.relics:
+		if not meta.has_relic(str(r["id"])):
+			missing.append(str(r["id"]))
+	if missing.is_empty():
+		grant_almanac(1, source)
+		return ""
+	var id: String = missing[_rng.randi_range(0, missing.size() - 1)]
+	meta.relics.append(id)
+	meta.add_stat("relics_found")
+	relic_found.emit(id, source)
+	save()
+	return id
+
+
+func grant_almanac(count: int, source: String) -> void:
+	if count <= 0:
+		return
+	meta.almanacs += count
+	meta.add_stat("almanacs_found", count)
+	almanac_gained.emit(count, source)
+
+
+## Reads a page of the almanac: an hour of the colonies' work, at once and
+## without the offline cap.
+func read_almanac() -> bool:
+	if run == null or meta.almanacs <= 0 or not Balance.unlocked(meta, "almanac"):
+		return false
+	meta.almanacs -= 1
+	meta.add_stat("almanacs_read")
+	var seconds: float = Balance.v("almanac_seconds")
+	var ev := SimEvents.new()
+	var chunk: float = Balance.v("offline_step_seconds")
+	var remaining: float = seconds
+	while remaining > 0.0:
+		var s: float = minf(chunk, remaining)
+		Sim.step(run, meta, s, ev)
+		remaining -= s
+	_record(ev)
+	for id: String in ev.discovered:
+		resource_discovered.emit(id)
+	almanac_read.emit(seconds, ev)
 	purchased.emit()
 	save()
 	return true

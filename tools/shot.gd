@@ -29,6 +29,13 @@ func _ready() -> void:
 		Game.meta.liberty = 14
 		Game.meta.runs_completed = 1
 		Game.save()
+	if scenario.begins_with("ledger") or scenario in ["spec", "relic"]:
+		Game.meta.runs_completed = 3
+		Game.meta.almanacs = 2
+		Game.meta.stats = {"gold_earned": 4.2e9, "shipments": 812, "land_colonies": 9, "sea_colonies": 4, "father_franklin": 2, "delivered_furs": 5400, "seconds_played": 30000, "land_leagues": 12000, "sea_leagues": 3100, "app_opens": 17}
+		for id: String in ["kite_key", "franklin_stove", "armonica", "bifocals", "poor_richard", "tea_chest", "octant", "long_rifle", "mayflower_compact"]:
+			Game.meta.relics.append(id)
+		Game.save()
 	main = (load("res://scenes/Main.tscn") as PackedScene).instantiate()
 	add_child(main)
 	await _frames(20)
@@ -79,6 +86,22 @@ func _ready() -> void:
 			await _frames(30)
 		"settings":
 			main.call("_show_settings")
+		"ledger":
+			main.call("_select_tab", 4)
+		"ledger2":
+			main.call("_select_tab", 4)
+			await _frames(10)
+			var lp: Page = main.get("_pages")[4]
+			lp.scroll.scroll_vertical = 1500
+		"spec":
+			Game.run.colony("c1").charter = 1
+			main.call("_open_colony", "c1")
+			await _frames(10)
+			var sheet: Control = main.get("_sheet")
+			var sc: ScrollContainer = sheet.get("_scroll")
+			sc.scroll_vertical = 2000
+		"relic":
+			main.call("_on_relic", "orrery", "treasure")
 	await _frames(40)
 	var img: Image = get_viewport().get_texture().get_image()
 	img.save_png(out_path)

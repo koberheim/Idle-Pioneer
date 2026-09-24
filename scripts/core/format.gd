@@ -44,3 +44,10 @@ static func duration(seconds: float) -> String:
 	if s < 86400:
 		return "%dh %02dm" % [s / 3600, (s % 3600) / 60]
 	return "%dd %dh" % [s / 86400, (s % 86400) / 3600]
+
+
+## A multiplier without trailing zeros: 2 -> "2", 1.5 -> "1.5".
+static func mult(value: float) -> String:
+	if is_equal_approx(value, roundf(value)):
+		return str(int(roundf(value)))
+	return String.num(value, 2).rstrip("0").rstrip(".")

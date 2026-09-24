@@ -1,8 +1,9 @@
 # Sound effects
 
-Every sound in the game is synthesised at startup by `scripts/core/sfx.gd`
-(chiptune-style square/triangle tones and a bell), so the game ships with
-sound and no audio files.
+Every sound has a synthesised fallback built at startup by
+`scripts/core/sfx.gd` (chiptune-style square/triangle tones and a bell). Most
+ids now have a recorded CC0 sample here instead (see `../CREDITS.md`); only
+`fanfare` is still synthesised.
 
 To replace one with a real recording, drop a file named after its id into this
 folder (`.ogg`, `.wav` or `.mp3`). It is used instead of the synthesised version

@@ -94,7 +94,7 @@ def wood(size, seed, base=(92, 60, 38), plank=32, seams=True):
     r = random.Random(seed)
     ns = [Noise(seed + i, p) for i, p in enumerate((2, 4, 8))]
     rows = size // plank
-    tints = [r.uniform(0.88, 1.08) for _ in range(rows)]
+    tints = [r.uniform(0.96, 1.03) for _ in range(rows)]
     offs = [r.uniform(0, 100) for _ in range(rows)]
     for y in range(size):
         row = y // plank
@@ -103,19 +103,16 @@ def wood(size, seed, base=(92, 60, 38), plank=32, seams=True):
             # grain: stretched sine bands perturbed by noise
             w = fbm(ns, x, y * 6, size)
             g = math.sin((yy + offs[row]) * 0.75 + w * 14.0)
-            k = tints[row] * (0.88 + 0.16 * g)
-            if g > 0.9:
-                k *= 0.78
-            elif g < -0.95:
-                k *= 1.1
+            # Kept low-contrast so the planks sit quietly behind the cards.
+            k = tints[row] * (0.955 + 0.06 * g)
+            if g > 0.92:
+                k *= 0.93
             c = mul(base, k)
             if seams:
                 if yy == 0:
-                    c = mul(base, 1.28 * tints[row])
+                    c = mul(base, 1.1 * tints[row])
                 elif yy == plank - 1:
-                    c = mul(base, 0.45)
-                elif yy == plank - 2:
-                    c = mul(base, 0.72 * tints[row])
+                    c = mul(base, 0.72)
             px[x, y] = c + (255,)
     if seams:
         d = ImageDraw.Draw(img)
@@ -123,12 +120,7 @@ def wood(size, seed, base=(92, 60, 38), plank=32, seams=True):
             # one butt joint per plank, staggered, plus two nails
             jx = int((row * 37 + 30) % (size - 40)) + 20
             y0, y1 = row * plank + 1, row * plank + plank - 2
-            d.line([(jx, y0), (jx, y1)], fill=mul(base, 0.42) + (255,))
-            d.line([(jx + 1, y0), (jx + 1, y1)], fill=mul(base, 1.2) + (255,))
-            for nx in (jx - 4, jx + 5):
-                ny = row * plank + plank // 2
-                d.point((nx % size, ny - 1), fill=(150, 140, 120, 255))
-                d.point((nx % size, ny), fill=(70, 62, 54, 255))
+            d.line([(jx, y0), (jx, y1)], fill=mul(base, 0.75) + (255,))
     return img
 
 
