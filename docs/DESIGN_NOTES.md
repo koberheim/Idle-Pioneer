@@ -1,110 +1,118 @@
-# Idle Pioneer — Design Notes (rebuild)
+# Idle Pioneer — Design Notes
 
-`GAME_DESIGN.md` is still the foundation. This file records what the rebuild
-actually implements, where it deliberately departs from that document, and why.
-Every number mentioned here lives in `data/balance.json` or `data/content.json`.
+`GAME_DESIGN.md` is the original foundation. This file records what the game
+actually does now, where it departs from that document, and why. Every number
+lives in `data/balance.json` or `data/content.json`.
 
-## Why the prototype was rebuilt
+## The loop
 
-The earlier Godot build (still on `main`, and in git history) had a solid
-simulation core and good tests, but had drifted a long way from the locked
-design and from a shippable mobile game:
+1. **A new world each expedition.** Pick a Crown and a shore: an *Uncharted
+   Coast* (a seeded continent with bays, capes, lakes and scattered islands,
+   different every time) or *North America* (Labrador to Panama, the Great
+   Lakes, Florida, the Caribbean). Unexplored land is blank parchment; each
+   colony founded reveals more.
+2. **Colonies land where the surveyors find land.** Each run pre-rolls where
+   the 25 colonies will go — random, but loosely outward from the capital.
+   The player decides *when* to found the next one, not *where*. The site's
+   **terrain decides what it produces** (pine forest: timber or furs; hills:
+   iron ore, silver near mountains; marsh: indigo; the tropics: sugar...), how
+   rich the ground is, and whether its goods go **by wagon or by ship**.
+3. **Routes are real.** Wagons follow a path across the terrain (forest,
+   marsh and hills are slow); ships sail around the coast. Ships are slower
+   but carry far more. Cargo grows almost as fast as distance, so a far colony
+   is lumpier rather than much poorer.
+4. **Value by settlement order.** Colony *n* is worth about 3.3^n gold a
+   second at base, whatever it produces — a late timber camp is simply huge.
+   This keeps every terrain worth settling and lets the good matter for
+   crafting rather than for raw income. Founding costs grow a little faster
+   than value, so each colony takes longer than the last; filling all 25 is a
+   weeks-long, many-expedition goal.
+5. **Upgrades**: Production / Wagons or Cargo Holds / Roads or Faster Ships
+   per colony; buy x1/x10/x100/Max; hold to repeat.
+6. **Colonists** are one shared pool: +100% output in a colony, or labour in a
+   workshop. That split is the central tension from the original design.
+7. **Workshops** turn kept goods into finer ones (chains below). Upgrades
+   compound (×1.2 speed per level) so crafting keeps pace with the colonies.
+8. **Europe**: every good is either sold on arrival or kept. Prices shift
+   every 30 minutes: four goods wanted (×1.6), three in glut (×0.6).
+9. **Congress**: 16 Founding Fathers are offered each run (4 per tier) out of
+   38, for gold plus kept goods.
+10. **Independence** at 1B gold earned and a Musket crafted pays Liberty
+    (`6 × sqrt(earned / 1B)`, boosted by some Fathers and Sweden).
+11. **Liberty** buys compounding **Reforms** (Industry, Navigation,
+    Settlement, Commerce, Manufacture — ×1.12–1.15 per level, costs ×1.75)
+    and **Governors**, a permanent roster posted to colonies.
 
-- **Runtime procedural map generation** — the one thing `GAME_DESIGN.md` §12
-  says not to revisit, because it's what stalled the original Unity project.
-- **Placeholder systems in the core loop** — an "Influence" currency with no
-  designed way to earn it, colonist "secondary effects" that did nothing, a
-  25-slot colony list that recycled the 8 colonies with "II", "III" suffixes.
-- **The central tension was gone** — colonists no longer split between
-  producing and crafting; crafting was a manual "craft one" button.
-- **A UI that dropped taps** — every panel destroyed and rebuilt its buttons
-  on a timer, so a tap whose press and release straddled a rebuild was lost.
-  On mobile that's a fundamental problem, not a polish item.
-- ~8,500 lines, many carrying paragraph-long history comments, made each change
-  slow.
+Smaller systems: **Colony Charters** (Township → Free City, paid in crafted
+goods, +50% production and cargo each), **drifting treasure** to tap, and
+**Royal Favor** (×2 production for 15 minutes every 2 hours, free — there is no
+monetization).
 
-Kept from the old build: the fonts, nation data and bonuses, the per-nation
-colony names (`data/colony_names.json`), the Europe harbor painting (now
-pixelated), the atomic save pattern, and GUT.
+## Production chains (audit)
 
-## The loop, as built
+Every recipe consumes things that plausibly go into it, and every processed
+good feeds something further up, except the luxury end products.
 
-1. **Colonies** (8, founded in a fixed order) produce one raw good each.
-   Each has three upgrade tracks — Production, Cargo (wagons / holds), and
-   Speed (roads / faster ships). This follows the direction given after the
-   design doc: three independent per-colony tracks, and colonies produce at a
-   base rate even with nobody assigned.
-2. **Routes**: each colony rolls a land or sea site at the start of a run
-   (the doc's per-run variety, made visible: the two candidate sites are real
-   places on a fixed, hand-tuned map). Wagons and ships shuttle continuously,
-   loading whatever is waiting. Cargo grows with distance as fast as travel
-   time does, so distance makes deliveries lumpier, not slower on average —
-   otherwise a freshly founded far colony couldn't ship even its base output.
-3. **Capital warehouse**: each good is either sold on arrival or kept.
-4. **Workshops** (10 recipes, 1–3 step chains) are built with gold, staffed by
-   colonists, and upgraded for speed. Staffing a workshop automatically keeps
-   its inputs. Crafted goods can feed further recipes.
-5. **Colonists** are one shared pool recruited at the Docks (cost ×1.15 each).
-   Each one assigned to a colony adds +100% output; in a workshop it adds
-   crafting speed. This is the doc's central tension, restored.
-6. **Founding Fathers** (12) join Congress for gold plus kept goods and give
-   run-long bonuses. This is new, drawn from Colonization's Continental
-   Congress, and it gives kept goods and crafting chains a purpose beyond
-   resale.
-7. **Declaring Independence** requires 1B gold earned this run *and* at least
-   one Musket crafted (the doc's recommended narrative gate). It pays
-   `floor(6 × sqrt(earned / 1B))` Liberty, wipes the run, and returns to the
-   nation picker.
-8. **Liberty Reforms** (permanent): Industry, Navigation, Settlement from the
-   doc, plus **Commerce** (+10% sale price per level), since the doc says only
-   prestige upgrades should raise prices but defined none that did.
+| Tier | Good | Made from | Building | Used for |
+|---|---|---|---|---|
+| Raw | Timber | pine / woodland | — | Lumber, Charcoal, Tar |
+| 1 | Lumber | 2 Timber | Sawmill | Tools, Barrels, Muskets, Merchantman, charters |
+| 1 | Charcoal | 3 Timber | Charcoal Kiln | Pig Iron (smelting fuel) |
+| 1 | Tar & Pitch | 3 Timber | Tar Kiln | Merchantman (naval stores) |
+| 1 | Flour | 2 Grain | Gristmill | Provisions |
+| 1 | Salt Cod | 2 Cod | Salting House | Provisions |
+| 1 | Rope | 2 Hemp | Ropewalk | Merchantman (rigging) |
+| 1 | Leather | 2 Hides | Tannery | Saddles, Uniforms |
+| 1 | Molasses | 3 Sugar Cane | Boiling House | Rum |
+| 1 | Cured Tobacco | 2 Tobacco | Curing Barn | Cigars |
+| 1 | Cloth | 2 Cotton | Weaver's House | Sailcloth, Dyed Cloth, Fur Coats |
+| 1 | Candles | 2 Whale Oil | Chandlery | luxury |
+| 2 | Pig Iron | 2 Iron Ore + 1 Charcoal | Bloomery | Tools, Barrels, Muskets |
+| 2 | Provisions | 2 Flour + 2 Salt Cod | Commissary | Merchantman (ship's stores) |
+| 2 | Sailcloth | 2 Cloth | Sail Loft | Merchantman |
+| 2 | Tools | 1 Pig Iron + 1 Lumber | Blacksmith | Muskets, Merchantman |
+| 2 | Barrels | 2 Lumber + 1 Pig Iron (hoops) | Cooperage | Rum |
+| 2 | Dyed Cloth | 2 Cloth + 1 Indigo | Dye House | Uniforms |
+| 2 | Saddles | 3 Leather | Saddlery | Dragoons |
+| 2 | Cigars | 2 Cured Tobacco | Cigar Maker | luxury |
+| 2 | Fur Coats | 2 Furs + 1 Cloth | Furrier | luxury |
+| 2 | Silverware | 3 Silver | Silversmith | luxury |
+| 3 | Rum | 2 Molasses + 1 Barrel | Distillery | luxury |
+| 3 | Muskets | 2 Pig Iron + 1 Lumber + 1 Tools | Armory | Dragoons, independence |
+| 3 | Uniforms | 2 Dyed Cloth + 1 Leather | Tailor | Dragoons |
+| 4 | Merchantman | 40 Lumber, 20 Tar, 20 Rope, 10 Sailcloth, 5 Tools, 10 Provisions | Shipyard | final product |
+| 4 | Dragoons | 2 Horses, 2 Saddles, 2 Muskets, 2 Uniforms | Cavalry Barracks | final product |
 
-## Systems added beyond the original design
+Sale prices rise roughly 2–3× over the value of the inputs at each step, so
+deeper chains pay more. Every map guarantees all 14 raw goods appear among
+its 25 colony sites, and iron ore within the first four colonies so the
+musket chain is reachable in a first run.
 
-Idle Planet Miner is the inspiration for the overall loop (a chain of
-producing sites, transport, crafting, a long-term prestige layer). Its systems
-are not copied one for one; these additions were chosen because they suit the
-colonial setting:
+## Founding Fathers
 
-- **Governors** — a permanent roster bought and promoted with Liberty. Posted
-  to a colony, a governor multiplies its production, cargo or route speed
-  (×1.5 at rank 1 up to ×3.5 at rank 5). Survives independence.
-- **Colony Charters** — Township → Borough → Royal Charter → City → Free City,
-  each paid in crafted goods, each +50% production and cargo.
-- **Prices in Europe** — every 20 minutes of play, three goods are wanted
-  (×1.6) and two are in glut (×0.6). Deterministic, so offline catch-up agrees
-  with live play.
-- **Drifting treasure** — a wrecked merchantman's cargo floats past now and
-  then; tap it for about 90 seconds of income.
-- **Royal Favor** — petition the Crown for double production for 15 minutes,
-  on a 2-hour real-time cooldown. Free; there is no monetization.
-- **Late colonies** — a Whaling Station, Silver Mine and Horse Ranch sit past
-  the independence gate, with Fur Coats, Candles, Silverware and Dragoons, for
-  players pushing a run further for more Liberty.
+38 real historical figures, all public domain as people; portraits are our
+own pixel art. The well-known (Franklin, Jefferson, Washington, both Adamses,
+Hamilton, Madison, Paine, Revere, Hancock, Henry, Jay, Lafayette...) sit
+alongside figures less often celebrated: Crispus Attucks, Phillis Wheatley,
+Haym Salomon, Sybil Ludington, Mary Katherine Goddard, Deborah Sampson, James
+Armistead Lafayette, Elizabeth Freeman, Benjamin Banneker, Peter Salem, Nancy
+Hart, Mercy Otis Warren, Bernardo de Gálvez, Oliver Pollock and others. Each
+run offers four per tier at random.
 
-## Other deliberate choices
+## What changed from the first version, and why
 
-- **Nations** (6) are picked at the start of *every* run, so prestige also
-  means a fresh strategic choice. Italy was already replaced by Sweden.
-- **Gold, not coin** — kept, per earlier direction.
-- **Independence gate is 1B** (doc: 2B) and late colony costs were lowered
-  (sugar 15M, furs 150M), tuned with `tools/balance_bot.tscn` so a first run
-  lands around 2.5–4 hours for a reasonable player, per the doc's target.
-- **Recipe times are ¼ of the doc's** so a staffed workshop is worth about as
-  much as putting that colonist in a colony; at the doc's times crafting
-  never paid off.
-- **Offline progress** is capped at 4 hours (+4 with Benjamin Franklin), and
-  the simulation is step-size independent (tested: 0.1s, 1s, 5s steps and one
-  600s step agree within 1–2%).
-- **Buy x1 / x10 / x100 / Max**, and holding a buy button repeats it.
-- **Advisor**: one context hint at a time (tap to jump there), so the first
-  session teaches itself.
+- **Maps**: fixed map replaced by per-run generation plus North America, per
+  direct request (the design doc's "no procedural maps" warning was about the
+  original project's fragile runtime placement; this generator is seeded,
+  ~80 ms, and covered by tests for route connectivity and resource coverage).
+- **Colonies**: from 8 fixed colonies with fixed goods to 25 terrain-driven
+  ones. Economic value comes from settlement order so no map is unwinnable.
+- **Reforms compound** instead of adding: with additive bonuses the 25-colony
+  goal was mathematically out of reach.
+- **Pixel density**: the map is rendered by a GPU shader at 16 art pixels per
+  tile with relief and animated water; icons are Scale2x-upscaled.
+- **Tutorial**: first-run tips, each shown once, can be turned off.
 
-## Art direction
-
-Colonial frontier subject matter (the 1994 Colonization overland map, docks of
-Europe, Continental Congress) rendered with Graveyard Keeper-like pixel
-density: a finer 2× pixel scale, organic coastlines, lit trees and hills with
-soft drop shadows, depth-graded water with an animated glint shader, and icons
-with colour-tinted outlines and rim lighting. All sprites are generated from
-code in `tools/` so they can be edited and regenerated consistently.
+Everything else from the earlier notes still holds: gold not coin; 4-hour
+offline cap (+ Franklin / Wilson); the simulation is step-size independent;
+Idle Planet Miner inspired the loop but systems are not copied one to one.

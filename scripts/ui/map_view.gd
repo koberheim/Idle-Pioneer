@@ -322,6 +322,10 @@ func _spawn_floater(at: Vector2, text: String, color: Color, icon_name: String) 
 # --- Input --------------------------------------------------------------------
 
 func _gui_input(event: InputEvent) -> void:
+	# On touch screens every touch also arrives as an emulated mouse event;
+	# the touch events are the ones to trust.
+	if (event is InputEventMouseButton or event is InputEventMouseMotion) and event.device == InputEvent.DEVICE_ID_EMULATION:
+		return
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		if mb.pressed and (mb.button_index == MOUSE_BUTTON_WHEEL_UP or mb.button_index == MOUSE_BUTTON_WHEEL_DOWN):
@@ -620,7 +624,7 @@ func _draw_unit(c: RunState.ColonyState) -> void:
 	var dx: float = float(at[1]) if going_out else -float(at[1])
 	var sea: bool = Balance.is_sea(Game.run, c)
 	var tex: Texture2D = _sprites["ship"] if sea else _sprites["wagon"]
-	var sz: Vector2 = tex.get_size() * ART
+	var sz: Vector2 = tex.get_size() * ART * 0.8
 	var bob: float = sin(_time * 3.0 + float(c.tier)) * (1.2 if sea else 0.4)
 	var r := Rect2(p - Vector2(sz.x / 2, sz.y * 0.8) + Vector2(0, bob), sz)
 	if dx < 0:
@@ -654,7 +658,7 @@ func _draw_europe_ship() -> void:
 func _draw_colony(c: RunState.ColonyState, nation_col: Color) -> void:
 	var center: Vector2 = colony_world(c)
 	var tex: Texture2D = _sprites[UI.colony_sprite_name(c)]
-	var sz: Vector2 = tex.get_size() * ART
+	var sz: Vector2 = tex.get_size() * ART * 1.35
 	var r := Rect2(center - Vector2(sz.x / 2, sz.y * 0.62), sz)
 	if c.id == _highlight:
 		var pulse: float = 0.5 + 0.5 * sin(_time * 5.0)
@@ -751,7 +755,7 @@ func _draw_labels() -> void:
 		var sp: Vector2 = world_to_screen(colony_world(c))
 		if not Rect2(Vector2(-80, -80), size + Vector2(160, 160)).has_point(sp):
 			continue
-		var below: float = 0.4 * 48.0 * _zoom
+		var below: float = 0.4 * 64.0 * _zoom
 		if show_names or c.tier == 0:
 			_plate(sp + Vector2(0, below), Content.colony_name(run.nation_id, c.tier), c.tier == 0, UI.LIGHT, Color(0.13, 0.09, 0.06, 0.8))
 		if c.colonists > 0 and _zoom >= 0.55:
