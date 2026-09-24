@@ -823,6 +823,55 @@ art([
     ".kkkkkkkkkkkkkk.",
 ], "portrait")
 
+# One portrait per Founding Father: hair, skin and coat recoloured from the
+# template above. (hair, hair shade, skin, skin shade, coat, trim)
+PORTRAIT_ROWS = [
+    "....kkkkkkkk....",
+    "...kwwwwwwwwk...",
+    "..kwWwwwwwwWwk..",
+    "..kwWkppppkWwk..",
+    "..kwkppppppkwk..",
+    "..kwkpkppkpkwk..",
+    "..kwkppppppkwk..",
+    "..kWkpppPppkWk..",
+    "..kWWkpRRpkWWk..",
+    "..kkWWkppkWWkk..",
+    "...kkkkwwkkkk...",
+    "..kUUUkwwkUUUk..",
+    ".kUUUUUkkUUUUUk.",
+    ".kUUyUUUUUUyUUk.",
+    ".kUUUUUUUUUUUUk.",
+    ".kkkkkkkkkkkkkk.",
+]
+FAIR, FAIR_S = (236, 186, 150), (200, 140, 106)
+OLIVE, OLIVE_S = (206, 156, 112), (168, 116, 80)
+TAN, TAN_S = (172, 116, 78), (136, 86, 56)
+FATHERS = {
+    "minuit": ((120, 84, 50), (86, 58, 34), FAIR, FAIR_S, (46, 92, 58), (220, 190, 90)),
+    "brewster": ((170, 168, 160), (128, 126, 120), FAIR, FAIR_S, (40, 38, 40), (230, 226, 214)),
+    "pocahontas": ((34, 26, 24), (20, 16, 14), TAN, TAN_S, (150, 104, 62), (70, 170, 160)),
+    "adam_smith": ((236, 232, 222), (196, 192, 182), FAIR, FAIR_S, (120, 36, 46), (220, 190, 90)),
+    "magellan": ((70, 48, 32), (48, 32, 22), OLIVE, OLIVE_S, (120, 128, 140), (220, 190, 90)),
+    "de_soto": ((36, 28, 24), (22, 18, 16), OLIVE, OLIVE_S, (150, 40, 40), (230, 200, 110)),
+    "revere": ((110, 74, 46), (80, 52, 32), FAIR, FAIR_S, (40, 70, 140), (220, 190, 90)),
+    "fugger": ((150, 148, 142), (110, 108, 104), FAIR, FAIR_S, (30, 28, 30), (236, 196, 70)),
+    "stuyvesant": ((96, 66, 42), (70, 46, 30), FAIR, FAIR_S, (170, 92, 36), (230, 226, 214)),
+    "hudson": ((150, 70, 40), (110, 48, 28), FAIR, FAIR_S, (30, 84, 86), (220, 190, 90)),
+    "franklin": ((218, 214, 206), (176, 172, 164), FAIR, FAIR_S, (110, 72, 44), (220, 190, 90)),
+    "jefferson": ((178, 84, 46), (132, 58, 32), FAIR, FAIR_S, (70, 86, 110), (220, 190, 90)),
+}
+for fid, (hair, hair_s, skin, skin_s, coat, trim) in FATHERS.items():
+    PAL.update({"1": hair, "2": hair_s, "3": skin, "4": skin_s, "5": coat, "6": trim})
+    rows = []
+    for y, row in enumerate(PORTRAIT_ROWS):
+        if y <= 9:
+            row = row.replace("w", "1").replace("W", "2")
+        row = row.replace("p", "3").replace("P", "4")
+        if y >= 11:
+            row = row.replace("U", "5").replace("y", "6")
+        rows.append(row)
+    art(rows, "portrait_" + fid)
+
 
 # ------------------------------------------------------------------ ui frames
 def frame(name, fill, border, inner, hi=None, lo=None, size=16, noise=0, scale=3, corner_cut=True):

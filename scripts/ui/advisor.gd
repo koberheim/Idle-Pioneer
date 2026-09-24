@@ -70,12 +70,14 @@ func _pick() -> Array:
 		candidates.append(["muskets", "Congress will not declare without an armed militia. Build an Armory and craft Muskets from Tools and Planks.", "tab:1"])
 	if cap.prod_level == 0:
 		candidates.append(["upgrade_capital", "Your capital sells timber straight to Europe. Tap %s on the map to improve its production." % cap_name, "colony:capital"])
+	if run.colonists_owned == 0 and cap.prod_level > 0 and run.gold >= Balance.colonist_cost(run, meta):
+		candidates.append(["recruit", "Recruit a colonist at the Docks of Europe, then put them to work in a colony. Each one doubles its output.", "tab:2"])
+	if run.colonists_idle() > 0 and run.colonists_owned <= 3:
+		candidates.append(["assign_%d" % run.colonists_owned, "You have an idle colonist. Tap a colony on the map and press + to put them to work.", "colony:capital"])
 	var next: RunState.ColonyState = run.next_unfounded()
 	if next != null and run.founded_count() == 1 and cap.prod_level > 0:
 		var cost: float = Balance.found_cost(run, meta, next.id)
 		candidates.append(["found_first", "Save %s gold to found your first colony. Its flag is on the coast to the south." % Format.num(cost), "colony:" + next.id])
-	if run.colonists_owned == 0 and run.founded_count() >= 2:
-		candidates.append(["recruit", "Recruit colonists at the Docks of Europe. Each one doubles a colony's output.", "tab:2"])
 	for c: RunState.ColonyState in run.colonies:
 		if c.founded and c.id != "capital" and c.stock > Balance.cargo_capacity(run, meta, c) * 2.0:
 			var n: String = Content.colony_name(run.nation_id, Content.colony_index(c.id))

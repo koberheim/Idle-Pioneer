@@ -362,6 +362,10 @@ func _show_settings() -> void:
 	m.add_text(stats, UI.SIZE_SMALL, UI.INK_SOFT)
 	var reset := UI.button("Reset all progress", "button", 56)
 	reset.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
+	for s: String in ["normal", "hover"]:
+		reset.add_theme_stylebox_override(s, UI.frame("button_disabled", 14, 8))
+	for s: String in ["font_color", "font_hover_color"]:
+		reset.add_theme_color_override(s, UI.RED)
 	reset.pressed.connect(func() -> void:
 		m.close()
 		_confirm_reset())

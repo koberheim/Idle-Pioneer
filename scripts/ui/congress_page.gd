@@ -112,8 +112,7 @@ func _father_card(def: Dictionary, joined: bool) -> Control:
 	var v := UI.vbox(8)
 	card.add_child(v)
 	var head := UI.hbox(12)
-	var portrait := UI.icon_rect(UI.icon("portrait"), 64)
-	portrait.modulate = Color.from_hsv(float(abs(id.hash()) % 360) / 360.0, 0.25, 1.0)
+	var portrait := UI.icon_rect(UI.icon("portrait_" + id), 64)
 	head.add_child(portrait)
 	var hv := UI.vbox(0)
 	hv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
