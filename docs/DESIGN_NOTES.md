@@ -59,6 +59,26 @@ pixelated), the atomic save pattern, and GUT.
    doc, plus **Commerce** (+10% sale price per level), since the doc says only
    prestige upgrades should raise prices but defined none that did.
 
+## Idle Planet Miner, system by system
+
+The game deliberately mirrors Idle Planet Miner's structure in a colonial setting:
+
+| Idle Planet Miner | Idle Pioneer | Notes |
+|---|---|---|
+| Planets, bought in order | Colonies, founded in order | 8 colonies, each with its own raw good |
+| Mining rate / Ship speed / Cargo | Production / Roads or Faster Ships / Wagons or Cargo Holds | Buy x1 / x10 / x100 / Max, hold to repeat |
+| Ships flying ore to the mothership | Wagons and ships carrying goods to the capital | Land or sea is rolled per colony per run |
+| Smelters and crafters | Workshops (10 recipes, 1–3 step chains) | Staffed by colonists instead of bought slots |
+| Market, sell or keep | Europe warehouse: Selling / Keeping per good | |
+| Market price trends | Prices in Europe: 3 goods wanted ×1.6, 2 in glut ×0.6 | Rotates every 20 minutes of play |
+| Managers | Governors: permanent, bought and promoted with Liberty | ×1.5 at rank 1 up to ×3.5 at rank 5 |
+| Colonizing a planet | Colony Charters: Township → Free City, paid in crafted goods | +50% production and cargo per rank |
+| Projects | Founding Fathers in the Continental Congress | Gold plus kept goods |
+| Arks / asteroids to tap | Drifting treasure on the sea | About 90 seconds of income |
+| Ad boost | Royal Favor | ×2 production for 15 min, 2 h real-time cooldown, no ads |
+| Moving to a new galaxy | Declaring Independence | Needs 1B gold earned + a Musket |
+| Dark matter, rooms | Liberty, Liberty Reforms | Industry, Navigation, Settlement, Commerce |
+
 ## Other deliberate choices
 
 - **Nations** (6) are picked at the start of *every* run, so prestige also
