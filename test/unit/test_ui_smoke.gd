@@ -52,22 +52,20 @@ func test_fresh_install_shows_nation_select_and_starts_a_run() -> void:
 	await _boot()
 	var picker: Node = main.get("_nation_select")
 	assert_not_null(picker)
-	picker.emit_signal("nation_chosen", "spanish")
+	picker.emit_signal("nation_chosen", "spanish", WorldMap.STYLE_RANDOM)
 	await wait_process_frames(3)
 	assert_not_null(Game.run)
 	assert_eq(Game.run.nation_id, "spanish")
-	assert_eq(Game.run.gold, Balance.v("start_gold"))
+	assert_almost_eq(Game.run.gold, Balance.v("start_gold"), 2.0)
 
 
 func test_every_screen_and_button_survives_use() -> void:
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 2
-	Game.run = RunState.create("french", rng)
+	Game.run = RunState.create("french", WorldMap.STYLE_RANDOM, 2)
 	Game.run.gold = 1e12
 	Game.run.lifetime_gold = 1e12
-	for c: RunState.ColonyState in Game.run.colonies.slice(0, 6):
-		c.founded = true
-	for id: String in ["timber", "cod", "tobacco", "cotton", "iron_ore", "indigo", "planks", "pig_iron", "tools"]:
+	for i in 5:
+		Game.run.found_next()
+	for id: String in ["timber", "cod", "grain", "cotton", "iron_ore", "indigo", "lumber", "charcoal", "tar", "pig_iron", "tools", "flour", "salt_cod", "cloth"]:
 		Game.run.discovered.append(id)
 		Game.run.warehouse[id] = 50000.0
 	Game.run.colonists_owned = 20
@@ -78,6 +76,10 @@ func test_every_screen_and_button_survives_use() -> void:
 		main.call("_open_colony", colony.id)
 		await wait_process_frames(2)
 		_press_all_buttons(main.get("_sheet"))
+	main.call("_open_next_site")
+	await wait_process_frames(2)
+	main.call("_show_overview")
+	await wait_process_frames(3)
 	for tab: int in [3, 1, 2, 0]:
 		main.call("_select_tab", tab)
 		await wait_process_frames(2)
@@ -88,14 +90,13 @@ func test_every_screen_and_button_survives_use() -> void:
 			assert_gt(pressed, 0, "tab %d has buttons" % tab)
 	main.call("_show_settings")
 	await wait_process_frames(2)
-	assert_gt(Game.run.colony("capital").prod_level, 0)
-	assert_true(Game.run.workshop("planks").built)
+	assert_gt(Game.run.colony("c0").prod_level, 0)
+	assert_true(Game.run.workshop("lumber").built)
 	assert_false(Game.run.fathers.is_empty())
 
 
 func test_independence_ceremony_ends_the_run() -> void:
-	var rng := RandomNumberGenerator.new()
-	Game.run = RunState.create("swedish", rng)
+	Game.run = RunState.create("swedish", WorldMap.STYLE_NORTH_AMERICA, 3)
 	Game.run.lifetime_gold = Balance.v("independence_gold") * 9.0
 	Game.run.crafted["muskets"] = 2
 	Game.running = true

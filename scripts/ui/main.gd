@@ -21,6 +21,7 @@ var _sheet: ColonySheet
 var _sheet_t: float = 0.0
 var _sheet_tween: Tween
 var _advisor: Advisor
+var _tutorial: Tutorial
 var _overlay: Control
 var _toasts: Toasts
 var _nation_select: NationSelect
@@ -92,6 +93,8 @@ func _build() -> void:
 	_map.treasure_tapped.connect(func(_at: Vector2) -> void:
 		Sfx.play("coin")
 		_toasts.push("Salvaged a drifting cargo from a wrecked merchantman!", "chest", 2.5))
+	_map.next_site_tapped.connect(_open_next_site)
+	_map.overview_requested.connect(_show_overview)
 	_content.add_child(_map)
 	_pages.append(_map)
 
@@ -132,6 +135,13 @@ func _build() -> void:
 	_toasts.offset_left = 30
 	_toasts.offset_right = -30
 	_overlay.add_child(_toasts)
+	_tutorial = Tutorial.new()
+	_tutorial.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	_tutorial.offset_top = 120 + _top_pad
+	_tutorial.offset_left = 16
+	_tutorial.offset_right = -16
+	_tutorial.go.connect(_on_advisor_go)
+	_overlay.add_child(_tutorial)
 
 
 func _build_top_bar() -> Control:
@@ -227,8 +237,8 @@ func _style_tabs() -> void:
 func _show_nation_select() -> void:
 	_close_sheet()
 	_nation_select = NationSelect.new()
-	_nation_select.nation_chosen.connect(func(id: String) -> void:
-		Game.start_run(id)
+	_nation_select.nation_chosen.connect(func(id: String, style: String) -> void:
+		Game.start_run(id, style)
 		_nation_select.queue_free()
 		_nation_select = null
 		_start_ui()
@@ -239,7 +249,7 @@ func _show_nation_select() -> void:
 
 func _start_ui() -> void:
 	_select_tab(0)
-	_map.scroll_to_colony_at("capital", 0.35, false)
+	_map.center_on_colony("c0", false, 0.45)
 	Sfx.sync_music()
 	_refresh()
 
@@ -263,7 +273,26 @@ func _open_colony(id: String) -> void:
 	_sheet.visible = true
 	_map.set_highlight(id)
 	_animate_sheet(1.0)
-	_map.scroll_to_colony_at(id, 0.22)
+	_map.center_on_colony(id, true, 0.22)
+
+
+func _open_next_site() -> void:
+	if _tab != 0:
+		_select_tab(0)
+	Sfx.play("click")
+	_sheet.show_next_site()
+	_sheet.visible = true
+	_map.set_highlight("")
+	_animate_sheet(1.0)
+	_map.center_on_next_site(0.22)
+
+
+func _show_overview() -> void:
+	var chart := ContinentalMap.new()
+	chart.data_tex = _map.data_texture()
+	chart.relief_tex = _map.relief_texture()
+	chart.jump_to.connect(func(p: Vector2) -> void: _map.look_at_world(p, 0.45))
+	_overlay.add_child(chart)
 
 
 func _close_sheet() -> void:
@@ -298,7 +327,9 @@ func _layout_sheet() -> void:
 
 
 func _on_advisor_go(target: String) -> void:
-	if target.begins_with("colony:"):
+	if target == "site":
+		_open_next_site()
+	elif target.begins_with("colony:"):
 		_open_colony(target.substr(7))
 	elif target.begins_with("tab:"):
 		_select_tab(int(target.substr(4)))
@@ -336,9 +367,13 @@ func _on_offline(seconds: float, ev: SimEvents) -> void:
 
 func _on_founded(id: String) -> void:
 	Sfx.play("found")
-	var name: String = Content.colony_name(Game.run.nation_id, Content.colony_index(id))
-	_toasts.push("%s is founded!" % name, "colonist", 3.5)
-	_sheet.refresh()
+	var c: RunState.ColonyState = Game.run.colony(id)
+	var name: String = Content.colony_name(Game.run.nation_id, c.tier)
+	_toasts.push("%s is founded! It will produce %s." % [name, Content.resource_name(Game.run.resource_of(c)).to_lower()], Game.run.resource_of(c), 4.0)
+	# The sheet was showing the site; now show the colony that stands there.
+	if _sheet.visible and _sheet.colony_id == "":
+		_sheet.show_colony(id)
+		_map.set_highlight(id)
 
 
 func _on_discovered(id: String) -> void:
@@ -421,8 +456,17 @@ func _show_settings() -> void:
 		Game.meta.sfx_on = not Game.meta.sfx_on
 		Sfx.play("click")
 		sync.call())
+	var tips := UI.button("", "button", 64)
+	var sync_tips := func() -> void:
+		tips.text = "Tutorial tips: " + ("On" if Game.meta.tips_on else "Off")
+	sync_tips.call()
+	tips.pressed.connect(func() -> void:
+		Game.meta.tips_on = not Game.meta.tips_on
+		Sfx.play("click")
+		sync_tips.call())
 	m.body.add_child(music)
 	m.body.add_child(sound)
+	m.body.add_child(tips)
 	var meta: MetaState = Game.meta
 	var stats: String = "Independence declared: %d times\nLiberty earned in all: %d" % [meta.runs_completed, meta.lifetime_liberty]
 	if meta.fastest_run_seconds > 0.0:
@@ -476,7 +520,7 @@ func _process(delta: float) -> void:
 	_advisor_timer += delta
 	if _advisor_timer >= 1.0:
 		_advisor_timer = 0.0
-		if _tab == 0 and Game.run != null and not _sheet.visible:
+		if _tab == 0 and Game.run != null and not _sheet.visible and not _tutorial.visible:
 			_advisor.refresh()
 		else:
 			_advisor.visible = false

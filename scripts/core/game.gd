@@ -54,6 +54,8 @@ func boot() -> bool:
 	var run_data: Variant = data.get("run")
 	if run_data is Dictionary and not (run_data as Dictionary).is_empty():
 		run = RunState.from_dict(run_data)
+		if run == null:
+			return false
 		running = true
 		_last_frame_unix = Time.get_unix_time_from_system()
 		var away: float = _last_frame_unix - float(data.get("saved_unix", _last_frame_unix))
@@ -62,8 +64,8 @@ func boot() -> bool:
 	return false
 
 
-func start_run(nation_id: String) -> void:
-	run = RunState.create(nation_id, _rng)
+func start_run(nation_id: String, map_style: String = WorldMap.STYLE_RANDOM) -> void:
+	run = RunState.create(nation_id, map_style, _rng.randi())
 	run.gold = Balance.v("start_gold")
 	running = true
 	income_rate = 0.0
@@ -181,21 +183,15 @@ func levels_to_buy(base: float, growth: float, level: int, cap: int = 100000) ->
 
 
 func colony_track_levels(c: RunState.ColonyState, track: String) -> int:
-	var lvl: int = c.prod_level
-	if track == "cargo":
-		lvl = c.cargo_level
-	elif track == "speed":
-		lvl = c.speed_level
-	return levels_to_buy(Balance.v(track + "_cost_base") * Balance.colony_scale(c.id), Balance.v(track + "_cost_growth"), lvl)
+	return levels_to_buy(Balance.upgrade_base(run, track, c), Balance.v(track + "_cost_growth"), Balance.track_level(c, track))
 
 
 func workshop_levels(w: RunState.WorkshopState) -> int:
-	return levels_to_buy(Balance.v("workshop_cost_base") * Content.price(w.id), Balance.v("workshop_cost_growth"), w.level)
+	return levels_to_buy(Balance.workshop_upgrade_base(run, w), Balance.v("workshop_cost_growth"), w.level)
 
 
 func colonist_count_to_buy() -> int:
-	var base: float = Balance.v("colonist_cost_base") * Balance.father_bonus(run, "colonist_cost") * Balance.liberty_mult(meta, "settlement")
-	return levels_to_buy(base, Balance.v("colonist_cost_growth"), run.colonists_owned)
+	return levels_to_buy(Balance.colonist_base(run, meta), Balance.v("colonist_cost_growth"), run.colonists_owned)
 
 
 # --- Commands ---------------------------------------------------------------
@@ -209,10 +205,10 @@ func _spend(amount: float) -> bool:
 
 func upgrade_colony(colony_id: String, track: String) -> bool:
 	var c: RunState.ColonyState = run.colony(colony_id)
-	if c == null or not c.founded:
+	if c == null:
 		return false
 	var n: int = colony_track_levels(c, track)
-	if not _spend(Balance.colony_upgrade_cost(track, c, n)):
+	if not _spend(Balance.colony_upgrade_cost(run, track, c, n)):
 		return false
 	match track:
 		"prod": c.prod_level += n
@@ -222,14 +218,14 @@ func upgrade_colony(colony_id: String, track: String) -> bool:
 	return true
 
 
-func found_colony(colony_id: String) -> bool:
-	var c: RunState.ColonyState = run.colony(colony_id)
-	if c == null or c.founded or run.next_unfounded() != c:
+## Founds the next colony on its pre-rolled site.
+func found_colony() -> bool:
+	if run == null or run.next_site() < 0:
 		return false
-	if not _spend(Balance.found_cost(run, meta, colony_id)):
+	if not _spend(Balance.found_cost(run, meta)):
 		return false
-	c.founded = true
-	colony_founded.emit(colony_id)
+	var c: RunState.ColonyState = run.found_next()
+	colony_founded.emit(c.id)
 	purchased.emit()
 	save()
 	return true
@@ -246,7 +242,7 @@ func recruit_colonists() -> bool:
 
 func assign_to_colony(colony_id: String, delta: int) -> bool:
 	var c: RunState.ColonyState = run.colony(colony_id)
-	if c == null or not c.founded:
+	if c == null:
 		return false
 	if delta > 0 and run.colonists_idle() < delta:
 		return false
@@ -298,7 +294,7 @@ func upgrade_workshop(recipe_id: String) -> bool:
 	if w == null or not w.built:
 		return false
 	var n: int = workshop_levels(w)
-	if not _spend(Balance.workshop_upgrade_cost(w, n)):
+	if not _spend(Balance.workshop_upgrade_cost(run, w, n)):
 		return false
 	w.level += n
 	purchased.emit()
@@ -343,8 +339,15 @@ func father_affordable(father_id: String) -> bool:
 	return true
 
 
+func father_offered(father_id: String) -> bool:
+	for f: Dictionary in Balance.fathers_offered(run):
+		if f["id"] == father_id:
+			return true
+	return false
+
+
 func join_father(father_id: String) -> bool:
-	if run.has_father(father_id) or not father_affordable(father_id):
+	if run.has_father(father_id) or not father_offered(father_id) or not father_affordable(father_id):
 		return false
 	var cost: Dictionary = Content.father(father_id)["cost"]
 	for key: String in cost.keys():
@@ -353,6 +356,9 @@ func join_father(father_id: String) -> bool:
 		else:
 			run.warehouse[key] = run.stock_of(key) - float(cost[key])
 	run.fathers.append(father_id)
+	var def: Dictionary = Content.father(father_id)
+	if def.get("effect", "") == "free_colonists":
+		run.colonists_owned += int(def["value"])
 	father_joined.emit(father_id)
 	purchased.emit()
 	save()
@@ -389,7 +395,7 @@ func buy_liberty_upgrade(upgrade_id: String) -> bool:
 
 func charter_affordable(colony_id: String) -> bool:
 	var c: RunState.ColonyState = run.colony(colony_id)
-	var cost: Dictionary = Balance.charter_cost(colony_id, c.charter + 1)
+	var cost: Dictionary = Balance.charter_cost(run, c, c.charter + 1)
 	if cost.is_empty():
 		return false
 	for key: String in cost.keys():
@@ -400,9 +406,9 @@ func charter_affordable(colony_id: String) -> bool:
 
 func charter_colony(colony_id: String) -> bool:
 	var c: RunState.ColonyState = run.colony(colony_id)
-	if c == null or not c.founded or not charter_affordable(colony_id):
+	if c == null or not charter_affordable(colony_id):
 		return false
-	var cost: Dictionary = Balance.charter_cost(colony_id, c.charter + 1)
+	var cost: Dictionary = Balance.charter_cost(run, c, c.charter + 1)
 	for key: String in cost.keys():
 		run.warehouse[key] = run.stock_of(key) - float(cost[key])
 	c.charter += 1
@@ -446,7 +452,7 @@ func promote_governor(governor_id: int) -> bool:
 ## sending home whoever held the post before.
 func post_governor(colony_id: String, governor_id: int) -> bool:
 	var c: RunState.ColonyState = run.colony(colony_id)
-	if c == null or not c.founded or meta.governor(governor_id).is_empty():
+	if c == null or meta.governor(governor_id).is_empty():
 		return false
 	var prev: String = run.colony_of_governor(governor_id)
 	if prev != "":

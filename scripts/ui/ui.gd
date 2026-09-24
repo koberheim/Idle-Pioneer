@@ -40,7 +40,7 @@ static func icon(name: String) -> Texture2D:
 static func frame(name: String, margin: float = 14.0, content: float = 14.0) -> StyleBoxTexture:
 	var sb := StyleBoxTexture.new()
 	sb.texture = tex("res://assets/sprites/ui/%s.png" % name)
-	sb.set_texture_margin_all(12)
+	sb.set_texture_margin_all(8)
 	sb.set_content_margin_all(content)
 	sb.content_margin_top = content - 2.0
 	sb.content_margin_bottom = content - 2.0
@@ -200,7 +200,7 @@ static func cost_text(amount: float) -> String:
 
 ## Which settlement sprite a colony shows; it grows as it is developed.
 static func colony_sprite_name(c: RunState.ColonyState) -> String:
-	if c.id == "capital":
+	if c.tier == 0:
 		return "capital"
 	var total: int = c.prod_level + c.cargo_level + c.speed_level + c.colonists * 3
 	if total >= 60:

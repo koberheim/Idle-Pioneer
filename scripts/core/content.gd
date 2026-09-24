@@ -4,10 +4,9 @@ extends Node
 
 const CONTENT_PATH := "res://data/content.json"
 const NAMES_PATH := "res://data/colony_names.json"
-const MAP_PATH := "res://data/map.json"
 
 var resources: Array[Dictionary] = []
-var colonies: Array[Dictionary] = []
+var terrains: Array[Dictionary] = []
 var recipes: Array[Dictionary] = []
 var fathers: Array[Dictionary] = []
 var nations: Array[Dictionary] = []
@@ -16,10 +15,8 @@ var charters: Array[Dictionary] = []
 var governor_types: Array[Dictionary] = []
 var governor_names: Array = []
 var colony_names: Dictionary = {}
-var map: Dictionary = {}
 
 var _resource_by_id: Dictionary = {}
-var _colony_by_id: Dictionary = {}
 var _recipe_by_id: Dictionary = {}
 var _father_by_id: Dictionary = {}
 var _nation_by_id: Dictionary = {}
@@ -29,7 +26,7 @@ var _upgrade_by_id: Dictionary = {}
 func _init() -> void:
 	var data: Dictionary = _load_json(CONTENT_PATH)
 	resources = _typed(data.get("resources", []))
-	colonies = _typed(data.get("colonies", []))
+	terrains = _typed(data.get("terrains", []))
 	recipes = _typed(data.get("recipes", []))
 	fathers = _typed(data.get("fathers", []))
 	nations = _typed(data.get("nations", []))
@@ -38,10 +35,8 @@ func _init() -> void:
 	governor_types = _typed(data.get("governor_types", []))
 	governor_names = data.get("governor_names", [])
 	colony_names = _load_json(NAMES_PATH)
-	map = _load_json(MAP_PATH)
 
 	_index(resources, _resource_by_id)
-	_index(colonies, _colony_by_id)
 	_index(recipes, _recipe_by_id)
 	_index(fathers, _father_by_id)
 	_index(nations, _nation_by_id)
@@ -51,10 +46,6 @@ func _init() -> void:
 
 func resource(id: String) -> Dictionary:
 	return _resource_by_id.get(id, {})
-
-
-func colony(id: String) -> Dictionary:
-	return _colony_by_id.get(id, {})
 
 
 func recipe(id: String) -> Dictionary:
@@ -92,28 +83,28 @@ func is_crafted(resource_id: String) -> bool:
 	return resource(resource_id).get("kind", "") == "crafted"
 
 
-func colony_index(colony_id: String) -> int:
-	for i in colonies.size():
-		if colonies[i]["id"] == colony_id:
-			return i
-	return -1
-
-
 ## The recipe that produces `resource_id`, or {} for raw goods.
 func recipe_for_output(resource_id: String) -> Dictionary:
 	return recipe(resource_id)
 
 
-func colony_name(nation_id: String, colony_index_: int) -> String:
+func colony_name(nation_id: String, tier: int) -> String:
 	var names: Array = colony_names.get(nation_id, [])
-	if colony_index_ >= 0 and colony_index_ < names.size():
-		return str(names[colony_index_])
-	return str(colonies[colony_index_]["id"]).capitalize()
+	if tier >= 0 and tier < names.size():
+		return str(names[tier])
+	return "Colony %d" % (tier + 1)
 
 
-## Map sites for a colony: an Array of {x, y, route} where route is "land" or "sea".
-func colony_sites(colony_id: String) -> Array:
-	return map.get("sites", {}).get(colony_id, [])
+func terrain_name(terrain_id: int) -> String:
+	return str(terrains[terrain_id].get("name", "?")) if terrain_id >= 0 and terrain_id < terrains.size() else "?"
+
+
+func raw_resources() -> Array[String]:
+	var out: Array[String] = []
+	for r: Dictionary in resources:
+		if r["kind"] == "raw":
+			out.append(str(r["id"]))
+	return out
 
 
 func _load_json(path: String) -> Dictionary:
@@ -147,11 +138,10 @@ func _index(list: Array[Dictionary], into: Dictionary) -> void:
 ## Fails loudly at boot on broken cross-references rather than letting a typo
 ## surface as a silent zero somewhere in the economy.
 func _validate() -> void:
-	for c: Dictionary in colonies:
-		if not _resource_by_id.has(c["resource"]):
-			push_error("Content: colony %s produces unknown resource %s" % [c["id"], c["resource"]])
-		if map.size() > 0 and colony_sites(c["id"]).is_empty():
-			push_error("Content: colony %s has no map sites" % c["id"])
+	for t: Dictionary in terrains:
+		for key: String in (t.get("resources", {}) as Dictionary).keys() + (t.get("coastal", {}) as Dictionary).keys():
+			if not _resource_by_id.has(key):
+				push_error("Content: terrain %s yields unknown resource %s" % [t["id"], key])
 	for r: Dictionary in recipes:
 		if not _resource_by_id.has(r["id"]):
 			push_error("Content: recipe %s has no matching output resource" % r["id"])

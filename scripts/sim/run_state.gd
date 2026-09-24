@@ -6,9 +6,9 @@ extends RefCounted
 
 class ColonyState:
 	var id: String
-	var founded: bool = false
-	## Index into Content.colony_sites(id); decides the map position and whether
-	## goods travel by land or by sea. Rolled once per run.
+	## Settlement order: 0 is the capital. Drives the colony's scale.
+	var tier: int = 0
+	## Index into the run's WorldMap.sites.
 	var site: int = 0
 	var colonists: int = 0
 	var prod_level: int = 0
@@ -24,7 +24,7 @@ class ColonyState:
 
 	func to_dict() -> Dictionary:
 		return {
-			"id": id, "founded": founded, "site": site, "colonists": colonists,
+			"id": id, "tier": tier, "site": site, "colonists": colonists,
 			"prod_level": prod_level, "cargo_level": cargo_level, "speed_level": speed_level,
 			"charter": charter, "stock": stock, "cargo": cargo, "trip": trip,
 		}
@@ -32,7 +32,7 @@ class ColonyState:
 	static func from_dict(d: Dictionary) -> ColonyState:
 		var c := ColonyState.new()
 		c.id = str(d.get("id", ""))
-		c.founded = bool(d.get("founded", false))
+		c.tier = int(d.get("tier", 0))
 		c.site = int(d.get("site", 0))
 		c.colonists = int(d.get("colonists", 0))
 		c.prod_level = int(d.get("prod_level", 0))
@@ -67,6 +67,10 @@ class WorkshopState:
 
 
 var nation_id: String = ""
+var map_style: String = WorldMap.STYLE_RANDOM
+var map_seed: int = 0
+## Rebuilt from map_style/map_seed, never saved.
+var world: WorldMap
 var started_unix: float = 0.0
 ## Simulated seconds this run, including offline catch-up.
 var play_seconds: float = 0.0
@@ -86,18 +90,18 @@ var governors: Dictionary = {}
 ## Simulated seconds of Royal Favor (doubled production) remaining.
 var favor_seconds: float = 0.0
 
+var _explored: PackedByteArray
+var _explored_key: String = ""
 
-static func create(p_nation_id: String, rng: RandomNumberGenerator) -> RunState:
+
+static func create(p_nation_id: String, p_style: String, p_seed: int) -> RunState:
 	var r := RunState.new()
 	r.nation_id = p_nation_id
+	r.map_style = p_style
+	r.map_seed = p_seed
 	r.started_unix = Time.get_unix_time_from_system()
-	for def: Dictionary in Content.colonies:
-		var c := ColonyState.new()
-		c.id = def["id"]
-		var sites: Array = Content.colony_sites(c.id)
-		c.site = rng.randi_range(0, maxi(sites.size() - 1, 0))
-		r.colonies.append(c)
-	r.colonies[0].founded = true
+	r.world = WorldMap.build(p_style, p_seed)
+	r._add_colony()
 	for def: Dictionary in Content.recipes:
 		var w := WorkshopState.new()
 		w.id = def["id"]
@@ -105,11 +109,45 @@ static func create(p_nation_id: String, rng: RandomNumberGenerator) -> RunState:
 	return r
 
 
+func _add_colony() -> ColonyState:
+	var c := ColonyState.new()
+	c.tier = colonies.size()
+	c.id = "c%d" % c.tier
+	c.site = world.colony_order[c.tier]
+	colonies.append(c)
+	return c
+
+
+## The site the next colony will be founded on, or -1 once the map is full.
+func next_site() -> int:
+	if colonies.size() >= world.colony_order.size():
+		return -1
+	return world.colony_order[colonies.size()]
+
+
+func found_next() -> ColonyState:
+	if next_site() < 0:
+		return null
+	return _add_colony()
+
+
 func colony(id: String) -> ColonyState:
 	for c: ColonyState in colonies:
 		if c.id == id:
 			return c
 	return null
+
+
+func capital() -> ColonyState:
+	return colonies[0]
+
+
+func site_of(c: ColonyState) -> Dictionary:
+	return world.sites[c.site]
+
+
+func resource_of(c: ColonyState) -> String:
+	return str(world.sites[c.site]["resource"])
 
 
 func workshop(id: String) -> WorkshopState:
@@ -153,19 +191,36 @@ func colonists_idle() -> int:
 
 
 func founded_count() -> int:
-	var n: int = 0
-	for c: ColonyState in colonies:
-		if c.founded:
-			n += 1
-	return n
+	return colonies.size()
 
 
-## The next colony in founding order, or null once all are founded.
-func next_unfounded() -> ColonyState:
+## Fog of war: 1 where the map has been scouted. Recomputed only when the
+## set of colonies or the scouting bonus changes.
+func explored(radius_mult: float) -> PackedByteArray:
+	var key: String = "%d:%.2f" % [colonies.size(), radius_mult]
+	if key == _explored_key:
+		return _explored
+	_explored_key = key
+	_explored = PackedByteArray()
+	_explored.resize(WorldMap.W * WorldMap.H)
 	for c: ColonyState in colonies:
-		if not c.founded:
-			return c
-	return null
+		var s: Dictionary = site_of(c)
+		var r: float = (Balance.v("explore_radius_capital") if c.tier == 0 else Balance.v("explore_radius_colony")) * radius_mult
+		_reveal(Vector2(int(s["x"]), int(s["y"])), r)
+		# The route itself is scouted too.
+		for p: Vector2 in world.route(c.site)["points"]:
+			_reveal(p, 2.5)
+	var n: int = next_site()
+	if n >= 0:
+		_reveal(Vector2(int(world.sites[n]["x"]), int(world.sites[n]["y"])), 3.0)
+	return _explored
+
+
+func _reveal(center: Vector2, r: float) -> void:
+	for y in range(maxi(0, int(center.y - r)), mini(WorldMap.H, int(center.y + r) + 1)):
+		for x in range(maxi(0, int(center.x - r)), mini(WorldMap.W, int(center.x + r) + 1)):
+			if Vector2(x - center.x, (y - center.y)).length() <= r:
+				_explored[y * WorldMap.W + x] = 1
 
 
 func to_dict() -> Dictionary:
@@ -176,7 +231,8 @@ func to_dict() -> Dictionary:
 	for id: String in workshops.keys():
 		ws[id] = (workshops[id] as WorkshopState).to_dict()
 	return {
-		"nation_id": nation_id, "started_unix": started_unix, "play_seconds": play_seconds,
+		"nation_id": nation_id, "map_style": map_style, "map_seed": map_seed,
+		"started_unix": started_unix, "play_seconds": play_seconds,
 		"gold": gold, "lifetime_gold": lifetime_gold, "colonists_owned": colonists_owned,
 		"colonies": cols, "workshops": ws, "warehouse": warehouse.duplicate(),
 		"hold": hold.duplicate(), "discovered": discovered.duplicate(), "fathers": fathers.duplicate(),
@@ -185,23 +241,32 @@ func to_dict() -> Dictionary:
 	}
 
 
-## Tolerant of old or partial saves: anything missing falls back to the
-## defaults of a fresh run, and content added since the save was written
-## (new colonies, recipes) is filled in rather than dropped.
+## Tolerant of partial saves; content added since the save was written is
+## filled in rather than dropped. Returns null for saves from before random
+## maps existed, which can't be converted.
 static func from_dict(d: Dictionary) -> RunState:
-	var rng := RandomNumberGenerator.new()
-	var r := RunState.create(str(d.get("nation_id", "english")), rng)
-	r.started_unix = float(d.get("started_unix", r.started_unix))
+	if not d.has("map_seed"):
+		return null
+	var r := RunState.new()
+	r.nation_id = str(d.get("nation_id", "english"))
+	r.map_style = str(d.get("map_style", WorldMap.STYLE_RANDOM))
+	r.map_seed = int(d.get("map_seed", 0))
+	r.world = WorldMap.build(r.map_style, r.map_seed)
+	r.started_unix = float(d.get("started_unix", Time.get_unix_time_from_system()))
 	r.play_seconds = float(d.get("play_seconds", 0.0))
 	r.gold = float(d.get("gold", 0.0))
 	r.lifetime_gold = float(d.get("lifetime_gold", 0.0))
 	r.colonists_owned = int(d.get("colonists_owned", 0))
 	for cd: Variant in d.get("colonies", []):
-		var loaded := ColonyState.from_dict(cd as Dictionary)
-		for i in r.colonies.size():
-			if r.colonies[i].id == loaded.id:
-				r.colonies[i] = loaded
-	r.colonies[0].founded = true
+		var c := ColonyState.from_dict(cd as Dictionary)
+		if c.site >= 0 and c.site < r.world.sites.size():
+			r.colonies.append(c)
+	if r.colonies.is_empty():
+		r._add_colony()
+	for def: Dictionary in Content.recipes:
+		var w := WorkshopState.new()
+		w.id = def["id"]
+		r.workshops[w.id] = w
 	var ws: Dictionary = d.get("workshops", {})
 	for id: String in ws.keys():
 		if r.workshops.has(id):
@@ -220,7 +285,6 @@ static func from_dict(d: Dictionary) -> RunState:
 	r.favor_seconds = float(d.get("favor_seconds", 0.0))
 	for k: String in (d.get("governors", {}) as Dictionary).keys():
 		r.governors[k] = int(d["governors"][k])
-	# Colonists assigned beyond what's owned would make idle go negative.
 	if r.colonists_assigned() > r.colonists_owned:
 		r.colonists_owned = r.colonists_assigned()
 	return r

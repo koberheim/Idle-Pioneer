@@ -83,12 +83,12 @@ func _rebuild() -> void:
 	list.add_child(section("Founding Fathers"))
 	list.add_child(UI.wrap_label("Great figures join your Congress for this run in exchange for gold and kept goods.", UI.SIZE_SMALL, UI.LIGHT_SOFT))
 	var shown_unjoined: int = 0
-	for def: Dictionary in Content.fathers:
+	for def: Dictionary in Balance.fathers_offered(Game.run):
 		var id: String = def["id"]
 		var joined: bool = Game.run.has_father(id)
 		if not joined:
 			shown_unjoined += 1
-			if shown_unjoined > 4:
+			if shown_unjoined > 5:
 				continue
 		var card := _father_card(def, joined)
 		_father_cards[id] = card
@@ -101,7 +101,7 @@ func _rebuild() -> void:
 	lib_row.add_child(_liberty_have)
 	list.add_child(lib_row)
 	list.add_child(UI.wrap_label("Permanent. These survive every declaration of independence.", UI.SIZE_SMALL, UI.LIGHT_SOFT))
-	var icons: Dictionary = {"industry": "pick", "navigation": "ship_icon", "settlement": "colonist", "commerce": "gold"}
+	var icons: Dictionary = {"industry": "pick", "navigation": "ship_icon", "settlement": "colonist", "commerce": "gold", "manufacture": "hammer"}
 	for def: Dictionary in Content.liberty_upgrades:
 		var id: String = def["id"]
 		var row := UpgradeRow.new(str(icons.get(id, "star")), func() -> bool: return Game.buy_liberty_upgrade(id))
@@ -184,9 +184,8 @@ func _update_upgrades() -> void:
 		var def: Dictionary = Content.liberty_upgrade(id)
 		var row: UpgradeRow = _upgrade_rows[id]
 		var lvl: int = Game.meta.level(id)
-		var max_lvl: int = (def["costs"] as Array).size()
 		var cost: int = Balance.liberty_upgrade_cost(Game.meta, id)
-		row.title.text = "%s  %d/%d" % [def["name"], lvl, max_lvl]
+		row.title.text = "%s  Lv %d" % [def["name"], lvl]
 		row.detail.text = "%s. %s" % [def["tagline"], def["desc"]]
 		if cost < 0:
 			row.buy.set_cost("Complete", false, "")

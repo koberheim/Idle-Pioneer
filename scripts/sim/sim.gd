@@ -23,8 +23,7 @@ static func step(run: RunState, meta: MetaState, dt: float, ev: SimEvents) -> vo
 static func _step_all(run: RunState, meta: MetaState, dt: float, ev: SimEvents) -> void:
 	run.play_seconds += dt
 	for c: RunState.ColonyState in run.colonies:
-		if c.founded:
-			_step_colony(run, meta, c, dt, ev)
+		_step_colony(run, meta, c, dt, ev)
 	for def: Dictionary in Content.recipes:
 		var w: RunState.WorkshopState = run.workshop(def["id"])
 		if w != null and w.built and w.colonists > 0:
@@ -53,7 +52,7 @@ static func sell(run: RunState, meta: MetaState, resource_id: String, qty: float
 
 
 static func _step_colony(run: RunState, meta: MetaState, c: RunState.ColonyState, dt: float, ev: SimEvents) -> void:
-	var res: String = Content.colony(c.id)["resource"]
+	var res: String = run.resource_of(c)
 	var rate: float = Balance.production_rate(run, meta, c)
 	var rt: float = Balance.round_trip_seconds(run, meta, c)
 
@@ -108,7 +107,7 @@ static func _unload(run: RunState, meta: MetaState, c: RunState.ColonyState, res
 
 
 static func _step_workshop(run: RunState, meta: MetaState, w: RunState.WorkshopState, def: Dictionary, dt: float, ev: SimEvents) -> void:
-	var t: float = Balance.craft_seconds(run, w)
+	var t: float = Balance.craft_seconds(run, meta, w)
 	if t == INF or t <= 0.0:
 		return
 	var inputs: Dictionary = def["inputs"]

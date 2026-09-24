@@ -3,6 +3,7 @@
 extends Node
 
 var scenario: String = "map"
+var map_style: String = WorldMap.STYLE_RANDOM
 var out_path: String = "user://shot.png"
 var main: Control
 
@@ -13,13 +14,15 @@ func _ready() -> void:
 			scenario = arg.substr(9)
 		elif arg.begins_with("out="):
 			out_path = arg.substr(4)
+		elif arg.begins_with("map="):
+			map_style = arg.substr(4)
 	Game.save_path = "user://shot_save.json"
 	SaveIO.delete(Game.save_path)
 	Game.meta = MetaState.new()
 	Game.meta.music_on = false
 	Game.meta.sfx_on = false
 	if scenario == "fresh":
-		Game.start_run("dutch")
+		Game.start_run("dutch", map_style)
 	elif scenario != "nation" and scenario != "reforms":
 		_seed_state()
 	if scenario == "reforms":
@@ -31,11 +34,21 @@ func _ready() -> void:
 	await _frames(20)
 	match scenario:
 		"sheet":
-			main.call("_open_colony", "fishery")
+			main.call("_open_colony", "c1")
 		"found":
-			main.call("_open_colony", "indigo_reach")
+			main.call("_open_next_site")
 		"capital":
-			main.call("_open_colony", "capital")
+			main.call("_open_colony", "c0")
+		"overview":
+			main.call("_show_overview")
+		"tip":
+			await _frames(200)
+		"zoomout":
+			var mv0: MapView = main.get("_map")
+			mv0.zoom_by(0.4)
+		"zoomin":
+			var mv1: MapView = main.get("_map")
+			mv1.zoom_by(2.2)
 		"workshops":
 			main.call("_select_tab", 1)
 		"europe":
@@ -60,12 +73,6 @@ func _ready() -> void:
 			ev.shipments.append({})
 			ev.crafted["planks"] = 400.0
 			main.call("_on_offline", 7300.0, ev)
-		"late":
-			for i in 10:
-				Game.run.colonies[i].founded = true
-			Game.run.discovered.append_array(["furs", "whale_oil", "silver", "coats"])
-			main.call("_open_colony", "horse_ranch")
-			await _frames(20)
 		"treasure":
 			var mv: MapView = main.get("_map")
 			mv.set("_treasure_timer", 0.0)
@@ -86,39 +93,37 @@ func _frames(n: int) -> void:
 
 
 func _seed_state() -> void:
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 4
-	Game.run = RunState.create("english", rng)
+	Game.run = RunState.create("english", map_style, 7)
 	var run: RunState = Game.run
 	for i in 5:
-		run.colonies[i].founded = true
-		run.colonies[i].prod_level = 8 + i * 6
-		run.colonies[i].cargo_level = 3 + i * 4
-		run.colonies[i].speed_level = 2 + i * 3
-		run.colonies[i].colonists = i % 3
-	run.colonies[1].stock = 400.0
+		run.found_next()
+	for i in run.colonies.size():
+		var c: RunState.ColonyState = run.colonies[i]
+		c.prod_level = 8 + i * 6
+		c.cargo_level = 3 + i * 4
+		c.speed_level = 2 + i * 3
+		c.colonists = i % 3
+	run.colonies[1].stock = 4000.0
 	run.colonists_owned = 9
 	run.gold = 2.4e6
 	run.lifetime_gold = 3.1e7
-	for id: String in ["planks", "salt_cod", "cigars"]:
+	for id: String in ["lumber", "charcoal", "tar"]:
 		run.workshop(id).built = true
-	run.workshop("planks").colonists = 2
-	run.workshop("planks").level = 4
-	run.workshop("salt_cod").colonists = 1
+	run.workshop("lumber").colonists = 2
+	run.workshop("lumber").level = 4
 	run.hold["timber"] = true
-	run.hold["cod"] = true
-	run.fathers.append("minuit")
+	run.fathers.append(Balance.fathers_offered(run)[0]["id"])
 	Game.meta.liberty = 12
 	Game.meta.governors.append({"id": 1, "name": "John Winthrop", "type": "prod", "rank": 2})
 	Game.meta.governors.append({"id": 2, "name": "Jean Talon", "type": "cargo", "rank": 1})
 	Game.meta.next_governor_id = 3
-	run.governors["fishery"] = 1
+	run.governors["c1"] = 1
 	run.colonies[1].charter = 1
-	run.warehouse["salt_cod"] = 90.0
 	run.warehouse["timber"] = 320.0
-	run.warehouse["planks"] = 45.0
+	run.warehouse["lumber"] = 45.0
 	var ev := SimEvents.new()
 	for i in 30:
 		Sim.step(run, Game.meta, 1.0, ev)
 	Game.running = true
+	Game.meta.hints_seen.append("tip_welcome")
 	Game.save()

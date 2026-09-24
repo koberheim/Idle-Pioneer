@@ -55,60 +55,43 @@ func _seen(id: String) -> bool:
 
 
 ## Returns [id, text, target] for the most useful hint right now, or [].
+## Recurring situations only; one-off teaching lives in Tutorial.
 func _pick() -> Array:
 	var run: RunState = Game.run
-	if run == null:
+	if run == null or not Game.meta.tips_on:
 		return []
 	var meta: MetaState = Game.meta
-	var cap: RunState.ColonyState = run.colony("capital")
-	var cap_name: String = Content.colony_name(run.nation_id, 0)
 	var candidates: Array = []
-
 	if Balance.independence_ready(run):
-		candidates.append(["declare", "The colonies are rich and armed. Congress awaits your Declaration of Independence!", "tab:3"])
-	if run.lifetime_gold >= Balance.v("independence_gold") and int(run.crafted.get("muskets", 0)) < 1:
-		candidates.append(["muskets", "Congress will not declare without an armed militia. Build an Armory and craft Muskets from Tools and Planks.", "tab:1"])
-	if cap.prod_level == 0:
-		candidates.append(["upgrade_capital", "Your capital sells timber straight to Europe. Tap %s on the map to improve its production." % cap_name, "colony:capital"])
-	if run.colonists_owned == 0 and cap.prod_level > 0 and run.gold >= Balance.colonist_cost(run, meta):
-		candidates.append(["recruit", "Recruit a colonist at the Docks of Europe, then put them to work in a colony. Each one doubles its output.", "tab:2"])
-	if run.colonists_idle() > 0 and run.colonists_owned <= 3:
-		candidates.append(["assign_%d" % run.colonists_owned, "You have an idle colonist. Tap a colony on the map and press + to put them to work.", "colony:capital"])
-	var next: RunState.ColonyState = run.next_unfounded()
-	if next != null and run.founded_count() == 1 and cap.prod_level > 0:
-		var cost: float = Balance.found_cost(run, meta, next.id)
-		candidates.append(["found_first", "Save %s gold to found your first colony. Its flag is on the coast to the south." % Format.num(cost), "colony:" + next.id])
+		candidates.append(["declare_%d" % meta.runs_completed, "The colonies are rich and armed. Congress awaits your Declaration of Independence!", "tab:3"])
+	if run.lifetime_gold >= Balance.v("independence_gold") and int(run.crafted.get("muskets", 0)) < int(Balance.v("independence_muskets")):
+		candidates.append(["muskets_%d" % meta.runs_completed, "Congress will not declare without an armed militia. An Armory makes Muskets from pig iron, lumber and tools.", "tab:1"])
 	for c: RunState.ColonyState in run.colonies:
-		if c.founded and c.id != "capital" and c.stock > Balance.cargo_capacity(run, meta, c) * 2.0:
-			var n: String = Content.colony_name(run.nation_id, Content.colony_index(c.id))
-			candidates.append(["bottleneck_" + c.id, "Goods are piling up at %s faster than they can be shipped. Upgrade its %s." % [n, "ships" if Balance.is_sea(c) else "wagons and roads"], "colony:" + c.id])
+		if c.tier > 0 and c.stock > Balance.cargo_capacity(run, meta, c) * 2.0:
+			var n: String = Content.colony_name(run.nation_id, c.tier)
+			candidates.append(["bottleneck_%s_%d" % [c.id, c.cargo_level + c.speed_level], "Goods are piling up at %s faster than they can be shipped. Upgrade its %s." % [n, "ships" if Balance.is_sea(run, c) else "wagons and roads"], "colony:" + c.id])
 			break
 	for def: Dictionary in Content.recipes:
 		var w: RunState.WorkshopState = run.workshop(def["id"])
 		if w.built and w.colonists == 0:
-			candidates.append(["staff_" + w.id, "Your %s stands empty. Assign colonists to start crafting." % def["building"], "tab:1"])
+			candidates.append(["staff_" + w.id, "Your %s stands empty. Assign colonists to start work." % def["building"], "tab:1"])
 			break
-	var planks: RunState.WorkshopState = run.workshop("planks")
-	if not planks.built and run.gold >= Balance.workshop_build_cost("planks") and run.founded_count() >= 2:
-		candidates.append(["workshop", "Timber sawn into planks sells for double. Build a Carpenter's Shop in Workshops.", "tab:1"])
-	if run.favor_seconds <= 0.0 and Game.favor_ready_in() <= 0.0 and run.founded_count() >= 2:
-		candidates.append(["favor", "The Crown is in a generous mood. Tap \"×2 Favor\" at the top to double production for a while.", ""])
 	for g: Dictionary in meta.governors:
 		if run.colony_of_governor(int(g["id"])) == "":
-			candidates.append(["gov_idle_%d" % run.founded_count(), "Governor %s awaits a posting. Tap a colony and appoint them." % g["name"], "colony:capital"])
+			candidates.append(["gov_idle_%d_%d" % [int(g["id"]), run.colonies.size()], "Governor %s awaits a posting. Tap a colony and appoint them." % g["name"], "colony:c0"])
 			break
 	for c: RunState.ColonyState in run.colonies:
-		if c.founded and Game.charter_affordable(c.id):
-			var cn: String = Content.colony_name(run.nation_id, Content.colony_index(c.id))
+		if Game.charter_affordable(c.id):
+			var cn: String = Content.colony_name(run.nation_id, c.tier)
 			candidates.append(["charter_%s_%d" % [c.id, c.charter], "You have the goods to grant %s a new charter: more production and cargo." % cn, "colony:" + c.id])
 			break
-	for f: Dictionary in Content.fathers:
+	for f: Dictionary in Balance.fathers_offered(run):
 		if not run.has_father(f["id"]) and Game.father_affordable(f["id"]):
 			candidates.append(["father_" + str(f["id"]), "%s is ready to join your Congress." % f["name"], "tab:3"])
 			break
-	if run.fathers.is_empty() and run.founded_count() >= 2 and not run.is_held("timber"):
-		candidates.append(["father_intro", "Founding Fathers want gold and kept goods. Peter Minuit asks for timber - keep some in the Warehouse.", "tab:3"])
-
+	var n2: int = run.next_site()
+	if n2 >= 0 and run.gold >= Balance.found_cost(run, meta):
+		candidates.append(["found_%d" % run.colonies.size(), "You can afford to found the next colony. Its site is flagged on the map.", "site"])
 	for cand: Array in candidates:
 		if not _seen(cand[0]):
 			return cand

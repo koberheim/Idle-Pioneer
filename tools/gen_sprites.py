@@ -265,7 +265,7 @@ art([
     "................",
     "................",
     "................",
-], "planks")
+], "lumber")
 
 art([
     "................",
@@ -512,7 +512,7 @@ art([
     ".....khhhhhk....",
     "......kkkkk.....",
     "................",
-], "coats")
+], "fur_coats")
 
 art([
     "................",
@@ -570,6 +570,249 @@ art([
     "kkk.............",
     "................",
 ], "dragoons")
+
+ICONS_EXTRA = {
+    "grain": [
+        "....k.k..k.k....",
+        "...kyk.kykyk....",
+        "...kYyk.kYk.k...",
+        "..kyYkkyYkkyk...",
+        "..kYk.kYyk.kYk..",
+        "...kykkyYk.kyk..",
+        "....kkyYyk.kk...",
+        ".....kyyyyk.....",
+        ".....kbbbbk.....",
+        ".....kyyyyk.....",
+        "....kyyYyyyk....",
+        "...kyyYk.yyyk...",
+        "..kyyk...kYyyk..",
+        "..kkk.....kkkk..",
+        "................",
+        "................"],
+    "hemp": [
+        "................",
+        ".......k........",
+        "......knk.......",
+        ".....knvnk......",
+        ".kk..knvnk..kk..",
+        "knvk.knvnk.kvnk.",
+        ".knvkknvnkkvnk..",
+        "..knvknvnkvnk...",
+        "...kknvvvnkk....",
+        "...knnvnvnnk....",
+        "..knvk.n.kvnk...",
+        ".knvk..n..kvnk..",
+        ".kk....n....kk..",
+        ".......N........",
+        "......kNk.......",
+        "................"],
+    "hides": [
+        "................",
+        "..kk........kk..",
+        "..klkkkkkkkklk..",
+        "...kllhhhllllk..",
+        "...klhhhhhlBlk..",
+        "..kllhhlllBBlk..",
+        "..klllllllBllk..",
+        "..kllBBllllllk..",
+        "..klBBBlllhhlk..",
+        "..kllBllllhhlk..",
+        "...klllllllk....",
+        "...klllhhllk....",
+        "..klkkkkkkkklk..",
+        "..kk........kk..",
+        "................",
+        "................"],
+    "charcoal": [
+        "................",
+        "................",
+        "................",
+        "................",
+        "......kkkk......",
+        ".....kGGSGk.....",
+        "....kGKGGGGk....",
+        "..kkkGGGSKGkkk..",
+        ".kGGSkGKGGkGSGk.",
+        ".kGKGGkGGkGGKGk.",
+        "kGGGSGGkkGGSGGGk",
+        "kGKGGGKGGGKGGKGk",
+        ".kkkkkkkkkkkkkk.",
+        "................",
+        "................",
+        "................"],
+    "tar": [
+        "................",
+        "................",
+        "....kkkkkkkk....",
+        "...kKKKKKKKKk...",
+        "...kKGKKKKGKk...",
+        "...kkkkkkkkkk...",
+        "...kbbKbbbbbk...",
+        "...kbbKbbbbbk...",
+        "...kSSKSSSSSk...",
+        "...kbbbbbbbbk...",
+        "...kbbbbbbbbk...",
+        "...kSSSSSSSSk...",
+        "...kbbbbbbbbk...",
+        "....kkkkkkkk....",
+        "................",
+        "................"],
+    "flour": [
+        "................",
+        "......kkkk......",
+        ".....kwWWwk.....",
+        "......kbbk......",
+        ".....kwwwwk.....",
+        "....kwwwwwwk....",
+        "...kwwwwwwwwk...",
+        "...kwwWwwwwwk...",
+        "..kwwwkwkwwwWk..",
+        "..kwwwkkkwwwWk..",
+        "..kwwwkwkwwwWk..",
+        "..kwwwwwwwwwWk..",
+        "...kWwwwwwwWk...",
+        "....kkkkkkkk....",
+        "................",
+        "................"],
+    "rope": [
+        "................",
+        "................",
+        ".....kkkkkk.....",
+        "...kkLlLlLlkk...",
+        "..kLlkkkkkkLlk..",
+        ".kLlk.kkkk.kLlk.",
+        ".klLkkLlLlkkLlk.",
+        ".kLlkLkkkkLklLk.",
+        ".klLkLk..kLkLlk.",
+        ".kLlkLlkkLlkLlk.",
+        "..kLlkLlLlkLlk..",
+        "..kkLlkkkkLlkk..",
+        "....kkLlLlkk....",
+        "......kkkk.lk...",
+        "...........kLk..",
+        "............kk.."],
+    "leather": [
+        "................",
+        "................",
+        "...kkkkkkkkkk...",
+        "..kbbbbbbbbbbk..",
+        "..kblllllllllk..",
+        "..kblklklklklk..",
+        "..kbllllllllbk..",
+        "..kblllllllllk..",
+        "..kbbbbbbbbbbk..",
+        "..kblllllllllk..",
+        "..kblklklklklk..",
+        "..kblllllllllk..",
+        "..kbbbbbbbbbbk..",
+        "...kkkkkkkkkk...",
+        "................",
+        "................"],
+    "molasses": [
+        "................",
+        ".......kk.......",
+        "......kbbk......",
+        "......kkkk......",
+        ".....kBBBBk.....",
+        "....kBbBBBBk.kk.",
+        "...kBbBBBBBBkBk.",
+        "...kbBBBBBBBkBk.",
+        "...kBBOOOOBBBk..",
+        "...kBBOyyOBBk...",
+        "...kBBOOOOBBk...",
+        "...kBBBBBBBBk...",
+        "....kBBBBBBk....",
+        ".....kkkkkk.....",
+        "................",
+        "................"],
+    "cured_tobacco": [
+        "................",
+        "......k..k......",
+        ".....kOkkOk.....",
+        "....kOOkOOOk....",
+        "....kObOObOk....",
+        ".....kOOOOk.....",
+        "......kyyk......",
+        "......kYYk......",
+        ".....kOOOOk.....",
+        "....kObOObOk....",
+        "...kOObOObOOk...",
+        "...kObOOOObOk...",
+        "...kOOOkkOOOk...",
+        "....kkk..kkk....",
+        "................",
+        "................"],
+    "provisions": [
+        "................",
+        "........kkkk....",
+        ".......kwWWwk...",
+        "........kbbk....",
+        ".......kwwwwk...",
+        "..kkkkkkwwwwwk..",
+        ".kLLLLLkwwwwwk..",
+        ".kkkkkkkwwWwwk..",
+        ".klLbllkkwwwk...",
+        ".klbLllbkkkk....",
+        ".kllbLblk.......",
+        ".klLbllbk.......",
+        ".kkkkkkkk.......",
+        "................",
+        "................",
+        "................"],
+    "sailcloth": [
+        "................",
+        "................",
+        "....kkkkkkkkk...",
+        "...kWWWWWWWWWk..",
+        "..kWwwwwwwwwLWk.",
+        "..kWLLLLLLLLLWk.",
+        "..kWwwwwwwwwLWk.",
+        "..kWbbbbbbbbbWk.",
+        "..kWwwwwwwwwLWk.",
+        "..kWLLLLLLLLLWk.",
+        "..kWwwwwwwwwLkWk",
+        "..kWLLLLLLLLkwWk",
+        "...kWWWWWWWkwWk.",
+        "....kkkkkkkkkk..",
+        "................",
+        "................"],
+    "saddles": [
+        "................",
+        "................",
+        "................",
+        "...kk......kk...",
+        "..kbbk....kbbk..",
+        "..kbBbkkkkbBbk..",
+        "...kbbbbbbbbk...",
+        "...kbBBBBBBbk...",
+        "....kbbbbbbk....",
+        "....kbkSSkbk....",
+        "....kbk..kbk....",
+        "....kbkk.kbk....",
+        "...kSSk..kSSk...",
+        "...kkk...kkk....",
+        "................",
+        "................"],
+    "uniforms": [
+        "................",
+        ".....kkkkkk.....",
+        "...kkUUrrUUkk...",
+        "..kUUUrwwrUUUk..",
+        ".kUUUUrwwrUUUUk.",
+        ".kUUkUrwwrUkUUk.",
+        ".kUUkUUyyUUkUUk.",
+        ".kUkkUUUUUUkkUk.",
+        ".kyk.kUyyUk.kyk.",
+        ".kk..kUUUUk..kk.",
+        ".....kUyyUk.....",
+        ".....kUUUUk.....",
+        ".....kUUkUUk....",
+        "....kUUk.kUUk...",
+        "....kkk...kkk...",
+        "................"],
+}
+for _name, _rows in ICONS_EXTRA.items():
+    art(_rows, _name)
 
 # ------------------------------------------------------------------ ui icons
 art([
@@ -998,20 +1241,34 @@ PORTRAIT_ROWS = [
 FAIR, FAIR_S = (236, 186, 150), (200, 140, 106)
 OLIVE, OLIVE_S = (206, 156, 112), (168, 116, 80)
 TAN, TAN_S = (172, 116, 78), (136, 86, 56)
-FATHERS = {
-    "minuit": ((120, 84, 50), (86, 58, 34), FAIR, FAIR_S, (46, 92, 58), (220, 190, 90)),
-    "brewster": ((170, 168, 160), (128, 126, 120), FAIR, FAIR_S, (40, 38, 40), (230, 226, 214)),
-    "pocahontas": ((34, 26, 24), (20, 16, 14), TAN, TAN_S, (150, 104, 62), (70, 170, 160)),
-    "adam_smith": ((236, 232, 222), (196, 192, 182), FAIR, FAIR_S, (120, 36, 46), (220, 190, 90)),
-    "magellan": ((70, 48, 32), (48, 32, 22), OLIVE, OLIVE_S, (120, 128, 140), (220, 190, 90)),
-    "de_soto": ((36, 28, 24), (22, 18, 16), OLIVE, OLIVE_S, (150, 40, 40), (230, 200, 110)),
-    "revere": ((110, 74, 46), (80, 52, 32), FAIR, FAIR_S, (40, 70, 140), (220, 190, 90)),
-    "fugger": ((150, 148, 142), (110, 108, 104), FAIR, FAIR_S, (30, 28, 30), (236, 196, 70)),
-    "stuyvesant": ((96, 66, 42), (70, 46, 30), FAIR, FAIR_S, (170, 92, 36), (230, 226, 214)),
-    "hudson": ((150, 70, 40), (110, 48, 28), FAIR, FAIR_S, (30, 84, 86), (220, 190, 90)),
-    "franklin": ((218, 214, 206), (176, 172, 164), FAIR, FAIR_S, (110, 72, 44), (220, 190, 90)),
-    "jefferson": ((178, 84, 46), (132, 58, 32), FAIR, FAIR_S, (70, 86, 110), (220, 190, 90)),
+DARK, DARK_S = (126, 82, 56), (96, 60, 40)
+WIG, WIG_S = (236, 232, 222), (196, 192, 182)
+GREY, GREY_S = (176, 172, 164), (132, 128, 120)
+BROWN, BROWN_S = (110, 74, 46), (80, 52, 32)
+BLACK, BLACK_S = (40, 30, 26), (24, 18, 16)
+AUBURN, AUBURN_S = (160, 76, 44), (116, 52, 30)
+COATS = [(40, 70, 140), (120, 36, 46), (46, 92, 58), (40, 38, 40), (110, 72, 44), (70, 86, 110), (30, 84, 86), (150, 92, 40)]
+# Per figure: (hair, hair shade, skin, skin shade). Coat colours cycle.
+LOOKS = {
+    "attucks": (BLACK, BLACK_S, DARK, DARK_S), "wheatley": (BLACK, BLACK_S, DARK, DARK_S),
+    "armistead": (BLACK, BLACK_S, DARK, DARK_S), "freeman": (GREY, GREY_S, DARK, DARK_S),
+    "banneker": (GREY, GREY_S, DARK, DARK_S), "salem": (BLACK, BLACK_S, DARK, DARK_S),
+    "galvez": (BLACK, BLACK_S, OLIVE, OLIVE_S), "salomon": (BROWN, BROWN_S, OLIVE, OLIVE_S),
+    "abigail_adams": (BROWN, BROWN_S, FAIR, FAIR_S), "warren": (BROWN, BROWN_S, FAIR, FAIR_S),
+    "ludington": (AUBURN, AUBURN_S, FAIR, FAIR_S), "goddard": (BROWN, BROWN_S, FAIR, FAIR_S),
+    "sampson": (BROWN, BROWN_S, FAIR, FAIR_S), "hart": (AUBURN, AUBURN_S, FAIR, FAIR_S),
+    "jefferson": (AUBURN, AUBURN_S, FAIR, FAIR_S), "franklin": (GREY, GREY_S, FAIR, FAIR_S),
+    "revere": (BROWN, BROWN_S, FAIR, FAIR_S), "paine": (BROWN, BROWN_S, FAIR, FAIR_S),
+    "henry": (BROWN, BROWN_S, FAIR, FAIR_S), "hamilton": (AUBURN, AUBURN_S, FAIR, FAIR_S),
+    "kosciuszko": (BROWN, BROWN_S, FAIR, FAIR_S), "pulaski": (BLACK, BLACK_S, FAIR, FAIR_S),
 }
+import json as _json
+_content = _json.load(open(os.path.join(ROOT, "data", "content.json"), encoding="utf-8"))
+FATHERS = {}
+for _i, _f in enumerate(_content["fathers"]):
+    _hair, _hair_s, _skin, _skin_s = LOOKS.get(_f["id"], (WIG, WIG_S, FAIR, FAIR_S))
+    _coat = COATS[_i % len(COATS)]
+    FATHERS[_f["id"]] = (_hair, _hair_s, _skin, _skin_s, _coat, (220, 190, 90))
 for fid, (hair, hair_s, skin, skin_s, coat, trim) in FATHERS.items():
     PAL.update({"1": hair, "2": hair_s, "3": skin, "4": skin_s, "5": coat, "6": trim})
     rows = []
@@ -1026,7 +1283,7 @@ for fid, (hair, hair_s, skin, skin_s, coat, trim) in FATHERS.items():
 
 
 # ------------------------------------------------------------------ ui frames
-def frame(name, fill, border, inner, hi=None, lo=None, size=16, noise=0, scale=3, corner_cut=True):
+def frame(name, fill, border, inner, hi=None, lo=None, size=16, noise=0, scale=2, corner_cut=True):
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     px = img.load()
     r = random.Random(name)
@@ -1086,4 +1343,36 @@ for i in range(64):
         c = (206, 156, 46, 255) if t == 1 else (60, 38, 10, 255)
         ip[i, t] = c; ip[i, 63 - t] = c; ip[t, i] = c; ip[63 - t, i] = c
 icon.resize((192, 192), Image.NEAREST).save(os.path.join(OUT, "app_icon.png"))
+# Merchantman icon from the map sprite.
+Image.open(os.path.join(OUT, "map", "merchantman.png")).save(os.path.join(OUT, "icons", "merchant_ship.png"))
+
+
+def epx(img):
+    """Scale2x: doubles pixel art while smoothing diagonal edges."""
+    w, h = img.size
+    src = img.load()
+    out = Image.new("RGBA", (w * 2, h * 2))
+    dst = out.load()
+
+    def at(x, y):
+        return src[min(max(x, 0), w - 1), min(max(y, 0), h - 1)]
+
+    for y in range(h):
+        for x in range(w):
+            p = src[x, y]
+            a, b, c, d = at(x, y - 1), at(x + 1, y), at(x - 1, y), at(x, y + 1)
+            dst[x * 2, y * 2] = a if (c == a and c != d and a != b) else p
+            dst[x * 2 + 1, y * 2] = b if (a == b and a != c and b != d) else p
+            dst[x * 2, y * 2 + 1] = c if (d == c and d != b and c != a) else p
+            dst[x * 2 + 1, y * 2 + 1] = d if (b == d and b != a and d != c) else p
+    return out
+
+
+# Icons are shown at 32-56 px; doubling them with Scale2x keeps pixel-art
+# edges clean at that size instead of chunky 3x blocks.
+import glob
+for path in glob.glob(os.path.join(OUT, "icons", "*.png")):
+    im = Image.open(path).convert("RGBA")
+    if im.width <= 20:
+        epx(im).save(path)
 print("sprites written to", OUT)

@@ -3,25 +3,36 @@
 class_name NationSelect
 extends Control
 
-signal nation_chosen(nation_id: String)
+signal nation_chosen(nation_id: String, map_style: String)
 
 var _reform_rows: Dictionary = {}
 var _liberty_label: Label
 var _roster: GovernorRoster
+var _map_style: String = WorldMap.STYLE_RANDOM
+var _style_buttons: Dictionary = {}
 
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	# A sample coast, rendered live, behind the menu.
+	var sample := WorldMap.build(WorldMap.STYLE_RANDOM, 1607)
+	var data := ImageTexture.create_from_image(MapView.build_data_image(sample, PackedByteArray()))
+	var mat := ShaderMaterial.new()
+	mat.shader = preload("res://assets/shaders/terrain.gdshader")
+	mat.set_shader_parameter("data_n", data)
+	mat.set_shader_parameter("data_l", data)
+	mat.set_shader_parameter("relief", ImageTexture.create_from_image(MapView.build_relief_image(sample)))
+	mat.set_shader_parameter("grid", Vector2(WorldMap.W, WorldMap.H))
 	var bg := TextureRect.new()
-	bg.texture = UI.tex("res://assets/sprites/map.png")
+	bg.texture = data
+	bg.material = mat
 	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	bg.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	bg.stretch_mode = TextureRect.STRETCH_SCALE
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
 	var dim := ColorRect.new()
-	dim.color = Color(0.06, 0.05, 0.08, 0.55)
+	dim.color = Color(0.06, 0.05, 0.08, 0.35)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(dim)
 
@@ -57,6 +68,38 @@ func _ready() -> void:
 
 	if runs > 0 or Game.meta.liberty > 0:
 		v.add_child(_reforms_panel())
+
+	var map_label := UI.label("Which shore?", UI.SIZE_BIG, UI.LIGHT, true)
+	map_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	map_label.add_theme_color_override("font_outline_color", Color("1a120c"))
+	map_label.add_theme_constant_override("outline_size", 6)
+	v.add_child(map_label)
+	var styles := UI.hbox(12)
+	for spec: Array in [[WorldMap.STYLE_RANDOM, "Uncharted Coast", "A new land every time"], [WorldMap.STYLE_NORTH_AMERICA, "North America", "The coast as history knew it"]]:
+		var b := Button.new()
+		b.focus_mode = Control.FOCUS_NONE
+		b.custom_minimum_size = Vector2(0, 104)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var bv := UI.vbox(0)
+		bv.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		bv.alignment = BoxContainer.ALIGNMENT_CENTER
+		bv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var t1 := UI.label(spec[1], UI.SIZE_BIG, UI.INK, true)
+		t1.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		var t2 := UI.label(spec[2], UI.SIZE_SMALL, UI.INK_SOFT)
+		t2.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		bv.add_child(t1)
+		bv.add_child(t2)
+		b.add_child(bv)
+		var style_id: String = spec[0]
+		b.pressed.connect(func() -> void:
+			_map_style = style_id
+			Sfx.play("click")
+			_sync_styles())
+		_style_buttons[style_id] = b
+		styles.add_child(b)
+	v.add_child(styles)
+	_sync_styles()
 
 	var pick := UI.label("Choose the Crown you sail for", UI.SIZE_BIG, UI.LIGHT, true)
 	pick.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -96,7 +139,7 @@ func _nation_card(n: Dictionary) -> Control:
 	b.add_child(row)
 	b.pressed.connect(func() -> void:
 		Sfx.play("found")
-		nation_chosen.emit(id))
+		nation_chosen.emit(id, _map_style))
 	return b
 
 
@@ -112,7 +155,7 @@ func _reforms_panel() -> Control:
 	hv.add_child(_liberty_label)
 	head.add_child(hv)
 	v.add_child(head)
-	var icons: Dictionary = {"industry": "pick", "navigation": "ship_icon", "settlement": "colonist", "commerce": "gold"}
+	var icons: Dictionary = {"industry": "pick", "navigation": "ship_icon", "settlement": "colonist", "commerce": "gold", "manufacture": "hammer"}
 	for def: Dictionary in Content.liberty_upgrades:
 		var id: String = def["id"]
 		var row := UpgradeRow.new(str(icons.get(id, "star")), func() -> bool:
@@ -142,9 +185,17 @@ func _refresh_reforms() -> void:
 		var row: UpgradeRow = _reform_rows[id]
 		var lvl: int = Game.meta.level(id)
 		var cost: int = Balance.liberty_upgrade_cost(Game.meta, id)
-		row.title.text = "%s  %d/%d" % [def["name"], lvl, (def["costs"] as Array).size()]
+		row.title.text = "%s  Lv %d" % [def["name"], lvl]
 		row.detail.text = str(def["desc"])
 		if cost < 0:
 			row.buy.set_cost("Complete", false, "")
 		else:
 			row.buy.set_cost(str(cost), Game.meta.liberty >= cost, "liberty")
+
+
+func _sync_styles() -> void:
+	for id: String in _style_buttons.keys():
+		var b: Button = _style_buttons[id]
+		var style: String = "button_gold" if id == _map_style else "card"
+		for st: String in ["normal", "hover", "pressed", "hover_pressed"]:
+			b.add_theme_stylebox_override(st, UI.frame(style, 14, 8))

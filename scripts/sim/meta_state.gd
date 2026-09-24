@@ -11,6 +11,7 @@ var fastest_run_seconds: float = 0.0
 var music_on: bool = true
 var sfx_on: bool = true
 var hints_seen: Array[String] = []
+var tips_on: bool = true
 ## Permanent roster of governors, kept across runs: {id, name, type, rank}.
 var governors: Array[Dictionary] = []
 var next_governor_id: int = 1
@@ -34,7 +35,7 @@ func to_dict() -> Dictionary:
 		"liberty": liberty, "lifetime_liberty": lifetime_liberty, "upgrades": upgrades.duplicate(),
 		"runs_completed": runs_completed, "best_run_gold": best_run_gold,
 		"fastest_run_seconds": fastest_run_seconds, "music_on": music_on, "sfx_on": sfx_on,
-		"hints_seen": hints_seen.duplicate(), "governors": governors.duplicate(true),
+		"hints_seen": hints_seen.duplicate(), "tips_on": tips_on, "governors": governors.duplicate(true),
 		"next_governor_id": next_governor_id, "favor_ready_unix": favor_ready_unix,
 	}
 
@@ -50,6 +51,7 @@ static func from_dict(d: Dictionary) -> MetaState:
 	m.fastest_run_seconds = float(d.get("fastest_run_seconds", 0.0))
 	m.music_on = bool(d.get("music_on", true))
 	m.sfx_on = bool(d.get("sfx_on", true))
+	m.tips_on = bool(d.get("tips_on", true))
 	for v: Variant in d.get("hints_seen", []):
 		m.hints_seen.append(str(v))
 	for v: Variant in d.get("governors", []):

@@ -1,7 +1,7 @@
 @echo off
 setlocal
 
-set GODOT_EXE=D:\Godot_v4.6.2-stable_win64.exe
+set GODOT_EXE=E:\Godot\godot_mono\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64_console.exe
 rem %~dp0 ends in a trailing backslash, which escapes the closing quote below
 rem ("...\") and swallows the rest of the command line. Strip it with %~dp0:~0,-1.
 set PROJECT_DIR=%~dp0

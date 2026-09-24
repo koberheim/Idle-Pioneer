@@ -88,7 +88,7 @@ func _update_row(gid: int) -> void:
 	if Game.run != null:
 		var at: String = Game.run.colony_of_governor(gid)
 		if at != "":
-			posted = "  ·  at " + Content.colony_name(Game.run.nation_id, Content.colony_index(at))
+			posted = "  ·  at " + Content.colony_name(Game.run.nation_id, Game.run.colony(at).tier)
 	(card.get_meta("info") as Label).text = "%s %s  ·  ×%s %s%s" % [t.get("title", ""), "★".repeat(rank), Format.rate(Balance.governor_multiplier_for_rank(rank)), t.get("desc", ""), posted]
 	var cost: int = Balance.governor_rank_cost(rank)
 	var b: BuyButton = card.get_meta("promote")

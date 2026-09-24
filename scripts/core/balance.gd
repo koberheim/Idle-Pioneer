@@ -1,7 +1,7 @@
 ## Every tunable number and formula in one place. Constants come from
 ## data/balance.json; multipliers are gathered from the nation, Founding
-## Fathers, and Liberty upgrades so no other code needs to know where a bonus
-## comes from.
+## Fathers, Liberty reforms, governors and charters so no other code needs to
+## know where a bonus comes from.
 extends Node
 
 const BALANCE_PATH := "res://data/balance.json"
@@ -47,21 +47,33 @@ func liberty_mult(meta: MetaState, upgrade_id: String) -> float:
 	var lvl: int = meta.level(upgrade_id)
 	if upgrade_id == "settlement":
 		return maxf(pow(1.0 - float(def["per_level"]), lvl), v("settlement_floor"))
-	return 1.0 + float(def.get("per_level", 0.0)) * lvl
+	# Reforms compound: each level multiplies the last.
+	return pow(1.0 + float(def.get("per_level", 0.0)), lvl)
 
 
 # --- Colonies ---------------------------------------------------------------
 
-func is_sea(c: RunState.ColonyState) -> bool:
-	var sites: Array = Content.colony_sites(c.id)
-	if sites.is_empty():
-		return false
-	return str((sites[clampi(c.site, 0, sites.size() - 1)] as Dictionary).get("route", "land")) == "sea"
+## Gold per second a colony of this settlement tier yields at base. Later
+## colonies are worth exponentially more, whatever good they produce.
+func tier_value(tier: int) -> float:
+	return pow(v("colony_value_growth"), tier)
+
+
+func is_sea(run: RunState, c: RunState.ColonyState) -> bool:
+	return run.site_of(c)["route"] == "sea"
+
+
+func richness(run: RunState, c: RunState.ColonyState) -> float:
+	return float(run.site_of(c).get("richness", 1.0))
+
+
+## Units per second at base: the tier's value expressed in this colony's good.
+func base_units(run: RunState, c: RunState.ColonyState) -> float:
+	return tier_value(c.tier) * richness(run, c) / Content.price(run.resource_of(c))
 
 
 func production_rate(run: RunState, meta: MetaState, c: RunState.ColonyState) -> float:
-	var def: Dictionary = Content.colony(c.id)
-	var rate: float = v("base_rate")
+	var rate: float = base_units(run, c)
 	rate *= 1.0 + v("prod_per_level") * c.prod_level
 	rate *= 1.0 + v("colonist_production_bonus") * c.colonists
 	rate *= liberty_mult(meta, "industry")
@@ -71,16 +83,21 @@ func production_rate(run: RunState, meta: MetaState, c: RunState.ColonyState) ->
 	rate *= governor_mult(run, meta, c, "prod")
 	if run.favor_seconds > 0.0:
 		rate *= v("favor_multiplier")
-	if def.get("resource", "") == "furs":
-		rate *= father_bonus(run, "fur_production")
 	return rate
 
 
+func route_length(run: RunState, c: RunState.ColonyState) -> float:
+	if c.tier == 0:
+		return 0.0
+	return float(run.world.route(c.site)["length"])
+
+
 func cargo_capacity(run: RunState, meta: MetaState, c: RunState.ColonyState) -> float:
-	# Cargo grows with distance as fast as travel time does, so a route's
-	# throughput doesn't depend on distance - far colonies are just lumpier.
-	var dist: float = maxf(float(Content.colony(c.id)["distance"]), 1.0)
-	var cap: float = dist * (v("sea_cargo_per_distance") if is_sea(c) else v("land_cargo_per_distance"))
+	# Cargo grows almost as fast as travel time, so a far colony is lumpier but
+	# only slightly slower on average than a near one.
+	var length: float = maxf(route_length(run, c), 1.0)
+	var factor: float = v("sea_cargo_factor") if is_sea(run, c) else v("land_cargo_factor")
+	var cap: float = factor * pow(length, v("cargo_distance_exponent")) * base_units(run, c)
 	cap *= 1.0 + v("cargo_per_level") * c.cargo_level
 	cap *= liberty_mult(meta, "navigation")
 	cap *= father_bonus(run, "cargo")
@@ -90,9 +107,11 @@ func cargo_capacity(run: RunState, meta: MetaState, c: RunState.ColonyState) -> 
 
 
 func round_trip_seconds(run: RunState, meta: MetaState, c: RunState.ColonyState) -> float:
-	var def: Dictionary = Content.colony(c.id)
-	var sea: bool = is_sea(c)
-	var t: float = float(def["distance"]) * (v("sea_time_factor") if sea else v("land_time_factor"))
+	var length: float = route_length(run, c)
+	if length <= 0.0:
+		return 0.0
+	var sea: bool = is_sea(run, c)
+	var t: float = 2.0 * length * (v("sea_seconds_per_step") if sea else v("land_seconds_per_step"))
 	var speed: float = 1.0 + v("speed_per_level") * c.speed_level
 	speed *= liberty_mult(meta, "navigation")
 	speed *= governor_mult(run, meta, c, "speed")
@@ -117,15 +136,15 @@ func charter_mult(c: RunState.ColonyState) -> float:
 
 
 ## Goods needed to raise a colony to charter level `level` (1-based), or {}
-## past the last charter. Farther colonies need proportionally more.
-func charter_cost(colony_id: String, level: int) -> Dictionary:
+## past the last charter. Later colonies need more.
+func charter_cost(run: RunState, c: RunState.ColonyState, level: int) -> Dictionary:
 	if level < 1 or level > Content.charters.size():
 		return {}
-	var scale: float = 1.0 + v("charter_scale_per_colony") * Content.colony_index(colony_id)
+	var scale: float = (1.0 + v("charter_scale_per_colony") * c.tier) * father_bonus(run, "charter_cost")
 	var out: Dictionary = {}
 	var goods: Dictionary = Content.charters[level - 1]["goods"]
-	for k: String in goods.keys():
-		out[k] = ceilf(float(goods[k]) * scale)
+	for key: String in goods.keys():
+		out[key] = ceilf(float(goods[key]) * scale)
 	return out
 
 
@@ -155,47 +174,72 @@ func governor_rank_cost(rank: int) -> int:
 	return int(ceil(v("governor_rank_cost_base") * pow(v("governor_rank_cost_growth"), rank - 1)))
 
 
-func colony_scale(colony_id: String) -> float:
-	return Content.price(str(Content.colony(colony_id)["resource"]))
+func colony_upgrade_cost(run: RunState, track: String, c: RunState.ColonyState, levels: int = 1) -> float:
+	return geometric_cost(upgrade_base(run, track, c), v(track + "_cost_growth"), track_level(c, track), levels)
 
 
-func colony_upgrade_cost(track: String, c: RunState.ColonyState, levels: int = 1) -> float:
-	var lvl: int = c.prod_level
-	if track == "cargo":
-		lvl = c.cargo_level
-	elif track == "speed":
-		lvl = c.speed_level
-	return geometric_cost(v(track + "_cost_base") * colony_scale(c.id), v(track + "_cost_growth"), lvl, levels)
+func upgrade_base(run: RunState, track: String, c: RunState.ColonyState) -> float:
+	return v(track + "_cost_base") * tier_value(c.tier) * father_bonus(run, "upgrade_cost")
 
 
-func found_cost(run: RunState, meta: MetaState, colony_id: String) -> float:
-	var base: float = float(Content.colony(colony_id)["found_cost"])
+func track_level(c: RunState.ColonyState, track: String) -> int:
+	match track:
+		"cargo": return c.cargo_level
+		"speed": return c.speed_level
+	return c.prod_level
+
+
+## Gold to found colony number `tier` (1 = the first after the capital).
+func found_cost_for_tier(tier: int) -> float:
+	var cost: float = v("found_cost_first")
+	for n in range(2, tier + 1):
+		cost *= v("found_cost_growth_base") + v("found_cost_growth_step") * n
+	return cost
+
+
+func found_cost(run: RunState, meta: MetaState) -> float:
+	var base: float = found_cost_for_tier(run.colonies.size())
 	return base * nation_bonus(run, "colony_cost") * father_bonus(run, "colony_cost") * liberty_mult(meta, "settlement")
+
+
+func explore_mult(run: RunState) -> float:
+	return father_bonus(run, "explore")
 
 
 # --- Colonists --------------------------------------------------------------
 
+func colonist_base(run: RunState, meta: MetaState) -> float:
+	return v("colonist_cost_base") * father_bonus(run, "colonist_cost") * liberty_mult(meta, "settlement")
+
+
 func colonist_cost(run: RunState, meta: MetaState, count: int = 1) -> float:
-	var base: float = v("colonist_cost_base") * father_bonus(run, "colonist_cost") * liberty_mult(meta, "settlement")
-	return geometric_cost(base, v("colonist_cost_growth"), run.colonists_owned, count)
+	return geometric_cost(colonist_base(run, meta), v("colonist_cost_growth"), run.colonists_owned, count)
 
 
 # --- Workshops --------------------------------------------------------------
 
-func craft_seconds(run: RunState, w: RunState.WorkshopState) -> float:
+func craft_seconds(run: RunState, meta: MetaState, w: RunState.WorkshopState) -> float:
 	if w.colonists <= 0:
 		return INF
-	var base: float = float(Content.recipe(w.id)["time"])
-	var speed: float = w.colonists * (1.0 + v("craft_per_level") * w.level) * father_bonus(run, "craft_speed")
-	return base / speed
+	return float(Content.recipe(w.id)["time"]) / workshop_speed(run, meta, w)
+
+
+func workshop_speed(run: RunState, meta: MetaState, w: RunState.WorkshopState) -> float:
+	var speed: float = w.colonists * pow(v("workshop_speed_growth"), w.level)
+	speed *= father_bonus(run, "craft_speed") * liberty_mult(meta, "manufacture")
+	return speed
 
 
 func workshop_build_cost(recipe_id: String) -> float:
 	return float(Content.recipe(recipe_id)["build_cost"])
 
 
-func workshop_upgrade_cost(w: RunState.WorkshopState, levels: int = 1) -> float:
-	return geometric_cost(v("workshop_cost_base") * Content.price(w.id), v("workshop_cost_growth"), w.level, levels)
+func workshop_upgrade_base(run: RunState, w: RunState.WorkshopState) -> float:
+	return v("workshop_cost_base") * Content.price(w.id) * father_bonus(run, "workshop_cost")
+
+
+func workshop_upgrade_cost(run: RunState, w: RunState.WorkshopState, levels: int = 1) -> float:
+	return geometric_cost(workshop_upgrade_base(run, w), v("workshop_cost_growth"), w.level, levels)
 
 
 # --- Selling ----------------------------------------------------------------
@@ -203,6 +247,7 @@ func workshop_upgrade_cost(w: RunState.WorkshopState, levels: int = 1) -> float:
 func sell_price(run: RunState, meta: MetaState, resource_id: String) -> float:
 	var p: float = Content.price(resource_id)
 	p *= nation_bonus(run, "sell_price")
+	p *= father_bonus(run, "sell_price")
 	p *= liberty_mult(meta, "commerce")
 	p *= father_bonus(run, "crafted_price") if Content.is_crafted(resource_id) else father_bonus(run, "raw_price")
 	p *= market_mult(run, resource_id)
@@ -212,8 +257,8 @@ func sell_price(run: RunState, meta: MetaState, resource_id: String) -> float:
 # --- The European market --------------------------------------------------------
 
 ## Demand in Europe shifts every market period: a few goods are wanted (sell
-## high), a couple are in glut (sell low). Derived from the run's start time
-## and simulated time, so it's deterministic and offline catch-up agrees with
+## high), a few are in glut (sell low). Derived from the run's start time and
+## simulated time, so it's deterministic and offline catch-up agrees with
 ## live play.
 func market_state(run: RunState) -> Dictionary:
 	var period_len: float = v("market_period_seconds")
@@ -223,7 +268,7 @@ func market_state(run: RunState) -> Dictionary:
 		_market_cache["remaining"] = period_len * (period + 1) - run.play_seconds
 		return _market_cache
 	var rng := RandomNumberGenerator.new()
-	rng.seed = hash([int(run.started_unix), period])
+	rng.seed = hash(key)
 	var ids: Array[String] = []
 	for r: Dictionary in Content.resources:
 		ids.append(str(r["id"]))
@@ -247,10 +292,38 @@ func market_state(run: RunState) -> Dictionary:
 func market_mult(run: RunState, resource_id: String) -> float:
 	var m: Dictionary = market_state(run)
 	if (m["up"] as Array).has(resource_id):
-		return v("market_up_mult")
+		return v("market_up_mult") * father_bonus(run, "market")
 	if (m["down"] as Array).has(resource_id):
 		return v("market_down_mult")
 	return 1.0
+
+
+# --- Founding Fathers -------------------------------------------------------------
+
+## The Founding Fathers who can be invited this run: a random handful from
+## each tier, fixed for the run.
+func fathers_offered(run: RunState) -> Array[Dictionary]:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([run.map_seed, "fathers"])
+	var per_tier: int = int(v("fathers_offered_per_tier"))
+	var out: Array[Dictionary] = []
+	for tier in range(1, 5):
+		var pool: Array[Dictionary] = []
+		for f: Dictionary in Content.fathers:
+			if int(f.get("tier", 1)) == tier:
+				pool.append(f)
+		for i in range(pool.size() - 1, 0, -1):
+			var j: int = rng.randi_range(0, i)
+			var tmp: Dictionary = pool[i]
+			pool[i] = pool[j]
+			pool[j] = tmp
+		for i in mini(per_tier, pool.size()):
+			out.append(pool[i])
+	for id: String in run.fathers:
+		var f: Dictionary = Content.father(id)
+		if not f.is_empty() and not out.has(f):
+			out.append(f)
+	return out
 
 
 # --- Independence -----------------------------------------------------------
@@ -278,11 +351,12 @@ func liberty_payout(run: RunState) -> int:
 
 
 func liberty_upgrade_cost(meta: MetaState, upgrade_id: String) -> int:
-	var costs: Array = Content.liberty_upgrade(upgrade_id).get("costs", [])
-	var lvl: int = meta.level(upgrade_id)
-	if lvl >= costs.size():
+	var def: Dictionary = Content.liberty_upgrade(upgrade_id)
+	if def.is_empty():
 		return -1
-	return int(costs[lvl])
+	if upgrade_id == "settlement" and liberty_mult(meta, upgrade_id) <= v("settlement_floor") + 0.0001:
+		return -1
+	return int(ceil(float(def["base_cost"]) * pow(float(def["growth"]), meta.level(upgrade_id))))
 
 
 # --- Helpers ----------------------------------------------------------------

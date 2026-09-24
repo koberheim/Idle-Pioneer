@@ -4,18 +4,27 @@
 	"offline_step_seconds": 2.0,
 
 	"start_gold": 50.0,
-	"base_rate": 1.0,
+	"max_colonies": 25,
+
+	"colony_value_growth": 3.3,
+	"found_cost_first": 250.0,
+	"found_cost_growth_base": 8.0,
+	"found_cost_growth_step": 0.25,
+
 	"prod_per_level": 0.25,
 	"colonist_production_bonus": 1.0,
 
-	"land_cargo_per_distance": 24.0,
-	"sea_cargo_per_distance": 60.0,
+	"land_seconds_per_step": 1.2,
+	"sea_seconds_per_step": 1.6,
+	"land_cargo_factor": 2.6,
+	"sea_cargo_factor": 4.4,
+	"cargo_distance_exponent": 0.85,
 	"cargo_per_level": 0.5,
-	"land_time_factor": 12.0,
-	"sea_time_factor": 22.0,
 	"speed_per_level": 0.2,
 
-	"craft_per_level": 0.3,
+	"workshop_speed_growth": 1.2,
+	"workshop_cost_base": 100.0,
+	"workshop_cost_growth": 1.3,
 
 	"colonist_cost_base": 25.0,
 	"colonist_cost_growth": 1.15,
@@ -25,11 +34,12 @@
 	"cargo_cost_growth": 1.16,
 	"speed_cost_base": 60.0,
 	"speed_cost_growth": 1.16,
-	"workshop_cost_base": 100.0,
-	"workshop_cost_growth": 1.14,
+
+	"explore_radius_capital": 13.0,
+	"explore_radius_colony": 9.0,
 
 	"charter_bonus_per_level": 0.5,
-	"charter_scale_per_colony": 0.75,
+	"charter_scale_per_colony": 0.5,
 
 	"governor_bonus_base": 0.5,
 	"governor_bonus_per_rank": 0.5,
@@ -39,9 +49,9 @@
 	"governor_rank_cost_base": 4.0,
 	"governor_rank_cost_growth": 1.7,
 
-	"market_period_seconds": 1200.0,
-	"market_up_count": 3,
-	"market_down_count": 2,
+	"market_period_seconds": 1800.0,
+	"market_up_count": 4,
+	"market_down_count": 3,
 	"market_up_mult": 1.6,
 	"market_down_mult": 0.6,
 
@@ -58,5 +68,7 @@
 	"independence_gold": 1000000000.0,
 	"independence_muskets": 1,
 	"liberty_base": 6.0,
-	"settlement_floor": 0.4
+	"settlement_floor": 0.4,
+
+	"fathers_offered_per_tier": 4
 }

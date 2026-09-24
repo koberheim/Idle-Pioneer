@@ -1,16 +1,19 @@
-## Bottom sheet for one colony: its stats, colonists, and the three upgrade
-## tracks - or, for the next unfounded colony, what founding it would bring.
+## Bottom sheet for one colony: its stats, colonists, governor, charter and
+## the three upgrade tracks - or, for the next site the surveyors have found,
+## what founding it will bring.
 class_name ColonySheet
 extends PanelContainer
 
 signal closed
 signal modal_requested(modal: Control)
 
+## Colony id, or "" while showing the next site.
 var colony_id: String = ""
 
 var _title: Label
 var _subtitle: Label
 var _portrait: TextureRect
+var _scroll: ScrollContainer
 var _body: VBoxContainer
 var _stats: Label
 var _trip_bar: ProgressBar
@@ -20,8 +23,8 @@ var _minus: Button
 var _plus: Button
 var _rows: Dictionary = {}
 var _found_box: VBoxContainer
-var _found_flavor: Label
 var _found_detail: Label
+var _found_flavor: Label
 var _found_button: BuyButton
 var _manage_box: VBoxContainer
 var _selector: BuyAmountSelector
@@ -31,7 +34,23 @@ var _charter_title: Label
 var _charter_costs: HFlowContainer
 var _charter_button: BuyButton
 var _charter_level: int = -1
-var _scroll: ScrollContainer
+
+const FLAVOR := {
+	"timber": "Tall stands of oak and pine, ready for the axe.",
+	"grain": "Good black soil for wheat and rye.",
+	"cod": "The banks offshore teem with cod.",
+	"hemp": "Rich bottomland where hemp grows taller than a man.",
+	"sugar_cane": "Hot, wet ground made for cane fields.",
+	"hides": "Herds of wild cattle roam the open country.",
+	"tobacco": "Warm loam that grows a prized leaf.",
+	"cotton": "Long summers and light soil: cotton country.",
+	"iron_ore": "Red streaks of bog iron and hillside ore.",
+	"indigo": "Swampy fields where indigo thrives.",
+	"furs": "Beaver streams and deep woods for trappers.",
+	"whale_oil": "Cold waters where whales pass each season.",
+	"horses": "Open range where wild horses run.",
+	"silver": "A glint of silver in the rock above the valley.",
+}
 
 
 func _init() -> void:
@@ -47,6 +66,8 @@ func _init() -> void:
 	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_title = UI.label("", UI.SIZE_TITLE, UI.GOLD, true)
 	_subtitle = UI.label("", UI.SIZE_SMALL, UI.LIGHT_SOFT)
+	_subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_subtitle.custom_minimum_size.x = 10
 	titles.add_child(_title)
 	titles.add_child(_subtitle)
 	header.add_child(titles)
@@ -66,7 +87,7 @@ func _init() -> void:
 	_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.add_child(_body)
 
-	# --- founded colony ---
+	# --- a founded colony ---
 	_manage_box = UI.vbox(10)
 	_body.add_child(_manage_box)
 	_stats = UI.label("", UI.SIZE_SMALL, UI.LIGHT)
@@ -85,7 +106,6 @@ func _init() -> void:
 
 	_selector = BuyAmountSelector.new()
 	_manage_box.add_child(_selector)
-
 	for track: String in ["prod", "cargo", "speed"]:
 		var icon_name: String = {"prod": "pick", "cargo": "crate", "speed": "speed"}[track]
 		var t: String = track
@@ -101,14 +121,8 @@ func _init() -> void:
 	_colonist_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_colonist_label.custom_minimum_size.x = 10
 	col_row.add_child(_colonist_label)
-	_minus = UI.button("−", "button", 60)
-	_minus.custom_minimum_size.x = 64
-	_minus.add_theme_font_size_override("font_size", UI.SIZE_BIG)
-	_minus.pressed.connect(func() -> void: _assign(-1))
-	_plus = UI.button("+", "button", 60)
-	_plus.custom_minimum_size.x = 64
-	_plus.add_theme_font_size_override("font_size", UI.SIZE_BIG)
-	_plus.pressed.connect(func() -> void: _assign(1))
+	_minus = _small_button("−", func() -> void: _assign(-1))
+	_plus = _small_button("+", func() -> void: _assign(1))
 	col_row.add_child(_minus)
 	col_row.add_child(_plus)
 	col_card.add_child(col_row)
@@ -146,7 +160,7 @@ func _init() -> void:
 			Sfx.play("father")
 			refresh()
 		return ok)
-	_charter_button.custom_minimum_size = Vector2(170, 64)
+	_charter_button.custom_minimum_size = Vector2(150, 64)
 	ch_head.add_child(_charter_button)
 	ch_v.add_child(ch_head)
 	_charter_costs = HFlowContainer.new()
@@ -154,8 +168,7 @@ func _init() -> void:
 	ch_v.add_child(_charter_costs)
 	_manage_box.add_child(ch_card)
 
-
-	# --- next colony to found ---
+	# --- the next site ---
 	_found_box = UI.vbox(12)
 	_body.add_child(_found_box)
 	_found_detail = UI.label("", UI.SIZE_BODY, UI.LIGHT)
@@ -164,15 +177,159 @@ func _init() -> void:
 	_found_box.add_child(_found_detail)
 	_found_flavor = UI.wrap_label("", UI.SIZE_SMALL, UI.LIGHT_SOFT)
 	_found_box.add_child(_found_flavor)
-	_found_button = BuyButton.new(func() -> bool: return Game.found_colony(colony_id))
+	_found_button = BuyButton.new(func() -> bool: return Game.found_colony())
 	_found_button.custom_minimum_size = Vector2(0, 84)
 	_found_box.add_child(_found_button)
+
+
+func _small_button(text: String, action: Callable) -> Button:
+	var b := UI.button(text, "button", 60)
+	b.custom_minimum_size.x = 64
+	b.add_theme_font_size_override("font_size", UI.SIZE_BIG)
+	b.pressed.connect(action)
+	return b
 
 
 func show_colony(id: String) -> void:
 	colony_id = id
 	_charter_level = -1
 	refresh()
+
+
+func show_next_site() -> void:
+	colony_id = ""
+	refresh()
+
+
+func _assign(delta: int) -> void:
+	Sfx.play("click" if Game.assign_to_colony(colony_id, delta) else "deny")
+	refresh()
+
+
+## Caps the sheet to `max_height`, scrolling the body when it doesn't fit.
+func fit(max_height: float) -> void:
+	var header_h: float = get_combined_minimum_size().y - _scroll.custom_minimum_size.y
+	var want: float = _body.get_combined_minimum_size().y
+	var h: float = clampf(want, 0.0, maxf(max_height - header_h, 120.0))
+	if not is_equal_approx(_scroll.custom_minimum_size.y, h):
+		_scroll.custom_minimum_size.y = h
+
+
+static func site_summary(run: RunState, site: Dictionary) -> String:
+	var route_text: String = "Sea route" if site["route"] == "sea" else "Land route"
+	var rich: float = float(site.get("richness", 1.0))
+	var quality: String = "rich" if rich >= 1.2 else ("poor" if rich < 0.95 else "fair")
+	return "%s  ·  %s  ·  %s ground" % [Content.terrain_name(int(site["terrain"])), route_text, quality]
+
+
+func refresh() -> void:
+	if Game.run == null:
+		return
+	var run: RunState = Game.run
+	var meta: MetaState = Game.meta
+	var c: RunState.ColonyState = run.colony(colony_id) if colony_id != "" else null
+	_manage_box.visible = c != null
+	_found_box.visible = c == null
+	if c == null:
+		_refresh_next_site(run, meta)
+		return
+
+	var site: Dictionary = run.site_of(c)
+	var res: String = run.resource_of(c)
+	var res_name: String = Content.resource_name(res)
+	var sea: bool = Balance.is_sea(run, c)
+	_title.text = Content.colony_name(run.nation_id, c.tier)
+	_subtitle.text = "%s  ·  %s" % [res_name, "Capital" if c.tier == 0 else site_summary(run, site)]
+	_portrait.texture = UI.tex("res://assets/sprites/map/%s.png" % UI.colony_sprite_name(c))
+
+	var rate: float = Balance.production_rate(run, meta, c)
+	if c.tier == 0:
+		_stats.text = "Producing %s %s/s, sold straight off the wharf." % [Format.rate(rate), res_name.to_lower()]
+		_trip_bar.get_parent().visible = false
+	else:
+		var tp: float = Balance.route_throughput(run, meta, c)
+		var warn: String = ""
+		if rate > tp * 1.02:
+			warn = "\nThe %s can't keep up - upgrade cargo or speed." % ("ships" if sea else "wagons")
+		_stats.text = "Producing %s/s  ·  Shipping up to %s/s  ·  Waiting: %s%s" % [Format.rate(rate), Format.rate(tp), Format.num(c.stock), warn]
+		_trip_bar.get_parent().visible = true
+		var unit: String = "Ship" if sea else "Wagon"
+		if c.trip <= 0.0:
+			_trip_label.text = "%s loading" % unit
+			_trip_bar.value = 0.0
+		elif c.trip < 0.5:
+			_trip_label.text = "%s en route (%s)" % [unit, Format.num(c.cargo)]
+			_trip_bar.value = c.trip * 2.0
+		else:
+			_trip_label.text = "%s returning" % unit
+			_trip_bar.value = 1.0 - (c.trip - 0.5) * 2.0
+
+	var bonus: float = Balance.v("colonist_production_bonus") * 100.0
+	_colonist_label.text = "Colonists: %d   (+%d%% each)\n%d idle of %d" % [c.colonists, int(bonus), run.colonists_idle(), run.colonists_owned]
+	_minus.disabled = c.colonists <= 0
+	_plus.disabled = run.colonists_idle() <= 0
+	_refresh_governor(c)
+	_refresh_charter(c)
+
+	_update_row("prod", c, "Production", func() -> String:
+		var before: float = Balance.production_rate(run, meta, c)
+		var n: int = Game.colony_track_levels(c, "prod")
+		c.prod_level += n
+		var after: float = Balance.production_rate(run, meta, c)
+		c.prod_level -= n
+		return "%s → %s %s/s" % [Format.rate(before), Format.rate(after), res_name.to_lower()])
+	(_rows["cargo"] as Control).visible = c.tier > 0
+	(_rows["speed"] as Control).visible = c.tier > 0
+	if c.tier == 0:
+		return
+	_update_row("cargo", c, "Cargo Holds" if sea else "Wagons", func() -> String:
+		var before: float = Balance.cargo_capacity(run, meta, c)
+		var n: int = Game.colony_track_levels(c, "cargo")
+		c.cargo_level += n
+		var after: float = Balance.cargo_capacity(run, meta, c)
+		c.cargo_level -= n
+		return "%s → %s per trip" % [Format.num(before), Format.num(after)])
+	_update_row("speed", c, "Faster Ships" if sea else "Roads", func() -> String:
+		var before: float = Balance.round_trip_seconds(run, meta, c)
+		var n: int = Game.colony_track_levels(c, "speed")
+		c.speed_level += n
+		var after: float = Balance.round_trip_seconds(run, meta, c)
+		c.speed_level -= n
+		return "Round trip %s → %s" % [Format.duration(before), Format.duration(after)])
+
+
+func _refresh_next_site(run: RunState, meta: MetaState) -> void:
+	var n: int = run.next_site()
+	if n < 0:
+		_title.text = "The map is full"
+		_subtitle.text = ""
+		_found_detail.text = "Every colony site has been settled."
+		_found_flavor.text = ""
+		_found_button.visible = false
+		return
+	var site: Dictionary = run.world.sites[n]
+	var res: String = site["resource"]
+	var tier: int = run.colonies.size()
+	_title.text = Content.colony_name(run.nation_id, tier)
+	_subtitle.text = site_summary(run, site)
+	_portrait.texture = UI.tex("res://assets/sprites/map/site.png")
+	var how: String = "Ships will carry its %s to the capital." if site["route"] == "sea" else "Wagon trains will haul its %s overland to the capital."
+	var value: float = Balance.tier_value(tier) * float(site.get("richness", 1.0))
+	_found_detail.text = ("Your surveyors have found a site for colony number %d. " % (tier + 1)) + (how % Content.resource_name(res).to_lower()) + "\nWorth about %s gold a second from the start." % Format.num(value)
+	_found_flavor.text = str(FLAVOR.get(res, ""))
+	var cost: float = Balance.found_cost(run, meta)
+	_found_button.visible = true
+	_found_button.set_cost("Found colony  ·  " + Format.num(cost), run.gold >= cost)
+
+
+func _update_row(track: String, c: RunState.ColonyState, label_text: String, preview: Callable) -> void:
+	var row: UpgradeRow = _rows[track]
+	var n: int = Game.colony_track_levels(c, track)
+	var cost: float = Balance.colony_upgrade_cost(Game.run, track, c, n)
+	var title: String = "%s  Lv %d" % [label_text, Balance.track_level(c, track)]
+	if n > 1:
+		title += "  (+%d)" % n
+	row.set_values(title, preview.call(), cost, Game.run.gold >= cost)
 
 
 func _open_governor_picker() -> void:
@@ -188,7 +345,7 @@ func _open_governor_picker() -> void:
 		if at == colony_id:
 			where = " (here)"
 		elif at != "":
-			where = " (at %s)" % Content.colony_name(Game.run.nation_id, Content.colony_index(at))
+			where = " (at %s)" % Content.colony_name(Game.run.nation_id, Game.run.colony(at).tier)
 		var b := UI.button("%s  ·  %s %s  ×%s %s%s" % [g["name"], t.get("title", ""), "★".repeat(int(g["rank"])), Format.rate(Balance.governor_multiplier_for_rank(int(g["rank"]))), t.get("desc", ""), where], "button", 64)
 		b.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
 		b.pressed.connect(func() -> void:
@@ -205,115 +362,6 @@ func _open_governor_picker() -> void:
 	modal_requested.emit(m)
 
 
-func _assign(delta: int) -> void:
-	if Game.assign_to_colony(colony_id, delta):
-		Sfx.play("click")
-	else:
-		Sfx.play("deny")
-	refresh()
-
-
-func refresh() -> void:
-	if Game.run == null or colony_id == "":
-		return
-	var run: RunState = Game.run
-	var meta: MetaState = Game.meta
-	var c: RunState.ColonyState = run.colony(colony_id)
-	var def: Dictionary = Content.colony(colony_id)
-	var res: String = def["resource"]
-	var res_name: String = Content.resource_name(res)
-	var sea: bool = Balance.is_sea(c)
-	var cname: String = Content.colony_name(run.nation_id, Content.colony_index(colony_id))
-	_title.text = cname
-	var route_text: String = "Capital" if colony_id == "capital" else ("Sea route" if sea else "Land route")
-	_subtitle.text = "%s  ·  %s  ·  sells for %s each" % [res_name, route_text, Format.num(Balance.sell_price(run, meta, res), 1)]
-
-	_manage_box.visible = c.founded
-	_found_box.visible = not c.founded
-
-	if not c.founded:
-		_portrait.texture = UI.tex("res://assets/sprites/map/site.png")
-		var cost: float = Balance.found_cost(run, meta, colony_id)
-		var how: String = "Ships will carry its goods to the capital." if sea else "Wagon trains will haul its goods overland to the capital."
-		_found_detail.text = "An unclaimed site rich in %s. %s" % [res_name.to_lower(), how]
-		_found_flavor.text = str(def.get("flavor", ""))
-		_found_button.set_cost("Found colony  ·  " + Format.num(cost), run.gold >= cost)
-		return
-
-	_portrait.texture = UI.tex("res://assets/sprites/map/%s.png" % UI.colony_sprite_name(c))
-	var rate: float = Balance.production_rate(run, meta, c)
-	if colony_id == "capital":
-		_stats.text = "Producing %s %s/s, sold straight off the wharf." % [Format.rate(rate), res_name.to_lower()]
-		_trip_bar.get_parent().visible = false
-	else:
-		var tp: float = Balance.route_throughput(run, meta, c)
-		var rt: float = Balance.round_trip_seconds(run, meta, c)
-		var warn: String = ""
-		if rate > tp * 1.02:
-			warn = "\nThe %s can't keep up - upgrade cargo or speed." % ("ships" if sea else "wagons")
-		_stats.text = "Producing %s/s  ·  Shipping up to %s/s  ·  Waiting at colony: %s%s" % [
-			Format.rate(rate), Format.rate(tp), Format.num(c.stock), warn]
-		_trip_bar.get_parent().visible = true
-		var unit: String = "Ship" if sea else "Wagon"
-		if c.trip <= 0.0:
-			_trip_label.text = "%s loading" % unit
-			_trip_bar.value = 0.0
-		elif c.trip < 0.5:
-			_trip_label.text = "%s en route (%s)" % [unit, Format.num(c.cargo)]
-			_trip_bar.value = c.trip * 2.0
-		else:
-			_trip_label.text = "%s returning" % unit
-			_trip_bar.value = 1.0 - (c.trip - 0.5) * 2.0
-		_trip_bar.tooltip_text = "Round trip %ss" % Format.rate(rt)
-
-	_refresh_governor(c)
-	_refresh_charter(c)
-
-	var bonus: float = Balance.v("colonist_production_bonus") * 100.0
-	_colonist_label.text = "Colonists: %d   (+%d%% each)\n%d idle of %d" % [c.colonists, int(bonus), run.colonists_idle(), run.colonists_owned]
-	_minus.disabled = c.colonists <= 0
-	_plus.disabled = run.colonists_idle() <= 0
-
-	_update_row("prod", c, "Production", func() -> String:
-		var before: float = Balance.production_rate(run, meta, c)
-		var n: int = Game.colony_track_levels(c, "prod")
-		c.prod_level += n
-		var after: float = Balance.production_rate(run, meta, c)
-		c.prod_level -= n
-		return "%s → %s %s/s" % [Format.rate(before), Format.rate(after), res_name.to_lower()])
-	var is_cap: bool = colony_id == "capital"
-	(_rows["cargo"] as Control).visible = not is_cap
-	(_rows["speed"] as Control).visible = not is_cap
-	if is_cap:
-		return
-	_update_row("cargo", c, "Wagons" if not sea else "Cargo Holds", func() -> String:
-		var before: float = Balance.cargo_capacity(run, meta, c)
-		var n: int = Game.colony_track_levels(c, "cargo")
-		c.cargo_level += n
-		var after: float = Balance.cargo_capacity(run, meta, c)
-		c.cargo_level -= n
-		return "%s → %s per trip" % [Format.num(before), Format.num(after)])
-	_update_row("speed", c, "Roads" if not sea else "Faster Ships", func() -> String:
-		var before: float = Balance.round_trip_seconds(run, meta, c)
-		var n: int = Game.colony_track_levels(c, "speed")
-		c.speed_level += n
-		var after: float = Balance.round_trip_seconds(run, meta, c)
-		c.speed_level -= n
-		return "Round trip %ss → %ss" % [Format.rate(before), Format.rate(after)])
-
-
-func _update_row(track: String, c: RunState.ColonyState, label_text: String, preview: Callable) -> void:
-	var row: UpgradeRow = _rows[track]
-	var lvl: int = c.prod_level if track == "prod" else (c.cargo_level if track == "cargo" else c.speed_level)
-	var n: int = Game.colony_track_levels(c, track)
-	var cost: float = Balance.colony_upgrade_cost(track, c, n)
-	var title: String = "%s  Lv %d" % [label_text, lvl]
-	if n > 1:
-		title += "  (+%d)" % n
-	row.set_values(title, preview.call(), cost, Game.run.gold >= cost)
-
-
-
 func _refresh_governor(c: RunState.ColonyState) -> void:
 	var gid: int = Game.run.governor_at(c.id)
 	if gid < 0:
@@ -323,8 +371,7 @@ func _refresh_governor(c: RunState.ColonyState) -> void:
 		return
 	var g: Dictionary = Game.meta.governor(gid)
 	var t: Dictionary = Content.governor_type(str(g["type"]))
-	_gov_label.text = "Governor %s
-%s %s  ·  ×%s %s" % [g["name"], t.get("title", ""), "★".repeat(int(g["rank"])), Format.rate(Balance.governor_multiplier_for_rank(int(g["rank"]))), t.get("desc", "")]
+	_gov_label.text = "Governor %s\n%s %s  ·  ×%s %s" % [g["name"], t.get("title", ""), "★".repeat(int(g["rank"])), Format.rate(Balance.governor_multiplier_for_rank(int(g["rank"]))), t.get("desc", "")]
 	_gov_button.text = "Change"
 	_gov_button.disabled = false
 
@@ -334,10 +381,8 @@ func _refresh_charter(c: RunState.ColonyState) -> void:
 	var title: String = "No charter" if c.charter == 0 else str(Content.charters[c.charter - 1]["title"])
 	var pct: int = int(Balance.v("charter_bonus_per_level") * 100.0)
 	var next_title: String = str(Content.charters[next - 1]["title"]) if next <= Content.charters.size() else ""
-	_charter_title.text = "Charter: %s  %s
-+%d%% production and cargo per rank%s" % [title, "★".repeat(c.charter), pct, ("
-Next: " + next_title) if next_title != "" else ""]
-	var cost: Dictionary = Balance.charter_cost(c.id, next)
+	_charter_title.text = "Charter: %s  %s\n+%d%% production and cargo per rank%s" % [title, "★".repeat(c.charter), pct, ("\nNext: " + next_title) if next_title != "" else ""]
+	var cost: Dictionary = Balance.charter_cost(Game.run, c, next)
 	if cost.is_empty():
 		_charter_button.set_cost("Free City", false, "")
 		_charter_costs.visible = false
@@ -356,7 +401,7 @@ Next: " + next_title) if next_title != "" else ""]
 			item.set_meta("res", key)
 			_charter_costs.add_child(item)
 	for item: Node in _charter_costs.get_children():
-		if not item.has_meta("res"):
+		if not item.has_meta("res") or item.is_queued_for_deletion():
 			continue
 		var key: String = item.get_meta("res")
 		var need: float = float(cost.get(key, 0.0))
@@ -365,12 +410,3 @@ Next: " + next_title) if next_title != "" else ""]
 		l.text = "%s / %s" % [Format.num(have), Format.num(need)]
 		l.add_theme_color_override("font_color", UI.GREEN if have >= need else UI.RED)
 	_charter_button.set_cost("Grant", Game.charter_affordable(c.id), "")
-
-
-## Caps the sheet to `max_height`, scrolling the body when it doesn't fit.
-func fit(max_height: float) -> void:
-	var header_h: float = get_combined_minimum_size().y - _scroll.custom_minimum_size.y
-	var want: float = _body.get_combined_minimum_size().y
-	var h: float = clampf(want, 0.0, maxf(max_height - header_h, 120.0))
-	if not is_equal_approx(_scroll.custom_minimum_size.y, h):
-		_scroll.custom_minimum_size.y = h

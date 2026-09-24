@@ -184,7 +184,7 @@ func _update_card(id: String) -> void:
 		(card.get_meta("build") as BuyButton).set_cost("Build  ·  " + Format.num(cost), run.gold >= cost)
 		return
 
-	var secs: float = Balance.craft_seconds(run, w)
+	var secs: float = Balance.craft_seconds(run, Game.meta, w)
 	var status: String
 	var missing: PackedStringArray = []
 	for input_id: String in (def["inputs"] as Dictionary).keys():
@@ -207,9 +207,10 @@ func _update_card(id: String) -> void:
 
 	var up: UpgradeRow = card.get_meta("upgrade")
 	var n: int = Game.workshop_levels(w)
-	var cost: float = Balance.workshop_upgrade_cost(w, n)
-	var before: float = 1.0 + Balance.v("craft_per_level") * w.level
-	var after: float = 1.0 + Balance.v("craft_per_level") * (w.level + n)
+	var cost: float = Balance.workshop_upgrade_cost(run, w, n)
+	var g: float = Balance.v("workshop_speed_growth")
+	var before: float = pow(g, w.level)
+	var after: float = pow(g, w.level + n)
 	up.set_values("Tools & Benches  Lv %d%s" % [w.level, ("  (+%d)" % n) if n > 1 else ""], "Speed ×%s → ×%s" % [Format.rate(before), Format.rate(after)], cost, run.gold >= cost)
 
 	var held: bool = run.is_held(id)

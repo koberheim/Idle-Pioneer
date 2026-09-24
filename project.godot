@@ -13,7 +13,7 @@ config_version=5
 config/name="Idle Pioneer"
 config/description="An idle colonial trade game: found colonies, ship goods to Europe, craft finer wares, and declare independence."
 run/main_scene="res://scenes/Main.tscn"
-config/features=PackedStringArray("4.6", "GL Compatibility")
+config/features=PackedStringArray("4.7", "GL Compatibility")
 boot_splash/bg_color=Color(0.086, 0.114, 0.2, 1)
 boot_splash/show_image=false
 config/icon="res://assets/sprites/app_icon.png"
@@ -28,8 +28,6 @@ Sfx="*res://scripts/core/sfx.gd"
 [debug]
 
 gdscript/warnings/untyped_declaration=1
-gdscript/warnings/return_value_discarded=0
-gdscript/warnings/exclude_addons=true
 
 [display]
 
@@ -41,6 +39,10 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=1
 
+[dotnet]
+
+project/assembly_name="Idle Pioneer"
+
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/gut/plugin.cfg")
@@ -49,14 +51,10 @@ enabled=PackedStringArray("res://addons/gut/plugin.cfg")
 
 common/drop_mouse_on_gui_input_disabled=true
 
-[input_devices]
-
-pointing/emulate_touch_from_mouse=false
-
 [rendering]
 
+textures/canvas_textures/default_texture_filter=0
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
-textures/canvas_textures/default_texture_filter=0
 textures/vram_compression/import_etc2_astc=true
 environment/defaults/default_clear_color=Color(0.086, 0.114, 0.2, 1)

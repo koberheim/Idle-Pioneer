@@ -7,14 +7,14 @@ craft them into finer wares, invite Founding Fathers to Congress, and when the
 colonies are rich and armed, **declare independence** — earning Liberty for
 permanent reforms and starting a new expedition.
 
-Godot 4.6, GDScript, portrait 720×1280, GL Compatibility renderer.
+Godot 4.7, GDScript, portrait 720×1280, GL Compatibility renderer.
 
 ## Run it
 
-Open the folder in Godot 4.6 and press Play, or:
+Open the folder in Godot 4.7 and press Play, or:
 
 ```bash
-"D:/Godot_v4.6.2-stable_win64.exe" --path .
+"E:/Godot/godot_mono/Godot_v4.7.2-stable_mono_win64/Godot_v4.7.2-stable_mono_win64_console.exe" --path .
 ```
 
 ## Tests
@@ -48,7 +48,7 @@ and a smoke test that boots the real screen and presses every button.
 ```bash
 python tools/gen_map.py          # regenerate the map + route paths (needs Pillow, numpy)
 python tools/gen_sprites.py      # regenerate icons, settlements, UI frames
-"D:/Godot_v4.6.2-stable_win64.exe" --headless --path . res://tools/balance_bot.tscn -- nation=english liberty=0
+"E:/Godot/godot_mono/Godot_v4.7.2-stable_mono_win64/Godot_v4.7.2-stable_mono_win64_console.exe" --headless --path . res://tools/balance_bot.tscn -- nation=english liberty=0
 tools/shot.sh map out.png        # screenshot a scripted state (map, sheet, workshops, europe, congress, nation, independence, fresh, ...)
 ```
 
@@ -57,8 +57,8 @@ timeline — use it after changing `balance.json` or `content.json`.
 
 ## Exporting to Android / iOS
 
-1. Install the **4.6.2 standard** export templates (Editor → Manage Export
-   Templates). Only 4.7.2-mono templates were found on this machine.
+1. The 4.7.2 (.NET) export templates are already installed on this machine
+   (Editor → Manage Export Templates).
 2. Project → Export → add Android (and/or iOS). Orientation is already set to
    portrait in project settings; `export_presets.cfg` is git-ignored because it
    holds keystore paths.
