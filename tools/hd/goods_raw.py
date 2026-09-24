@@ -569,4 +569,5 @@ NAMES = ["grain", "cod", "hemp", "sugar_cane", "hides", "tobacco", "cotton",
 if __name__ == "__main__":
     for n in NAMES:
         globals()[n]()
-    sheet(NAMES, sys.argv[1] if len(sys.argv) > 1 else "goods_raw_sheet.png", scale=4, cols=5)
+    if len(sys.argv) > 1:
+        sheet(NAMES, sys.argv[1], scale=4, cols=5)

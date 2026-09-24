@@ -670,5 +670,5 @@ if __name__ == "__main__":
     ids = father_ids()
     only = sys.argv[2:] if len(sys.argv) > 2 else None
     names = [portrait(pid) for pid in (only or ["portrait"] + ids)]
-    out = sys.argv[1] if len(sys.argv) > 1 else "portraits_sheet.png"
-    sheet(names, out, scale=6 if only else 3, cols=8 if not only else min(4, len(names)))
+    if len(sys.argv) > 1:
+        sheet(names, sys.argv[1], scale=6 if only else 3, cols=8 if not only else min(4, len(names)))
