@@ -5,6 +5,8 @@ extends Node
 const CONTENT_PATH := "res://data/content.json"
 const NAMES_PATH := "res://data/colony_names.json"
 
+const RESEARCH_PATH := "res://data/research.json"
+
 var resources: Array[Dictionary] = []
 var terrains: Array[Dictionary] = []
 var recipes: Array[Dictionary] = []
@@ -18,6 +20,8 @@ var colony_names: Dictionary = {}
 var relics: Array[Dictionary] = []
 var relic_sets: Array[Dictionary] = []
 var specializations: Array[Dictionary] = []
+var research: Array[Dictionary] = []
+var research_branches: Array[Dictionary] = []
 
 var _resource_by_id: Dictionary = {}
 var _recipe_by_id: Dictionary = {}
@@ -27,6 +31,7 @@ var _upgrade_by_id: Dictionary = {}
 var _relic_by_id: Dictionary = {}
 var _relic_set_by_id: Dictionary = {}
 var _spec_by_id: Dictionary = {}
+var _research_by_id: Dictionary = {}
 
 
 func _init() -> void:
@@ -41,6 +46,11 @@ func _init() -> void:
 	relics = _typed(data.get("relics", []))
 	relic_sets = _typed(data.get("relic_sets", []))
 	specializations = _typed(data.get("specializations", []))
+	# The Philosophical Society's studies live in their own file.
+	if FileAccess.file_exists(RESEARCH_PATH):
+		var rd: Dictionary = _load_json(RESEARCH_PATH)
+		research = _typed(rd.get("research", []))
+		research_branches = _typed(rd.get("research_branches", []))
 	governor_types = _typed(data.get("governor_types", []))
 	governor_names = data.get("governor_names", [])
 	colony_names = _load_json(NAMES_PATH)
@@ -53,6 +63,7 @@ func _init() -> void:
 	_index(relics, _relic_by_id)
 	_index(relic_sets, _relic_set_by_id)
 	_index(specializations, _spec_by_id)
+	_index(research, _research_by_id)
 	_validate()
 
 
@@ -88,6 +99,18 @@ func relics_in_set(set_id: String) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for r: Dictionary in relics:
 		if r["set"] == set_id:
+			out.append(r)
+	return out
+
+
+func study(id: String) -> Dictionary:
+	return _research_by_id.get(id, {})
+
+
+func studies_in_branch(branch_id: String) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for r: Dictionary in research:
+		if r["branch"] == branch_id:
 			out.append(r)
 	return out
 

@@ -14,6 +14,8 @@ uniform float px_per_tile = 16.0;
 // 0 = painted terrain, 1 = old parchment chart, 2 = engraved map (sepia land,
 // ink hatching, teal sea with water-lining)
 uniform int style = 0;
+// Cheaper path for low-end GPUs: one noise octave, no animated water.
+uniform bool lite = false;
 
 const vec3 PAL[12] = vec3[12](
 	vec3(0.12, 0.25, 0.42), // ocean
@@ -50,6 +52,9 @@ float vnoise(vec2 p) {
 const vec3 INK = vec3(0.24, 0.16, 0.10);
 
 float fbm(vec2 p) {
+	if (lite) {
+		return vnoise(p);
+	}
 	return vnoise(p) * 0.5 + vnoise(p * 2.03) * 0.3 + vnoise(p * 4.1) * 0.2;
 }
 

@@ -150,7 +150,7 @@ static func _step_workshop(run: RunState, meta: MetaState, w: RunState.WorkshopS
 	var t: float = Balance.craft_seconds(run, meta, w)
 	if t == INF or t <= 0.0:
 		return
-	var inputs: Dictionary = def["inputs"]
+	var inputs: Dictionary = Balance.recipe_inputs(run, w.id)
 	var limit: int = 1 << 30
 	for input_id: String in inputs.keys():
 		limit = mini(limit, int(minf(floor(run.stock_of(input_id) / float(inputs[input_id]) + EPS), 1.0e15)))

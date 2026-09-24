@@ -17,6 +17,7 @@ func _ready() -> void:
 	var liberty_levels: int = 0
 	var style: String = WorldMap.STYLE_RANDOM
 	var governors: int = 0
+	var runs: int = -1
 	for arg: String in OS.get_cmdline_user_args():
 		var kv: PackedStringArray = arg.split("=")
 		if kv.size() != 2:
@@ -28,7 +29,10 @@ func _ready() -> void:
 			"map": style = kv[1]
 			"governors": governors = int(kv[1])
 			"continue": stop_at_independence = kv[1] != "1"
+			"runs": runs = int(kv[1])
 	meta = MetaState.new()
+	# Reform levels imply earlier independences; research opens after three.
+	meta.runs_completed = runs if runs >= 0 else (3 if liberty_levels > 0 else 0)
 	for d: Dictionary in Content.liberty_upgrades:
 		meta.upgrades[d["id"]] = liberty_levels
 	for g in governors:
@@ -46,6 +50,7 @@ func _ready() -> void:
 		for i in 25:
 			if not _decide():
 				break
+		_research()
 		_milestones(t)
 		if Balance.independence_ready(run) and not announced:
 			announced = true
@@ -80,7 +85,7 @@ func _milestones(t: float) -> void:
 
 
 func _summary(t: float) -> void:
-	print("--- after %s: lifetime %s, colonies %d, colonists %d, muskets %d, liberty %d" % [_fmt_t(t), Format.num(run.lifetime_gold), run.colonies.size(), run.colonists_owned, int(run.crafted.get("muskets", 0)), Balance.liberty_payout(run)])
+	print("--- after %s: lifetime %s, colonies %d, colonists %d, muskets %d, liberty %d, studies %d" % [_fmt_t(t), Format.num(run.lifetime_gold), run.colonies.size(), run.colonists_owned, int(run.crafted.get("muskets", 0)), Balance.liberty_payout(run, meta), run.research.size()])
 
 
 # --- Valuation ----------------------------------------------------------------
@@ -270,6 +275,46 @@ func _decide() -> bool:
 		act.call()
 		return true
 	return false
+
+
+## Studies the cheapest open study it can pay for, and keeps the goods the
+## next one needs once half its gold is in hand.
+func _research() -> void:
+	if not Balance.unlocked(meta, "research"):
+		return
+	var best: String = ""
+	var best_gold: float = INF
+	for def: Dictionary in Content.research:
+		var id: String = str(def["id"])
+		if Balance.study_block(run, meta, id) != "":
+			continue
+		var cost: Dictionary = Balance.study_cost(run, id)
+		var reachable: bool = true
+		for k: String in cost.keys():
+			if k != "gold" and _supply(k) <= 0.0 and run.stock_of(k) < float(cost[k]):
+				reachable = false
+		if reachable and float(cost["gold"]) < best_gold:
+			best_gold = float(cost["gold"])
+			best = id
+	if best == "":
+		return
+	var cost: Dictionary = Balance.study_cost(run, best)
+	var afford: bool = true
+	for k: String in cost.keys():
+		var have: float = run.gold if k == "gold" else run.stock_of(k)
+		if have < float(cost[k]):
+			afford = false
+			if k != "gold" and run.gold >= float(cost["gold"]) * 0.5:
+				run.hold[k] = true
+	if afford:
+		for k: String in cost.keys():
+			if k == "gold":
+				run.gold -= float(cost[k])
+			else:
+				run.warehouse[k] = run.stock_of(k) - float(cost[k])
+		run.research[best] = run.study_level(best) + 1
+		run.research_version += 1
+		log_marks["studies"] = int(log_marks.get("studies", 0)) + 1
 
 
 func _bump(c: RunState.ColonyState, track: String, d: int) -> void:

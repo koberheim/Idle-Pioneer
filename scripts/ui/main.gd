@@ -69,6 +69,16 @@ func _ready() -> void:
 		_show_nation_select()
 
 
+func _safe_bottom() -> float:
+	if not OS.has_feature("mobile"):
+		return 0.0
+	var safe: Rect2i = DisplayServer.get_display_safe_area()
+	var screen: Vector2i = DisplayServer.screen_get_size()
+	if screen.y <= 0 or safe.size.y <= 0:
+		return 0.0
+	return maxf(0.0, float(screen.y - safe.end.y)) * get_viewport_rect().size.y / float(screen.y)
+
+
 func _safe_top() -> float:
 	if not OS.has_feature("mobile"):
 		return 0.0
@@ -109,6 +119,9 @@ func _build() -> void:
 	_pages.append(_map)
 
 	var workshops := WorkshopsPage.new()
+	workshops.research_requested.connect(func() -> void:
+		var rs := ResearchScreen.new()
+		_overlay.add_child(rs))
 	var europe := EuropePage.new()
 	var congress := CongressPage.new()
 	congress.declare_requested.connect(_show_independence)
@@ -206,7 +219,10 @@ func _build_top_bar() -> Control:
 
 func _build_nav() -> Control:
 	var bar := PanelContainer.new()
-	bar.add_theme_stylebox_override("panel", UI.frame("panel_dark", 14, 6))
+	var nsb := UI.frame("panel_dark", 14, 6)
+	# Keep the tabs clear of the home indicator / gesture bar.
+	nsb.content_margin_bottom = 6.0 + _safe_bottom()
+	bar.add_theme_stylebox_override("panel", nsb)
 	var row := UI.hbox(6)
 	bar.add_child(row)
 	for i in TAB_NAMES.size():
@@ -266,6 +282,7 @@ const UNLOCK_NOTES := {
 	"relics": ["relic_locked", "Relics", "Pieces of colonial history turn up in drifting wrecks, at each independence, and when you settle more colonies than ever before. Each gives a lasting bonus; full sets give more."],
 	"almanac": ["almanac", "The Almanac", "Rare almanac pages skip an hour ahead when read, all at once. Find them in the Ledger."],
 	"specializations": ["spec_boomtown", "Specializations", "When a colony earns its first charter, choose what kind of town it becomes: a Boomtown, a Market Town, a Deepwater Harbor..."],
+	"research": ["society", "The Philosophical Society", "Franklin's society for useful knowledge opens on the Workshops tab. Pay goods and gold for studies across six branches; they last for this expedition."],
 }
 
 
@@ -558,9 +575,42 @@ func _show_settings() -> void:
 		Game.meta.tips_on = not Game.meta.tips_on
 		Sfx.play("click")
 		sync_tips.call())
+	var lite := UI.button("", "button", 64)
+	var sync_lite := func() -> void:
+		lite.text = "Map effects: " + ("Light" if Game.meta.lite_map else "Full")
+	sync_lite.call()
+	lite.pressed.connect(func() -> void:
+		Game.meta.lite_map = not Game.meta.lite_map
+		Sfx.play("click")
+		_map.apply_lite()
+		sync_lite.call())
 	m.body.add_child(music)
 	m.body.add_child(sound)
 	m.body.add_child(tips)
+	m.body.add_child(lite)
+	var codes := UI.hbox(10)
+	var export_b := UI.button("Copy save code", "button", 56)
+	export_b.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
+	export_b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	export_b.pressed.connect(func() -> void:
+		DisplayServer.clipboard_set(Game.export_code())
+		Sfx.play("click")
+		_toasts.push("Save code copied. Keep it somewhere safe.", "scroll", 3.0))
+	var import_b := UI.button("Restore from code", "button", 56)
+	import_b.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
+	import_b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	import_b.pressed.connect(func() -> void:
+		m.close()
+		_confirm_import())
+	codes.add_child(export_b)
+	codes.add_child(import_b)
+	m.body.add_child(codes)
+	var credits := UI.button("Credits & Licenses", "button", 56)
+	credits.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
+	credits.pressed.connect(func() -> void:
+		m.close()
+		_show_credits())
+	m.body.add_child(credits)
 	var meta: MetaState = Game.meta
 	var stats: String = "Independence declared: %d times\nLiberty earned in all: %d" % [meta.runs_completed, meta.lifetime_liberty]
 	if meta.fastest_run_seconds > 0.0:
@@ -592,11 +642,32 @@ func _confirm_reset() -> void:
 	_overlay.add_child(m)
 
 
+func _confirm_import() -> void:
+	var m := Modal.new("Restore From Code")
+	m.add_text("Copy your save code, then tap Restore. This replaces the progress on this device.", UI.SIZE_BODY, UI.INK_SOFT)
+	m.add_button("Cancel", "button")
+	m.add_button("Restore", "button_gold", func() -> void:
+		if Game.import_code(DisplayServer.clipboard_get()):
+			get_tree().reload_current_scene()
+		else:
+			_toasts.push("That isn't a valid save code.", "lock", 3.0))
+	_overlay.add_child(m)
+
+
+func _show_credits() -> void:
+	var cs := CreditsScreen.new()
+	_overlay.add_child(cs)
+
+
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		for c: Node in _overlay.get_children():
 			if c is Modal:
 				(c as Modal).close()
+				return
+		for c: Node in _overlay.get_children():
+			if c is ResearchScreen or c is ContinentalMap or c is CreditsScreen:
+				c.queue_free()
 				return
 		if _sheet != null and _sheet.visible:
 			_close_sheet()

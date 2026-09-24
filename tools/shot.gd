@@ -29,7 +29,7 @@ func _ready() -> void:
 		Game.meta.liberty = 14
 		Game.meta.runs_completed = 1
 		Game.save()
-	if scenario.begins_with("ledger") or scenario in ["spec", "relic"]:
+	if scenario.begins_with("ledger") or scenario in ["spec", "relic"] or scenario.begins_with("research"):
 		Game.meta.runs_completed = 3
 		Game.meta.almanacs = 2
 		Game.meta.stats = {"gold_earned": 4.2e9, "shipments": 812, "land_colonies": 9, "sea_colonies": 4, "father_franklin": 2, "delivered_furs": 5400, "seconds_played": 30000, "land_leagues": 12000, "sea_leagues": 3100, "app_opens": 17}
@@ -86,6 +86,23 @@ func _ready() -> void:
 			await _frames(30)
 		"settings":
 			main.call("_show_settings")
+		"research", "research2":
+			for id: String in ["crop_rotation", "improved_husbandry"]:
+				if not Content.study(id).is_empty():
+					Game.run.research[id] = 1
+			Game.run.research_version += 1
+			Game.run.warehouse["flour"] = 500.0
+			Game.run.warehouse["lumber"] = 500.0
+			main.call("_select_tab", 1)
+			await _frames(5)
+			var rs := ResearchScreen.new()
+			main.get("_overlay").add_child(rs)
+			await _frames(10)
+			if scenario == "research2":
+				rs.call("_show_branch", "navigation")
+				await _frames(5)
+				var sc2: ScrollContainer = rs.get("_scroll")
+				sc2.scroll_vertical = 1400
 		"bigbar":
 			Game.meta.liberty = 23456789
 			Game.run.colonists_owned = 4800

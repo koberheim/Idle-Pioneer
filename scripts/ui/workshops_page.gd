@@ -3,18 +3,45 @@
 class_name WorkshopsPage
 extends Page
 
+signal research_requested
+
 var _cards: Dictionary = {}
 var _structure: String = ""
+var _society: PanelContainer
+var _society_label: Label
 
 
 func _build_header(box: VBoxContainer) -> void:
 	box.add_child(page_title("Workshops", "Colonists here turn held goods into wares worth far more. Staffing a workshop holds its inputs back from sale."))
+	# The Philosophical Society opens after the third independence.
+	_society = UI.card("panel")
+	var row := UI.hbox(12)
+	_society.add_child(row)
+	row.add_child(UI.icon_rect(UI.icon("society"), 64))
+	var v := UI.vbox(2)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.add_child(UI.label("The Philosophical Society", UI.SIZE_BIG, UI.INK, true))
+	_society_label = UI.wrap_label("", UI.SIZE_SMALL, UI.INK_SOFT)
+	v.add_child(_society_label)
+	row.add_child(v)
+	var open := UI.button("Studies", "button_gold", 64)
+	open.custom_minimum_size.x = 150
+	open.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	open.pressed.connect(func() -> void:
+		Sfx.play("click")
+		research_requested.emit())
+	row.add_child(open)
+	box.add_child(_society)
 	box.add_child(BuyAmountSelector.new())
 
 
 func refresh() -> void:
 	if Game.run == null:
 		return
+	_society.visible = Balance.unlocked(Game.meta, "research")
+	if _society.visible:
+		var n: int = Game.run.research.size()
+		_society_label.text = "Useful knowledge for this expedition: %d of %d studies made. Paid for in goods and gold." % [n, Content.research.size()]
 	var key: String = _structure_key()
 	if key != _structure:
 		_structure = key
@@ -29,7 +56,7 @@ func _structure_key() -> String:
 		var id: String = def["id"]
 		var w: RunState.WorkshopState = Game.run.workshop(id)
 		parts.append("%s:%s" % [id, "b" if w.built else ("u" if Game.workshop_unlocked(id) else "l")])
-	return ",".join(parts)
+	return ",".join(parts) + ":%d" % Game.run.research_version
 
 
 func _rebuild() -> void:
@@ -50,7 +77,7 @@ func _rebuild() -> void:
 
 func _recipe_line(def: Dictionary) -> HBoxContainer:
 	var row := UI.hbox(4)
-	var inputs: Dictionary = def["inputs"]
+	var inputs: Dictionary = Balance.recipe_inputs(Game.run, str(def["id"]))
 	var first: bool = true
 	for input_id: String in inputs.keys():
 		if not first:
@@ -175,8 +202,9 @@ func _update_card(id: String) -> void:
 	var info: Label = card.get_meta("info")
 	var price: float = Balance.sell_price(run, Game.meta, id)
 	var in_value: float = 0.0
-	for input_id: String in (def["inputs"] as Dictionary).keys():
-		in_value += float(def["inputs"][input_id]) * Balance.sell_price(run, Game.meta, input_id)
+	var inputs: Dictionary = Balance.recipe_inputs(run, id)
+	for input_id: String in inputs.keys():
+		in_value += float(inputs[input_id]) * Balance.sell_price(run, Game.meta, input_id)
 
 	if not w.built:
 		info.text = "%s sell for %s each - the inputs alone fetch %s." % [Content.resource_name(id), Format.num(price), Format.num(in_value)]
@@ -187,8 +215,8 @@ func _update_card(id: String) -> void:
 	var secs: float = Balance.craft_seconds(run, Game.meta, w)
 	var status: String
 	var missing: PackedStringArray = []
-	for input_id: String in (def["inputs"] as Dictionary).keys():
-		if run.stock_of(input_id) + 0.001 < float(def["inputs"][input_id]):
+	for input_id: String in inputs.keys():
+		if run.stock_of(input_id) + 0.001 < float(inputs[input_id]):
 			missing.append(Content.resource_name(input_id))
 	if w.colonists <= 0:
 		status = "Idle - assign colonists to start work."

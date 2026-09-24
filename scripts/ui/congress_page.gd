@@ -166,7 +166,7 @@ func _update_father(id: String) -> void:
 	var def: Dictionary = Content.father(id)
 	var labels: Dictionary = card.get_meta("costs")
 	for key: String in labels.keys():
-		var need: float = float(def["cost"][key])
+		var need: float = float(Balance.father_cost(Game.run, id)[key])
 		var have: float = Game.run.gold if key == "gold" else Game.run.stock_of(key)
 		var l: Label = labels[key]
 		l.text = Format.num(need) if key == "gold" else "%s / %s" % [Format.num(have), Format.num(need)]

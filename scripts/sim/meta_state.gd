@@ -25,6 +25,11 @@ var almanacs: int = 0
 var best_colonies: int = 1
 ## Counters for the Ledger: stat id -> float. See Game.stat().
 var stats: Dictionary = {}
+## The latest wall-clock time this save has seen. Offline time is only
+## granted beyond it, so winding the device clock back and forth pays nothing.
+var max_seen_unix: float = 0.0
+## Lighter map rendering for low-end phones.
+var lite_map: bool = false
 
 
 func governor(governor_id: int) -> Dictionary:
@@ -65,7 +70,7 @@ func to_dict() -> Dictionary:
 		"hints_seen": hints_seen.duplicate(), "tips_on": tips_on, "governors": governors.duplicate(true),
 		"next_governor_id": next_governor_id, "favor_ready_unix": favor_ready_unix,
 		"relics": relics.duplicate(), "almanacs": almanacs, "best_colonies": best_colonies,
-		"stats": stats.duplicate(),
+		"stats": stats.duplicate(), "max_seen_unix": max_seen_unix, "lite_map": lite_map,
 	}
 
 
@@ -94,6 +99,8 @@ static func from_dict(d: Dictionary) -> MetaState:
 			m.relics.append(str(v))
 	m.almanacs = int(d.get("almanacs", 0))
 	m.best_colonies = int(d.get("best_colonies", 1))
+	m.max_seen_unix = float(d.get("max_seen_unix", 0.0))
+	m.lite_map = bool(d.get("lite_map", false))
 	for k: String in (d.get("stats", {}) as Dictionary).keys():
 		m.stats[k] = float(d["stats"][k])
 	return m

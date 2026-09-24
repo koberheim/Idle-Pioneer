@@ -14,8 +14,8 @@ func _init() -> void:
 	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	add_child(lbl)
 	for amount: int in OPTIONS:
-		var b := UI.button("Max" if amount < 0 else "x%d" % amount, "button", 48)
-		b.custom_minimum_size.x = 76
+		var b := UI.button("Max" if amount < 0 else "x%d" % amount, "button", 58)
+		b.custom_minimum_size.x = 84
 		b.toggle_mode = true
 		b.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
 		b.pressed.connect(func() -> void:

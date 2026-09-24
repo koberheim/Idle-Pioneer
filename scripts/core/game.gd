@@ -20,6 +20,7 @@ signal milestone_reached(what: String, track: String, level: int)
 signal relic_found(relic_id: String, source: String)
 signal almanac_gained(count: int, source: String)
 signal almanac_read(seconds: float, ev: SimEvents)
+signal studied(study_id: String)
 
 var save_path: String = "user://save.json"
 const AUTOSAVE_SECONDS := 15.0
@@ -64,8 +65,8 @@ func boot() -> bool:
 			return false
 		running = true
 		_last_frame_unix = Time.get_unix_time_from_system()
-		var away: float = _last_frame_unix - float(data.get("saved_unix", _last_frame_unix))
-		_catch_up(away)
+		var since: float = maxf(float(data.get("saved_unix", _last_frame_unix)), meta.max_seen_unix)
+		_catch_up(_last_frame_unix - since)
 		return true
 	return false
 
@@ -91,7 +92,7 @@ func _process(delta: float) -> void:
 	_last_frame_unix = now
 
 	var tick: float = Balance.v("tick_seconds")
-	_accum += minf(delta, 1.0)
+	_accum += minf(delta, SUSPEND_GAP_SECONDS)
 	var ev := SimEvents.new()
 	while _accum >= tick:
 		_accum -= tick
@@ -182,12 +183,40 @@ func _notification(what: int) -> void:
 
 
 func save() -> void:
+	meta.max_seen_unix = maxf(meta.max_seen_unix, Time.get_unix_time_from_system())
 	var data: Dictionary = {
 		"meta": meta.to_dict(),
 		"run": run.to_dict() if run != null else {},
 		"saved_unix": Time.get_unix_time_from_system(),
 	}
 	SaveIO.write(save_path, data)
+
+
+## The whole save as a text code the player can copy somewhere safe.
+func export_code() -> String:
+	save()
+	var data: Dictionary = {"meta": meta.to_dict(), "run": run.to_dict() if run != null else {}, "saved_unix": Time.get_unix_time_from_system()}
+	return "IP1:" + Marshalls.utf8_to_base64(JSON.stringify(data))
+
+
+## Restores a save from export_code(). Returns false for anything invalid;
+## the current save is untouched in that case.
+func import_code(code: String) -> bool:
+	code = code.strip_edges()
+	if not code.begins_with("IP1:"):
+		return false
+	var text: String = Marshalls.base64_to_utf8(code.substr(4))
+	var parsed: Variant = JSON.parse_string(text)
+	if not (parsed is Dictionary) or not (parsed as Dictionary).has("meta"):
+		return false
+	var data: Dictionary = parsed
+	# Imported progress doesn't earn offline time for the gap before import.
+	data["saved_unix"] = Time.get_unix_time_from_system()
+	if not SaveIO.write(save_path, data):
+		return false
+	running = false
+	run = null
+	return true
 
 
 func reset_all_progress() -> void:
@@ -319,14 +348,14 @@ func assign_to_workshop(recipe_id: String, delta: int) -> bool:
 	w.colonists += delta
 	# A staffed workshop needs its inputs kept rather than sold.
 	if w.colonists > 0:
-		for input_id: String in (Content.recipe(recipe_id)["inputs"] as Dictionary).keys():
+		for input_id: String in Balance.recipe_inputs(run, recipe_id).keys():
 			run.hold[input_id] = true
 	purchased.emit()
 	return true
 
 
 func workshop_unlocked(recipe_id: String) -> bool:
-	for input_id: String in (Content.recipe(recipe_id)["inputs"] as Dictionary).keys():
+	for input_id: String in Balance.recipe_inputs(run, recipe_id).keys():
 		if not run.discovered.has(input_id):
 			return false
 	return true
@@ -389,7 +418,7 @@ func sell_all_stock() -> void:
 
 
 func father_affordable(father_id: String) -> bool:
-	var cost: Dictionary = Content.father(father_id)["cost"]
+	var cost: Dictionary = Balance.father_cost(run, father_id)
 	for key: String in cost.keys():
 		var have: float = run.gold if key == "gold" else run.stock_of(key)
 		if have + 0.0001 < float(cost[key]):
@@ -407,7 +436,7 @@ func father_offered(father_id: String) -> bool:
 func join_father(father_id: String) -> bool:
 	if run.has_father(father_id) or not father_offered(father_id) or not father_affordable(father_id):
 		return false
-	var cost: Dictionary = Content.father(father_id)["cost"]
+	var cost: Dictionary = Balance.father_cost(run, father_id)
 	for key: String in cost.keys():
 		if key == "gold":
 			run.gold -= float(cost[key])
@@ -429,6 +458,7 @@ func declare_independence() -> int:
 	if run == null or not Balance.independence_ready(run):
 		return 0
 	var liberty: int = Balance.liberty_payout(run, meta)
+	var extra_relics: int = int(Balance.research_add(run, "extra_relic"))
 	meta.add_stat("liberty_earned", liberty)
 	meta.liberty += liberty
 	meta.lifetime_liberty += liberty
@@ -440,7 +470,8 @@ func declare_independence() -> int:
 	running = false
 	# Every declaration brings home a keepsake and a page of the almanac.
 	if Balance.unlocked(meta, "relics"):
-		grant_relic("independence")
+		for i in 1 + extra_relics:
+			grant_relic("independence")
 	if Balance.unlocked(meta, "almanac"):
 		grant_almanac(int(Balance.v("almanac_per_independence")), "independence")
 	save()
@@ -536,7 +567,7 @@ func recall_governor(colony_id: String) -> void:
 ## Reward for tapping the treasure that drifts past on the map.
 func treasure_value() -> float:
 	var base: float = maxf(Balance.v("treasure_min_gold"), income_rate * Balance.v("treasure_income_seconds"))
-	return base * Balance.bonus(run, meta, "treasure")
+	return base * Balance.bonus(run, meta, "treasure") * Balance.research_mult(run, "treasure")
 
 
 func collect_treasure() -> float:
@@ -556,16 +587,47 @@ func collect_treasure() -> float:
 
 
 func favor_ready_in() -> float:
-	return maxf(0.0, meta.favor_ready_unix - Time.get_unix_time_from_system())
+	# Capped at one cooldown, so a clock that ran fast can't lock the Favor away.
+	return clampf(meta.favor_ready_unix - Time.get_unix_time_from_system(), 0.0, Balance.v("favor_cooldown_seconds"))
 
 
 ## Royal Favor: a free, timed production boost on a real-time cooldown.
 func request_favor() -> bool:
 	if run == null or favor_ready_in() > 0.0:
 		return false
-	run.favor_seconds += Balance.v("favor_seconds")
+	run.favor_seconds += Balance.v("favor_seconds") * Balance.research_mult(run, "favor_duration")
 	meta.add_stat("favors")
 	meta.favor_ready_unix = Time.get_unix_time_from_system() + Balance.v("favor_cooldown_seconds")
+	purchased.emit()
+	save()
+	return true
+
+
+# --- The Philosophical Society ---------------------------------------------------
+
+func study_affordable(id: String) -> bool:
+	var cost: Dictionary = Balance.study_cost(run, id)
+	for key: String in cost.keys():
+		var have: float = run.gold if key == "gold" else run.stock_of(key)
+		if have + 0.0001 < float(cost[key]):
+			return false
+	return true
+
+
+## Pays for and completes a study at once.
+func study(id: String) -> bool:
+	if run == null or Balance.study_block(run, meta, id) != "" or not study_affordable(id):
+		return false
+	var cost: Dictionary = Balance.study_cost(run, id)
+	for key: String in cost.keys():
+		if key == "gold":
+			run.gold -= float(cost[key])
+		else:
+			run.warehouse[key] = run.stock_of(key) - float(cost[key])
+	run.research[id] = run.study_level(id) + 1
+	run.research_version += 1
+	meta.add_stat("studies")
+	studied.emit(id)
 	purchased.emit()
 	save()
 	return true

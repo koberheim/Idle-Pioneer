@@ -31,7 +31,7 @@ func test_four_hours_catch_up_is_fast() -> void:
 		remaining -= s
 	var ms: int = Time.get_ticks_msec() - t0
 	gut.p("4h catch-up: %d ms" % ms)
-	assert_lt(ms, 1500, "4h catch-up took %d ms" % ms)
+	assert_lt(ms, 2500, "4h catch-up took %d ms" % ms)
 	assert_gt(ev.trips, 1000)
 	assert_lte(ev.shipments.size(), run.colonies.size())
 

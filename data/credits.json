@@ -1,0 +1,49 @@
+{
+	"sections": [
+		{
+			"title": "Game",
+			"lines": [
+				"Created by the Idle Pioneer team",
+				"Made with Godot Engine (godotengine.org)"
+			]
+		},
+		{
+			"title": "Music",
+			"lines": [
+				"Original arrangements of public-domain tunes, made for this game:",
+				"Yankee Doodle, Soldier's Joy, Greensleeves, Drunken Sailor (traditional)",
+				"Minuet in G, BWV Anh. 114 (Christian Petzold, 1725)",
+				"Old Hundredth (Louis Bourgeois, Genevan Psalter, 1551)",
+				"Rendered with the GeneralUser GS SoundFont by S. Christian Collins",
+				"www.schristiancollins.com (GeneralUser GS License v2.0)"
+			]
+		},
+		{
+			"title": "Sound Effects",
+			"lines": [
+				"Kenney (www.kenney.nl), CC0 1.0 public domain",
+				"Impact Sounds, RPG Audio, Interface Sounds and Music Jingles packs",
+				"Credit isn't required, but thank you, Kenney!"
+			]
+		},
+		{
+			"title": "Fonts",
+			"lines": [
+				"Libre Baskerville by the Libre Baskerville Project Authors (Impallari Type), SIL Open Font License 1.1",
+				"Almendra by Ana Sanfelippo, SIL Open Font License 1.1"
+			]
+		},
+		{
+			"title": "Historical Note",
+			"lines": [
+				"The figures and artifacts in this game are real people and objects from colonial history.",
+				"All portraits and depictions are original artwork made for the game, not likenesses taken from any collection."
+			]
+		}
+	],
+	"licenses": [
+		{"name": "Godot Engine (MIT) and third-party notices", "file": "engine"},
+		{"name": "Libre Baskerville (SIL OFL 1.1)", "file": "res://assets/fonts/LibreBaskerville-OFL.txt"},
+		{"name": "Almendra (SIL OFL 1.1)", "file": "res://assets/fonts/Almendra-OFL.txt"}
+	]
+}

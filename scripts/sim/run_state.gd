@@ -92,6 +92,14 @@ var shipments: int = 0
 var governors: Dictionary = {}
 ## Simulated seconds of Royal Favor (doubled production) remaining.
 var favor_seconds: float = 0.0
+## Philosophical Society studies this run: study id -> level (1, or more for
+## repeatable studies). Reset with the run.
+var research: Dictionary = {}
+## Bumped whenever `research` changes, so derived effects can be cached.
+var research_version: int = 0
+
+var _research_fx: Dictionary = {}
+var _research_fx_key: int = -1
 
 var _explored: PackedByteArray
 var _explored_key: String = ""
@@ -180,6 +188,38 @@ func colony_of_governor(governor_id: int) -> String:
 	return ""
 
 
+func study_level(id: String) -> int:
+	return int(research.get(id, 0))
+
+
+## Studied effects grouped by type: type -> [[targets, multiplier], ...], with
+## repeatable studies already compounded. Rebuilt only when research changes.
+func research_effects() -> Dictionary:
+	var key: int = research_version
+	if key == _research_fx_key:
+		return _research_fx
+	_research_fx_key = key
+	_research_fx = {}
+	for id: String in research.keys():
+		var def: Dictionary = Content.study(id)
+		if def.is_empty():
+			continue
+		var e: Dictionary = def["effect"]
+		var t: String = str(e["type"])
+		var lvl: int = int(research[id])
+		var v: float = float(e["value"])
+		if t in ["offline_hours", "workshop_labour", "extra_relic"]:
+			v *= lvl
+		elif t in ["recipe_input", "market_glut", "market_wanted"]:
+			pass
+		else:
+			v = pow(v, lvl)
+		if not _research_fx.has(t):
+			_research_fx[t] = []
+		(_research_fx[t] as Array).append([e.get("targets", []), v])
+	return _research_fx
+
+
 func colonists_assigned() -> int:
 	var n: int = 0
 	for c: ColonyState in colonies:
@@ -240,7 +280,7 @@ func to_dict() -> Dictionary:
 		"colonies": cols, "workshops": ws, "warehouse": warehouse.duplicate(),
 		"hold": hold.duplicate(), "discovered": discovered.duplicate(), "fathers": fathers.duplicate(),
 		"crafted": crafted.duplicate(), "shipments": shipments, "governors": governors.duplicate(),
-		"favor_seconds": favor_seconds,
+		"favor_seconds": favor_seconds, "research": research.duplicate(),
 		# The map is rebuilt from its seed, but what each settled site
 		# produces is kept so a generator change can't swap it.
 		"world_version": WorldMap.GENERATOR_VERSION,
@@ -322,6 +362,9 @@ static func from_dict(d: Dictionary) -> RunState:
 		r.crafted[k] = int(d["crafted"][k])
 	r.shipments = int(d.get("shipments", 0))
 	r.favor_seconds = float(d.get("favor_seconds", 0.0))
+	for k: String in (d.get("research", {}) as Dictionary).keys():
+		if not Content.study(k).is_empty():
+			r.research[k] = int(d["research"][k])
 	for k: String in (d.get("governors", {}) as Dictionary).keys():
 		r.governors[k] = int(d["governors"][k])
 	if r.colonists_assigned() > r.colonists_owned:

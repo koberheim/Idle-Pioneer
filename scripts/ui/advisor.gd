@@ -24,8 +24,8 @@ func _init() -> void:
 	_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(_label)
-	var x := UI.button("✕", "button", 48)
-	x.custom_minimum_size.x = 48
+	var x := UI.button("✕", "button", 60)
+	x.custom_minimum_size.x = 60
 	x.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	x.pressed.connect(func() -> void:
 		Game.mark_hint_seen(_hint_id)

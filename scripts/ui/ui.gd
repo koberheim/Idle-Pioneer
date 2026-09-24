@@ -15,8 +15,8 @@ const BLUE := Color("3b6db0")
 const FONT_BODY := preload("res://assets/fonts/LibreBaskerville-Regular.ttf")
 const FONT_TITLE := preload("res://assets/fonts/Almendra-Regular.ttf")
 
-const SIZE_SMALL := 18
-const SIZE_BODY := 22
+const SIZE_SMALL := 20
+const SIZE_BODY := 23
 const SIZE_BIG := 28
 const SIZE_TITLE := 34
 
