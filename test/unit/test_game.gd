@@ -1,166 +1,160 @@
-## Tests for Game's RunState/MetaState wiring (task G3).
-##
-## Game is an autoload - a live singleton shared across the whole test process,
-## not a fresh instance per test. before_each/after_each reset it explicitly so
-## these tests can't leak state into each other or into later test files that
-## also touch Game (e.g. task R1's Inventory tests).
 extends GutTest
+
+var _saved_meta: MetaState
+var _saved_run: RunState
+var _saved_path: String
 
 
 func before_each() -> void:
-	Game.run = null
+	_saved_path = Game.save_path
+	Game.save_path = "user://test_game_save.json"
+	_saved_meta = Game.meta
+	_saved_run = Game.run
 	Game.meta = MetaState.new()
-	Game.colonies.clear()
-	Game.routes.clear()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1
+	Game.run = RunState.create("french", rng)
+	Game.buy_amount = 1
 
 
 func after_each() -> void:
-	Game.run = null
-	Game.meta = MetaState.new()
-	Game.colonies.clear()
-	Game.routes.clear()
+	SaveIO.delete(Game.save_path)
+	Game.save_path = _saved_path
+	Game.meta = _saved_meta
+	Game.run = _saved_run
 
 
-func test_fresh_game_has_no_run() -> void:
-	assert_false(Game.has_run())
+func test_upgrade_spends_gold_and_raises_level() -> void:
+	Game.run.gold = 1000.0
+	var cost: float = Balance.colony_upgrade_cost("prod", Game.run.colony("capital"))
+	assert_true(Game.upgrade_colony("capital", "prod"))
+	assert_eq(Game.run.colony("capital").prod_level, 1)
+	assert_almost_eq(Game.run.gold, 1000.0 - cost, 0.001)
+
+
+func test_upgrade_fails_without_gold() -> void:
+	Game.run.gold = 1.0
+	assert_false(Game.upgrade_colony("capital", "prod"))
+	assert_eq(Game.run.colony("capital").prod_level, 0)
+
+
+func test_buy_max_buys_as_many_as_affordable() -> void:
+	Game.run.gold = 10000.0
+	Game.buy_amount = -1
+	assert_true(Game.upgrade_colony("capital", "prod"))
+	var lvl: int = Game.run.colony("capital").prod_level
+	assert_gt(lvl, 5)
+	assert_true(Game.run.gold < Balance.colony_upgrade_cost("prod", Game.run.colony("capital")))
+
+
+func test_colonies_found_in_order_with_nation_discount() -> void:
+	Game.run.gold = 1e9
+	assert_false(Game.found_colony("plantation"), "cannot skip ahead")
+	var before: float = Game.run.gold
+	assert_true(Game.found_colony("fishery"))
+	# French colonies cost 20% less.
+	assert_almost_eq(before - Game.run.gold, 250.0 * 0.8, 0.01)
+
+
+func test_colonists_are_a_shared_pool() -> void:
+	Game.run.gold = 1e6
+	Game.run.colony("fishery").founded = true
+	assert_true(Game.recruit_colonists())
+	assert_eq(Game.run.colonists_idle(), 1)
+	assert_true(Game.assign_to_colony("fishery", 1))
+	assert_false(Game.assign_to_colony("capital", 1), "no idle colonist left")
+	assert_true(Game.assign_to_colony("fishery", -1))
+	assert_eq(Game.run.colonists_idle(), 1)
+
+
+func test_staffing_a_workshop_holds_its_inputs() -> void:
+	Game.run.gold = 1e6
+	Game.run.discovered.append("timber")
+	assert_true(Game.build_workshop("planks"))
+	Game.recruit_colonists()
+	assert_true(Game.assign_to_workshop("planks", 1))
+	assert_true(Game.run.is_held("timber"))
+
+
+func test_workshop_locked_until_inputs_discovered() -> void:
+	Game.run.gold = 1e9
+	assert_false(Game.build_workshop("salt_cod"))
+
+
+func test_father_costs_gold_and_goods() -> void:
+	Game.run.gold = 1000.0
+	Game.run.warehouse["timber"] = 200.0
+	assert_true(Game.join_father("minuit"))
+	assert_almost_eq(Game.run.gold, 600.0, 0.01)
+	assert_almost_eq(Game.run.stock_of("timber"), 50.0, 0.01)
+	assert_false(Game.join_father("minuit"), "only once")
+
+
+func test_declaring_independence_wipes_run_and_keeps_meta() -> void:
+	Game.run.lifetime_gold = Balance.v("independence_gold") * 4.0
+	Game.run.crafted["muskets"] = 1
+	Game.meta.upgrades["industry"] = 2
+	var paid: int = Game.declare_independence()
+	assert_eq(paid, int(floor(Balance.v("liberty_base") * 2.0)))
 	assert_null(Game.run)
+	assert_eq(Game.meta.liberty, paid)
+	assert_eq(Game.meta.runs_completed, 1)
+	assert_eq(Game.meta.level("industry"), 2)
 
 
-func test_new_run_creates_a_run_with_the_given_map_id() -> void:
-	Game.new_run(&"mvp_coast")
-	assert_true(Game.has_run())
-	assert_eq(Game.run.map_id, &"mvp_coast")
+func test_independence_needs_muskets() -> void:
+	Game.run.lifetime_gold = Balance.v("independence_gold") * 2.0
+	assert_false(Balance.independence_ready(Game.run))
+	assert_eq(Game.declare_independence(), 0)
+	assert_not_null(Game.run)
 
 
-func test_two_new_run_calls_produce_independent_state() -> void:
-	Game.new_run(&"mvp_coast")
-	Game.run.gold = 500.0
-	Game.run.colonies_founded = 3
-
-	Game.new_run(&"mvp_coast")
-
-	# The second run must not carry over the first's mutations - if it did,
-	# something cached the old RunState instead of reading Game.run fresh.
-	assert_eq(Game.run.gold, 0.0)
-	assert_eq(Game.run.colonies_founded, 0)
+func test_liberty_upgrade_costs_follow_table() -> void:
+	Game.meta.liberty = 10
+	assert_true(Game.buy_liberty_upgrade("industry"))
+	assert_eq(Game.meta.liberty, 7)
+	assert_true(Game.buy_liberty_upgrade("industry"))
+	assert_eq(Game.meta.liberty, 2)
+	assert_false(Game.buy_liberty_upgrade("industry"))
 
 
-## Found while building the colonist pool: new_run() replaced `Game.run`
-## wholesale, but Colonies (live Colony instances) lives in memory outside
-## RunState and wasn't being cleared - a second run would start with the
-## first run's colonies still active. Fixed in game.gd's new_run(); this
-## test covers the fix. (Colonists no longer needs a parallel check - the
-## typed roster lives directly on RunState now, rework: typed colonist
-## roster, so the `run = fresh` swap already resets it for free.)
-##
-## A fresh run always has exactly the Capital (bootstrapped automatically -
-## see game.gd's new_run(), rework task: live simulation), so "cleared"
-## means "only the fresh Capital remains," not "empty" - founding a second
-## colony is what proves anything beyond the Capital actually got wiped.
-func test_new_run_clears_leftover_colonies_and_colonist_assignments() -> void:
-	Game.new_run(&"mvp_coast")
-	Game.colonies.register(Colony.new(&"cape_harbour"))
-	Game.run.influence = 100.0
-	var c: Colonist = Game.colonists.recruit(Colonist.Type.RESOURCE)
-	Game.colonists.assign(c.id, &"slot_0")
-
-	Game.new_run(&"mvp_coast")
-
-	var remaining: Array[Colony] = Game.colonies.all()
-	assert_eq(remaining.size(), 1, "only the freshly-bootstrapped Capital should remain")
-	assert_true(remaining[0].is_capital)
-	assert_eq(Game.colonists.colonists_owned(), 0, "leftover colonists should be cleared")
+func test_state_round_trips_through_dict() -> void:
+	Game.run.gold = 1234.5
+	Game.run.colony("fishery").founded = true
+	Game.run.colony("fishery").cargo_level = 3
+	Game.run.colony("fishery").trip = 0.4
+	Game.run.hold["cod"] = true
+	Game.run.fathers.append("minuit")
+	Game.run.workshop("planks").built = true
+	Game.meta.upgrades["navigation"] = 2
+	var json: String = JSON.stringify({"meta": Game.meta.to_dict(), "run": Game.run.to_dict()})
+	var parsed: Dictionary = JSON.parse_string(json)
+	var run2 := RunState.from_dict(parsed["run"])
+	var meta2 := MetaState.from_dict(parsed["meta"])
+	assert_eq(run2.to_dict(), RunState.from_dict(Game.run.to_dict()).to_dict())
+	assert_almost_eq(run2.gold, 1234.5, 0.001)
+	assert_eq(run2.colony("fishery").cargo_level, 3)
+	assert_eq(run2.colony("fishery").site, Game.run.colony("fishery").site)
+	assert_true(run2.is_held("cod"))
+	assert_eq(meta2.level("navigation"), 2)
 
 
-## The Capital is free and always founded from the start (docs/GAME_DESIGN.md
-## §5) - every other colony has to be bought via Colonies.found().
-func test_new_run_bootstraps_the_capital() -> void:
-	Game.new_run(&"mvp_coast")
-	var capital: Colony = Game.colonies.capital()
-	assert_not_null(capital)
-	assert_eq(capital.colony_id, &"slot_0")
-	assert_eq(capital.tier_id, &"tidewater_landing")
-	assert_true(capital.is_capital)
-	assert_true(capital.is_coastal, "the Capital is always placed on the continent's coast")
+func test_corrupt_save_falls_back_to_backup() -> void:
+	var path := "user://test_save.json"
+	SaveIO.delete(path)
+	assert_true(SaveIO.write(path, {"meta": {"liberty": 5}}))
+	assert_true(SaveIO.write(path, {"meta": {"liberty": 6}}))
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_string("{not json")
+	f.close()
+	var data: Dictionary = SaveIO.read(path)
+	assert_eq(int(data["meta"]["liberty"]), 5)
+	SaveIO.delete(path)
 
 
-## Rework task: randomized map. new_run() generates the whole run's map and
-## colony-slot layout up front, once, seeded - this is the "something
-## works" smoke test; MapGenerator's own tests cover the generation
-## algorithm's correctness in detail.
-func test_new_run_generates_a_map_and_colony_slots() -> void:
-	Game.new_run(&"mvp_coast")
-	assert_false(Game.run.map.is_empty())
-	assert_gt(Game.run.map_seed, -1)
-	assert_gt(Game.run.colony_slots.size(), 1, "slot 0 (the Capital) plus at least one more")
-	assert_true(bool(Game.run.colony_slots[0]["founded"]))
-
-
-func test_new_run_with_an_explicit_seed_is_reproducible() -> void:
-	Game.new_run(&"mvp_coast", 12345)
-	var first_map: Dictionary = Game.run.map
-	var first_slots: Array[Dictionary] = Game.run.colony_slots
-
-	Game.new_run(&"mvp_coast", 12345)
-
-	assert_eq(Game.run.map, first_map)
-	assert_eq(Game.run.colony_slots, first_slots)
-
-
-func test_new_run_does_not_touch_meta() -> void:
-	Game.meta.liberty = 5
-	Game.meta.lifetime_gold_earned = 1000.0
-
-	Game.new_run(&"mvp_coast")
-	Game.new_run(&"mvp_coast")
-
-	assert_eq(Game.meta.liberty, 5)
-	assert_eq(Game.meta.lifetime_gold_earned, 1000.0)
-
-
-func test_new_run_emits_run_started() -> void:
-	watch_signals(Game)
-	Game.new_run(&"mvp_coast")
-	assert_signal_emitted(Game, "run_started")
-
-
-func test_new_run_does_not_emit_run_ended_when_no_prior_run_existed() -> void:
-	watch_signals(Game)
-	Game.new_run(&"mvp_coast")
-	assert_signal_not_emitted(Game, "run_ended")
-
-
-func test_starting_a_second_run_emits_run_ended_for_the_first() -> void:
-	Game.new_run(&"mvp_coast")
-	watch_signals(Game)
-	Game.new_run(&"mvp_coast")
-	assert_signal_emitted(Game, "run_ended")
-	assert_signal_emitted(Game, "run_started")
-
-
-## Direct request: nation selection (docs/GAME_DESIGN.md predates this -
-## see NationDef's class doc for where the bonus data came from). Default
-## (no nation_id argument) must stay neutral - every existing caller that
-## predates this feature, and every other test in this suite, calls
-## new_run() without one and must see exactly the behavior it always has.
-func test_new_run_without_a_nation_has_no_nation_bonus() -> void:
-	Game.new_run(&"mvp_coast")
-	assert_null(Game.current_nation())
-	assert_almost_eq(Game.nation_extraction_rate_multiplier(), 1.0, 0.0001)
-	assert_almost_eq(Game.nation_ship_speed_multiplier(), 1.0, 0.0001)
-	assert_almost_eq(Game.nation_wagon_speed_multiplier(), 1.0, 0.0001)
-	assert_almost_eq(Game.nation_colony_cost_multiplier(), 1.0, 0.0001)
-	assert_almost_eq(Game.nation_gold_sell_multiplier(), 1.0, 0.0001)
-	assert_almost_eq(Game.nation_liberty_generation_multiplier(), 1.0, 0.0001)
-
-
-func test_new_run_with_a_nation_id_picks_up_its_bonus() -> void:
-	Game.new_run(&"mvp_coast", -1, &"dutch")
-	assert_eq(Game.current_nation().id, &"dutch")
-	assert_almost_eq(Game.nation_extraction_rate_multiplier(), 1.15, 0.0001)
-	assert_almost_eq(Game.nation_ship_speed_multiplier(), 1.0, 0.0001, "dutch's bonus is production-only")
-
-
-func test_new_run_persists_the_nation_id_on_run_state() -> void:
-	Game.new_run(&"mvp_coast", -1, &"spanish")
-	assert_eq(Game.run.nation_id, &"spanish")
+func test_format_numbers() -> void:
+	assert_eq(Format.num(999.0), "999")
+	assert_eq(Format.num(1234.0), "1.23K")
+	assert_eq(Format.num(12345.0), "12.3K")
+	assert_eq(Format.num(1.5e9), "1.50B")
+	assert_eq(Format.num(999999.0), "999K")

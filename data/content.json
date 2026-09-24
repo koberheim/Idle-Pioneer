@@ -1,0 +1,77 @@
+{
+	"resources": [
+		{"id": "timber", "name": "Timber", "price": 1, "kind": "raw"},
+		{"id": "cod", "name": "Cod", "price": 4, "kind": "raw"},
+		{"id": "tobacco", "name": "Tobacco", "price": 14, "kind": "raw"},
+		{"id": "cotton", "name": "Cotton", "price": 45, "kind": "raw"},
+		{"id": "iron_ore", "name": "Iron Ore", "price": 150, "kind": "raw"},
+		{"id": "indigo", "name": "Indigo", "price": 480, "kind": "raw"},
+		{"id": "sugar_cane", "name": "Sugar Cane", "price": 1600, "kind": "raw"},
+		{"id": "furs", "name": "Furs", "price": 5200, "kind": "raw"},
+		{"id": "planks", "name": "Planks", "price": 4, "kind": "crafted"},
+		{"id": "salt_cod", "name": "Salt Cod", "price": 18, "kind": "crafted"},
+		{"id": "cigars", "name": "Cigars", "price": 70, "kind": "crafted"},
+		{"id": "cloth", "name": "Cloth", "price": 230, "kind": "crafted"},
+		{"id": "pig_iron", "name": "Pig Iron", "price": 520, "kind": "crafted"},
+		{"id": "barrels", "name": "Barrels", "price": 1400, "kind": "crafted"},
+		{"id": "dyed_cloth", "name": "Dyed Cloth", "price": 2700, "kind": "crafted"},
+		{"id": "tools", "name": "Tools", "price": 4800, "kind": "crafted"},
+		{"id": "rum", "name": "Rum", "price": 14000, "kind": "crafted"},
+		{"id": "muskets", "name": "Muskets", "price": 38000, "kind": "crafted"}
+	],
+
+	"colonies": [
+		{"id": "capital", "resource": "timber", "distance": 0, "found_cost": 0, "flavor": "Seat of the colonial government. Timber from the surrounding forest is sold straight off the wharf."},
+		{"id": "fishery", "resource": "cod", "distance": 1, "found_cost": 250, "flavor": "The Grand Banks teem with cod. Fishermen salt and barrel the catch for Europe."},
+		{"id": "plantation", "resource": "tobacco", "distance": 2, "found_cost": 2500, "flavor": "Broad river fields of tobacco leaf, much prized in the coffee houses of Europe."},
+		{"id": "cotton_fields", "resource": "cotton", "distance": 3, "found_cost": 25000, "flavor": "Rolling flats of cotton, destined for the looms of the Old World."},
+		{"id": "ironworks", "resource": "iron_ore", "distance": 4, "found_cost": 250000, "flavor": "Bog iron and hillside ore dug from the hollows."},
+		{"id": "indigo_reach", "resource": "indigo", "distance": 5, "found_cost": 2500000, "flavor": "Indigo vats stain the river blue for a mile downstream."},
+		{"id": "sugar_isle", "resource": "sugar_cane", "distance": 6, "found_cost": 15000000, "flavor": "A lush island of cane fields and boiling houses."},
+		{"id": "fur_post", "resource": "furs", "distance": 7, "found_cost": 150000000, "flavor": "A distant trading post deep in the northern woods, rich in beaver pelts."}
+	],
+
+	"recipes": [
+		{"id": "planks", "building": "Carpenter's Shop", "inputs": {"timber": 2}, "time": 0.5, "build_cost": 150},
+		{"id": "salt_cod", "building": "Salting House", "inputs": {"cod": 3}, "time": 0.625, "build_cost": 1200},
+		{"id": "cigars", "building": "Tobacconist's House", "inputs": {"tobacco": 3}, "time": 0.75, "build_cost": 15000},
+		{"id": "cloth", "building": "Weaver's House", "inputs": {"cotton": 3}, "time": 0.75, "build_cost": 200000},
+		{"id": "pig_iron", "building": "Iron Furnace", "inputs": {"iron_ore": 2}, "time": 0.875, "build_cost": 2500000},
+		{"id": "barrels", "building": "Cooperage", "inputs": {"planks": 2, "pig_iron": 1}, "time": 1.25, "build_cost": 4000000},
+		{"id": "dyed_cloth", "building": "Dye House", "inputs": {"cloth": 2, "indigo": 2}, "time": 1.375, "build_cost": 30000000},
+		{"id": "tools", "building": "Blacksmith's House", "inputs": {"pig_iron": 3, "planks": 1}, "time": 1.5, "build_cost": 30000000},
+		{"id": "rum", "building": "Rum Distillery", "inputs": {"sugar_cane": 4, "barrels": 1}, "time": 1.75, "build_cost": 150000000},
+		{"id": "muskets", "building": "Armory", "inputs": {"tools": 2, "planks": 2}, "time": 2.25, "build_cost": 300000000}
+	],
+
+	"fathers": [
+		{"id": "minuit", "name": "Peter Minuit", "title": "Purchaser of Manhattan", "effect": "colony_cost", "value": 0.75, "desc": "New colonies cost 25% less.", "cost": {"gold": 400, "timber": 150}},
+		{"id": "brewster", "name": "William Brewster", "title": "Elder of Plymouth", "effect": "colonist_cost", "value": 0.8, "desc": "Colonists cost 20% less at the docks.", "cost": {"gold": 2500, "cod": 300}},
+		{"id": "pocahontas", "name": "Pocahontas", "title": "Peacemaker", "effect": "production", "value": 1.25, "desc": "All colonies produce 25% more.", "cost": {"gold": 20000, "planks": 800, "salt_cod": 200}},
+		{"id": "adam_smith", "name": "Adam Smith", "title": "Economist", "effect": "craft_speed", "value": 1.5, "desc": "Workshops craft 50% faster.", "cost": {"gold": 120000, "cigars": 400}},
+		{"id": "magellan", "name": "Ferdinand Magellan", "title": "Navigator", "effect": "sea_speed", "value": 1.35, "desc": "Ships sail 35% faster.", "cost": {"gold": 600000, "salt_cod": 3000, "cloth": 200}},
+		{"id": "de_soto", "name": "Hernando de Soto", "title": "Explorer", "effect": "land_speed", "value": 1.35, "desc": "Wagon trains travel 35% faster.", "cost": {"gold": 600000, "planks": 20000, "cotton": 2000}},
+		{"id": "revere", "name": "Paul Revere", "title": "Silversmith", "effect": "cargo", "value": 1.5, "desc": "Every route carries 50% more cargo.", "cost": {"gold": 5000000, "pig_iron": 1500}},
+		{"id": "fugger", "name": "Jakob Fugger", "title": "Merchant Banker", "effect": "raw_price", "value": 1.25, "desc": "Raw goods sell for 25% more.", "cost": {"gold": 25000000, "cloth": 6000, "iron_ore": 10000}},
+		{"id": "stuyvesant", "name": "Peter Stuyvesant", "title": "Director-General", "effect": "crafted_price", "value": 1.25, "desc": "Crafted goods sell for 25% more.", "cost": {"gold": 90000000, "barrels": 3000, "indigo": 8000}},
+		{"id": "hudson", "name": "Henry Hudson", "title": "Explorer of the North", "effect": "fur_production", "value": 2.0, "desc": "Fur production doubled.", "cost": {"gold": 500000000, "dyed_cloth": 3000, "tools": 1000}},
+		{"id": "franklin", "name": "Benjamin Franklin", "title": "Diplomat", "effect": "offline_hours", "value": 4.0, "desc": "Colonies keep working 4 more hours while you are away.", "cost": {"gold": 1200000000, "rum": 400}},
+		{"id": "jefferson", "name": "Thomas Jefferson", "title": "Author of the Declaration", "effect": "liberty", "value": 1.2, "desc": "Earn 20% more Liberty when you declare independence.", "cost": {"gold": 1500000000, "muskets": 25}}
+	],
+
+	"nations": [
+		{"id": "english", "name": "England", "adjective": "English", "color": "#b23a2e", "bonus": "sea_speed", "value": 1.2, "desc": "Ships sail 20% faster."},
+		{"id": "french", "name": "France", "adjective": "French", "color": "#2e4f9e", "bonus": "colony_cost", "value": 0.8, "desc": "New colonies cost 20% less."},
+		{"id": "spanish", "name": "Spain", "adjective": "Spanish", "color": "#d9a51e", "bonus": "sell_price", "value": 1.2, "desc": "All goods sell for 20% more."},
+		{"id": "dutch", "name": "Netherlands", "adjective": "Dutch", "color": "#e07b1a", "bonus": "production", "value": 1.15, "desc": "All colonies produce 15% more."},
+		{"id": "portuguese", "name": "Portugal", "adjective": "Portuguese", "color": "#2f8a4a", "bonus": "land_speed", "value": 1.3, "desc": "Wagon trains travel 30% faster."},
+		{"id": "swedish", "name": "Sweden", "adjective": "Swedish", "color": "#3a86c8", "bonus": "liberty", "value": 1.15, "desc": "Earn 15% more Liberty on independence."}
+	],
+
+	"liberty_upgrades": [
+		{"id": "industry", "name": "Industry", "tagline": "The colonies grow productive", "desc": "+15% production per level", "per_level": 0.15, "costs": [3, 5, 9, 17, 30, 55, 99, 178, 320, 576]},
+		{"id": "navigation", "name": "Navigation", "tagline": "The sea lanes open", "desc": "+12% route speed and cargo per level", "per_level": 0.12, "costs": [4, 7, 13, 23, 42, 76, 137, 246]},
+		{"id": "settlement", "name": "Settlement", "tagline": "Word of the New World spreads", "desc": "-7% colony and colonist cost per level", "per_level": 0.07, "costs": [5, 9, 16, 29, 52, 94, 169, 305]},
+		{"id": "commerce", "name": "Commerce", "tagline": "Trade houses open in Amsterdam", "desc": "+10% sale price per level", "per_level": 0.10, "costs": [4, 8, 14, 25, 45, 80, 145, 260]}
+	]
+}

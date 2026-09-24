@@ -1,43 +1,44 @@
-## Pure number-formatting helper (docs/GAME_DESIGN.md §11 Phase 7: "£1.2M,
-## not £1200000"). Stateless, so a plain static utility rather than an
-## autoload - nothing here needs Balance.tres or any other boot-order
-## dependency, unlike Balance/Db.
+## Number and time formatting for display.
 class_name Format
 extends RefCounted
 
-const _SUFFIXES: Array[String] = ["K", "M", "B", "T", "Qa", "Qi"]
+const SUFFIXES: Array[String] = ["", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"]
 
 
-## Abbreviates a currency-scale number: under 1000 shows with `decimals`
-## places (0 by default - most displayed amounts here are whole-unit
-## currency/counts), at or above 1000 always shows one decimal place with a
-## magnitude suffix regardless of `decimals` (1,000 -> "1.0K",
-## 1,250,000 -> "1.3M") - the point of abbreviating is losing sub-unit
-## precision anyway. Magnitudes beyond the last known suffix keep stepping
-## by "Qi" powers rather than breaking, since idle games are exactly the
-## genre where numbers eventually run past any fixed table.
-static func number(value: float, decimals: int = 0) -> String:
+## 999 -> "999", 1234 -> "1.23K", 12345 -> "12.3K", 1.5e9 -> "1.50B".
+static func num(value: float, small_decimals: int = 0) -> String:
 	var sign: String = "-" if value < 0.0 else ""
 	var v: float = absf(value)
-
 	if v < 1000.0:
-		return "%s%s" % [sign, ("%." + str(decimals) + "f") % v]
-
-	var magnitude: int = 0
-	while v >= 1000.0 and magnitude < _SUFFIXES.size():
+		if small_decimals > 0 and v < 100.0 and not is_equal_approx(v, roundf(v)):
+			return sign + (("%." + str(small_decimals) + "f") % v)
+		return sign + str(int(floor(v + 0.0001)))
+	var mag: int = 0
+	while v >= 1000.0 and mag < SUFFIXES.size() - 1:
 		v /= 1000.0
-		magnitude += 1
+		mag += 1
+	var body: String
+	if v >= 100.0:
+		body = "%d" % int(floor(v))
+	elif v >= 10.0:
+		body = "%.1f" % (floor(v * 10.0) / 10.0)
+	else:
+		body = "%.2f" % (floor(v * 100.0) / 100.0)
+	return sign + body + SUFFIXES[mag]
 
-	# Past the last named suffix, keep dividing and report the excess
-	# magnitude as a numeric multiplier on the largest named one instead of
-	# silently freezing at "999Qi".
-	var extra_steps: int = 0
-	while v >= 1000.0:
-		v /= 1000.0
-		extra_steps += 1
 
-	var suffix: String = _SUFFIXES[magnitude - 1]
-	if extra_steps > 0:
-		suffix = "%s^%d" % [suffix, extra_steps]
+static func rate(value: float) -> String:
+	if value < 10.0:
+		return "%.2f" % value
+	return num(value)
 
-	return "%s%.1f%s" % [sign, v, suffix]
+
+static func duration(seconds: float) -> String:
+	var s: int = int(seconds)
+	if s < 60:
+		return "%ds" % s
+	if s < 3600:
+		return "%dm %02ds" % [s / 60, s % 60]
+	if s < 86400:
+		return "%dh %02dm" % [s / 3600, (s % 3600) / 60]
+	return "%dd %dh" % [s / 86400, (s % 86400) / 3600]

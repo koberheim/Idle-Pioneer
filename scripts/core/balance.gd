@@ -1,245 +1,213 @@
-## Autoload: every economic formula this game runs on (docs/GAME_DESIGN.md
-## §10's suggested architecture, adopted directly - "every constant and
-## formula" in one place). Colony/Route/Colonists call into here rather than
-## computing their own numbers, so retuning a cost curve or a bonus-per-level
-## rate is always a one-file change - never a hunt across every system that
-## happens to use it.
-##
-## The raw tunable numbers live in data/balance.tres (a BalanceDef Resource,
-## editable directly in the Godot inspector - no code, no recompile). This
-## script is the formulas that combine those numbers; swapping in a different
-## balance.tres (for a test, or a wholesale rebalance) changes every number at
-## once without touching a single line here.
+## Every tunable number and formula in one place. Constants come from
+## data/balance.json; multipliers are gathered from the nation, Founding
+## Fathers, and Liberty upgrades so no other code needs to know where a bonus
+## comes from.
 extends Node
 
-var _def: BalanceDef
+const BALANCE_PATH := "res://data/balance.json"
+
+var k: Dictionary = {}
 
 
-func _ready() -> void:
-	_def = load("res://data/balance.tres")
-	if _def == null:
-		push_error("Balance: failed to load res://data/balance.tres")
+func _init() -> void:
+	var f := FileAccess.open(BALANCE_PATH, FileAccess.READ)
+	var parsed: Variant = JSON.parse_string(f.get_as_text()) if f != null else null
+	if parsed is Dictionary:
+		k = parsed
+	else:
+		push_error("Balance: cannot read %s" % BALANCE_PATH)
 
 
-## Shared shape for every "cost grows geometrically per level/purchase already
-## made" curve in the game (§6: colonist_cost, building_cost, transport_cost,
-## workshop_cost are all `base * growth^count`) - one function instead of four
-## near-identical ones.
-func _geometric_cost(base: float, growth: float, count: int) -> float:
-	return base * pow(growth, count)
+func v(key: String) -> float:
+	return float(k.get(key, 0.0))
 
 
-## Cost of recruiting the next colonist (any type) - "no cap owned, but
-## expensive" (rework: typed colonist roster). `prestige_discount_multiplier`
-## is Settlement's effect (Prestige.cost_discount_multiplier()) - defaults to
-## 1.0 (no discount) so every existing caller/test that hasn't bought
-## Settlement yet is unaffected.
-func next_colonist_recruit_cost(colonists_owned: int, prestige_discount_multiplier: float = 1.0) -> float:
-	return _geometric_cost(_def.colonist_recruit_base_cost, _def.colonist_recruit_cost_growth, colonists_owned) * prestige_discount_multiplier
+# --- Bonus sources ----------------------------------------------------------
+
+func nation_bonus(run: RunState, bonus: String) -> float:
+	var n: Dictionary = Content.nation(run.nation_id)
+	if n.get("bonus", "") == bonus:
+		return float(n["value"])
+	return 1.0
 
 
-## Cost of raising one specific colonist from `current_level` to the next -
-## scales with that colonist's own level, independent of how many colonists
-## are owned overall. Same Settlement-discount convention as recruiting.
-func next_colonist_upgrade_cost(current_level: int, prestige_discount_multiplier: float = 1.0) -> float:
-	return _geometric_cost(_def.colonist_upgrade_base_cost, _def.colonist_upgrade_cost_growth, current_level) * prestige_discount_multiplier
+func father_bonus(run: RunState, effect: String) -> float:
+	var m: float = 1.0
+	for id: String in run.fathers:
+		var f: Dictionary = Content.father(id)
+		if f.get("effect", "") == effect:
+			m *= float(f["value"])
+	return m
 
 
-func next_production_level_cost(current_level: int) -> float:
-	return _geometric_cost(_def.production_level_base_cost, _def.production_level_cost_growth, current_level)
+func liberty_mult(meta: MetaState, upgrade_id: String) -> float:
+	var def: Dictionary = Content.liberty_upgrade(upgrade_id)
+	var lvl: int = meta.level(upgrade_id)
+	if upgrade_id == "settlement":
+		return maxf(pow(1.0 - float(def["per_level"]), lvl), v("settlement_floor"))
+	return 1.0 + float(def.get("per_level", 0.0)) * lvl
 
 
-func next_cargo_level_cost(current_level: int) -> float:
-	return _geometric_cost(_def.cargo_level_base_cost, _def.cargo_level_cost_growth, current_level)
+# --- Colonies ---------------------------------------------------------------
+
+func is_sea(c: RunState.ColonyState) -> bool:
+	var sites: Array = Content.colony_sites(c.id)
+	if sites.is_empty():
+		return false
+	return str((sites[clampi(c.site, 0, sites.size() - 1)] as Dictionary).get("route", "land")) == "sea"
 
 
-func next_speed_level_cost(current_level: int) -> float:
-	return _geometric_cost(_def.speed_level_base_cost, _def.speed_level_cost_growth, current_level)
+func production_rate(run: RunState, meta: MetaState, c: RunState.ColonyState) -> float:
+	var def: Dictionary = Content.colony(c.id)
+	var rate: float = v("base_rate")
+	rate *= 1.0 + v("prod_per_level") * c.prod_level
+	rate *= 1.0 + v("colonist_production_bonus") * c.colonists
+	rate *= liberty_mult(meta, "industry")
+	rate *= nation_bonus(run, "production")
+	rate *= father_bonus(run, "production")
+	if def.get("resource", "") == "furs":
+		rate *= father_bonus(run, "fur_production")
+	return rate
 
 
-## A colonist's primary effect, scaled by its own level (rework: typed
-## colonist roster - replaces the old flat per-headcount bonus). `level` is
-## 0 when no colonist of the relevant type is assigned to a colony, which
-## correctly yields a neutral 1.0 multiplier - a colony still works fine
-## unstaffed, staffing is a bonus on top (docs/GODOT_PLAN.md's design
-## realignment section).
-func colonist_primary_multiplier(level: int) -> float:
-	return 1.0 + _def.colonist_primary_bonus_per_level * float(level)
+func cargo_capacity(run: RunState, meta: MetaState, c: RunState.ColonyState) -> float:
+	# Cargo grows with distance as fast as travel time does, so a route's
+	# throughput doesn't depend on distance - far colonies are just lumpier.
+	var dist: float = maxf(float(Content.colony(c.id)["distance"]), 1.0)
+	var cap: float = dist * (v("sea_cargo_per_distance") if is_sea(c) else v("land_cargo_per_distance"))
+	cap *= 1.0 + v("cargo_per_level") * c.cargo_level
+	cap *= liberty_mult(meta, "navigation")
+	cap *= father_bonus(run, "cargo")
+	return cap
 
 
-## PLACEHOLDER FRAMEWORK ONLY - see BalanceDef.colonist_secondary_unlock_level's
-## doc comment. Nothing calls this yet; it exists so the data model has room
-## for a real secondary-effect design later without a restructure.
-func colonist_secondary_modifier(level: int) -> float:
-	if level < _def.colonist_secondary_unlock_level:
-		return 0.0
-	return _def.colonist_secondary_bonus_per_level * float(level - _def.colonist_secondary_unlock_level + 1)
+func round_trip_seconds(run: RunState, meta: MetaState, c: RunState.ColonyState) -> float:
+	var def: Dictionary = Content.colony(c.id)
+	var sea: bool = is_sea(c)
+	var t: float = float(def["distance"]) * (v("sea_time_factor") if sea else v("land_time_factor"))
+	var speed: float = 1.0 + v("speed_per_level") * c.speed_level
+	speed *= liberty_mult(meta, "navigation")
+	if sea:
+		speed *= nation_bonus(run, "sea_speed") * father_bonus(run, "sea_speed")
+	else:
+		speed *= nation_bonus(run, "land_speed") * father_bonus(run, "land_speed")
+	return t / speed
 
 
-## Units/second a colony produces. Colonies have a real base rate with zero
-## colonists assigned - staffing is a bonus on top, not a requirement to
-## produce anything at all (docs/GODOT_PLAN.md's design realignment section -
-## this is a deliberate correction to §4's "every colonist is either
-## producing or converting" read literally). `resource_colonist_level` is 0
-## if no Resource-type colonist is assigned to this colony.
-func colony_production_rate(
-	base_rate: float, production_level: int, resource_colonist_level: int, prestige_multiplier: float
-) -> float:
-	var level_multiplier: float = 1.0 + _def.production_level_bonus * float(production_level)
-	return base_rate * level_multiplier * colonist_primary_multiplier(resource_colonist_level) * prestige_multiplier
+## Units per second a route can actually move; production beyond this piles up
+## at the colony.
+func route_throughput(run: RunState, meta: MetaState, c: RunState.ColonyState) -> float:
+	var rt: float = round_trip_seconds(run, meta, c)
+	if rt <= 0.0:
+		return INF
+	return cargo_capacity(run, meta, c) / rt
 
 
-## Cargo capacity - a colony's own base_cargo, its cargo upgrade level, and
-## its assigned Cargo-type colonist's level (0 if none). Land vs. sea no
-## longer affects this (see route_round_trip_seconds for where it does
-## apply). `prestige_cargo_multiplier` is Navigation's cargo effect
-## (Prestige.cargo_multiplier()) - defaults to 1.0 so every existing
-## caller/test is unaffected until Navigation is bought.
-func colony_cargo_capacity(
-	base_cargo: float, cargo_level: int, cargo_colonist_level: int, prestige_cargo_multiplier: float = 1.0
-) -> float:
-	var level_multiplier: float = 1.0 + _def.cargo_level_bonus * float(cargo_level)
-	return base_cargo * level_multiplier * colonist_primary_multiplier(cargo_colonist_level) * prestige_cargo_multiplier
+func colony_scale(colony_id: String) -> float:
+	return Content.price(str(Content.colony(colony_id)["resource"]))
 
 
-## Full round-trip travel time in seconds. `is_sea` picks the per-distance
-## time factor (land vs. sea, docs/GAME_DESIGN.md §5's per-colony roll); the
-## colony's own base_speed, speed upgrade level, and its assigned Speed-type
-## colonist's level (0 if none) all reduce it further.
-## `prestige_speed_multiplier` is Navigation's speed effect
-## (Prestige.speed_multiplier()) - defaults to 1.0 so every existing
-## caller/test is unaffected until Navigation is bought.
-func route_round_trip_seconds(
-	distance: float, is_sea: bool, base_speed: float, speed_level: int, speed_colonist_level: int,
-	prestige_speed_multiplier: float = 1.0
-) -> float:
-	var time_factor: float = _def.route_time_factor_sea if is_sea else _def.route_time_factor_land
-	var speed_multiplier: float = (
-		base_speed
-		* (1.0 + _def.speed_level_bonus * float(speed_level))
-		* colonist_primary_multiplier(speed_colonist_level)
-		* prestige_speed_multiplier
-	)
-	if speed_multiplier <= 0.0:
-		return 0.0
-	return distance * time_factor / speed_multiplier
+func colony_upgrade_cost(track: String, c: RunState.ColonyState, levels: int = 1) -> float:
+	var lvl: int = c.prod_level
+	if track == "cargo":
+		lvl = c.cargo_level
+	elif track == "speed":
+		lvl = c.speed_level
+	return geometric_cost(v(track + "_cost_base") * colony_scale(c.id), v(track + "_cost_growth"), lvl, levels)
 
 
-## §8: reset unlocks once this run's lifetime earnings (not current on-hand
-## gold, which can be spent down) cross the threshold.
-func prestige_gate_met(lifetime_gold_earned_this_run: float) -> bool:
-	return lifetime_gold_earned_this_run >= _def.prestige_gate_threshold
+func found_cost(run: RunState, meta: MetaState, colony_id: String) -> float:
+	var base: float = float(Content.colony(colony_id)["found_cost"])
+	return base * nation_bonus(run, "colony_cost") * father_bonus(run, "colony_cost") * liberty_mult(meta, "settlement")
 
 
-## §6: liberty = floor(6 x sqrt(lifetime_coin_this_run / 2e9)).
-func prestige_liberty_payout(lifetime_gold_earned_this_run: float) -> int:
-	if lifetime_gold_earned_this_run <= 0.0:
+# --- Colonists --------------------------------------------------------------
+
+func colonist_cost(run: RunState, meta: MetaState, count: int = 1) -> float:
+	var base: float = v("colonist_cost_base") * father_bonus(run, "colonist_cost") * liberty_mult(meta, "settlement")
+	return geometric_cost(base, v("colonist_cost_growth"), run.colonists_owned, count)
+
+
+# --- Workshops --------------------------------------------------------------
+
+func craft_seconds(run: RunState, w: RunState.WorkshopState) -> float:
+	if w.colonists <= 0:
+		return INF
+	var base: float = float(Content.recipe(w.id)["time"])
+	var speed: float = w.colonists * (1.0 + v("craft_per_level") * w.level) * father_bonus(run, "craft_speed")
+	return base / speed
+
+
+func workshop_build_cost(recipe_id: String) -> float:
+	return float(Content.recipe(recipe_id)["build_cost"])
+
+
+func workshop_upgrade_cost(w: RunState.WorkshopState, levels: int = 1) -> float:
+	return geometric_cost(v("workshop_cost_base") * Content.price(w.id), v("workshop_cost_growth"), w.level, levels)
+
+
+# --- Selling ----------------------------------------------------------------
+
+func sell_price(run: RunState, meta: MetaState, resource_id: String) -> float:
+	var p: float = Content.price(resource_id)
+	p *= nation_bonus(run, "sell_price")
+	p *= liberty_mult(meta, "commerce")
+	p *= father_bonus(run, "crafted_price") if Content.is_crafted(resource_id) else father_bonus(run, "raw_price")
+	return p
+
+
+# --- Independence -----------------------------------------------------------
+
+func offline_cap_seconds(run: RunState) -> float:
+	var hours: float = v("offline_cap_hours")
+	for id: String in run.fathers:
+		var f: Dictionary = Content.father(id)
+		if f.get("effect", "") == "offline_hours":
+			hours += float(f["value"])
+	return hours * 3600.0
+
+
+func independence_ready(run: RunState) -> bool:
+	return run.lifetime_gold >= v("independence_gold") \
+		and int(run.crafted.get("muskets", 0)) >= int(v("independence_muskets"))
+
+
+func liberty_payout(run: RunState) -> int:
+	if run.lifetime_gold < v("independence_gold"):
 		return 0
-	return int(floor(_def.prestige_payout_multiplier * sqrt(lifetime_gold_earned_this_run / _def.prestige_payout_divisor)))
+	var raw: float = v("liberty_base") * sqrt(run.lifetime_gold / v("independence_gold"))
+	raw *= nation_bonus(run, "liberty") * father_bonus(run, "liberty")
+	return int(floor(raw))
 
 
-func offline_catch_up_cap_seconds() -> float:
-	return _def.offline_catch_up_cap_seconds
+func liberty_upgrade_cost(meta: MetaState, upgrade_id: String) -> int:
+	var costs: Array = Content.liberty_upgrade(upgrade_id).get("costs", [])
+	var lvl: int = meta.level(upgrade_id)
+	if lvl >= costs.size():
+		return -1
+	return int(costs[lvl])
 
 
-## PLACEHOLDER - see BalanceDef.influence_earn_rate_per_gold's doc comment.
-func influence_earn_rate_per_gold() -> float:
-	return _def.influence_earn_rate_per_gold
+# --- Helpers ----------------------------------------------------------------
+
+## Total cost of buying `count` successive levels starting at `level`, where
+## level n costs base * growth^n.
+func geometric_cost(base: float, growth: float, level: int, count: int) -> float:
+	if count <= 0:
+		return 0.0
+	var first: float = base * pow(growth, level)
+	if is_equal_approx(growth, 1.0):
+		return first * count
+	return first * (pow(growth, count) - 1.0) / (growth - 1.0)
 
 
-func map_width() -> int:
-	return _def.map_width
-
-
-func map_height() -> int:
-	return _def.map_height
-
-
-func continent_threshold() -> float:
-	return _def.continent_threshold
-
-
-func island_count() -> int:
-	return _def.island_count
-
-
-func island_min_radius() -> float:
-	return _def.island_min_radius
-
-
-func island_max_radius() -> float:
-	return _def.island_max_radius
-
-
-func colony_distance_step() -> float:
-	return _def.colony_distance_step
-
-
-func min_colony_spacing() -> float:
-	return _def.min_colony_spacing
-
-
-func max_colonies() -> int:
-	return _def.max_colonies
-
-
-## Cost of founding colony slot `slot_index` (1-indexed - slot 0 is the free
-## Capital). Replaces the old per-colony ColonyDef.unlock_cost table (task
-## #26), which doesn't extend past 8 hand-authored entries - see
-## BalanceDef.colony_slot_base_cost's doc for how these constants were fit.
-## `prestige_discount_multiplier` is Settlement's effect, same convention as
-## next_colonist_cost().
-func next_colony_slot_cost(slot_index: int, prestige_discount_multiplier: float = 1.0) -> float:
-	return _geometric_cost(_def.colony_slot_base_cost, _def.colony_slot_cost_growth, slot_index - 1) * prestige_discount_multiplier
-
-
-func industry_max_level() -> int:
-	return _def.industry_max_level
-
-
-func navigation_max_level() -> int:
-	return _def.navigation_max_level
-
-
-func settlement_max_level() -> int:
-	return _def.settlement_max_level
-
-
-func next_industry_cost(level: int) -> float:
-	return _geometric_cost(_def.industry_base_cost, _def.industry_cost_growth, level)
-
-
-func next_navigation_cost(level: int) -> float:
-	return _geometric_cost(_def.navigation_base_cost, _def.navigation_cost_growth, level)
-
-
-func next_settlement_cost(level: int) -> float:
-	return _geometric_cost(_def.settlement_base_cost, _def.settlement_cost_growth, level)
-
-
-## +15% production per level, additive (docs/GAME_DESIGN.md §8's Industry
-## branch). Combines with Progression's run-scoped multiplier at the call
-## site (Colony.production_rate()) - Balance.colony_production_rate() only
-## ever takes one combined multiplier, not two separate ones.
-func industry_production_multiplier(level: int) -> float:
-	return 1.0 + _def.industry_bonus_per_level * float(level)
-
-
-## +12% transport speed per level, additive (docs/GAME_DESIGN.md §8's
-## Navigation branch).
-func navigation_speed_multiplier(level: int) -> float:
-	return 1.0 + _def.navigation_bonus_per_level * float(level)
-
-
-## +12% cargo per level, additive - same rate as speed, per §8 ("and +12%
-## cargo per level"), kept as its own function since the two effects are
-## independently retunable fields in BalanceDef even though they start equal.
-func navigation_cargo_multiplier(level: int) -> float:
-	return 1.0 + _def.navigation_bonus_per_level * float(level)
-
-
-## -7% colonist/colony cost per level, multiplicative (0.93^level), floored
-## at -60% total discount (docs/GAME_DESIGN.md §8's Settlement branch).
-func settlement_cost_multiplier(level: int) -> float:
-	var multiplier: float = pow(1.0 - _def.settlement_discount_per_level, float(level))
-	return maxf(multiplier, 1.0 - _def.settlement_max_discount)
+## How many successive levels `budget` can buy, capped at `limit`.
+func affordable_levels(base: float, growth: float, level: int, budget: float, limit: int = 1000) -> int:
+	var first: float = base * pow(growth, level)
+	if budget < first:
+		return 0
+	var n: int = int(floor(log(budget * (growth - 1.0) / first + 1.0) / log(growth)))
+	n = clampi(n, 0, limit)
+	while n > 0 and geometric_cost(base, growth, level, n) > budget:
+		n -= 1
+	return n

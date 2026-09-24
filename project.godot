@@ -11,23 +11,23 @@ config_version=5
 [application]
 
 config/name="Idle Pioneer"
-config/description="Incremental colonization / strategy game. Godot 4 rebuild of the Unity project of the same name (working title: Colonial Frontiers)."
+config/description="An idle colonial trade game: found colonies, ship goods to Europe, craft finer wares, and declare independence."
 run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.6", "GL Compatibility")
+boot_splash/bg_color=Color(0.086, 0.114, 0.2, 1)
+boot_splash/show_image=false
+config/icon="res://assets/sprites/app_icon.png"
 
 [autoload]
 
-Db="*res://scripts/core/db.gd"
+Content="*res://scripts/core/content.gd"
 Balance="*res://scripts/core/balance.gd"
-Game="*res://scripts/core/Game.tscn"
-SaveSystem="*res://scripts/core/save_system.gd"
-Audio="*res://scripts/core/audio.gd"
+Game="*res://scripts/core/game.gd"
+Sfx="*res://scripts/core/sfx.gd"
 
 [debug]
 
 gdscript/warnings/untyped_declaration=1
-gdscript/warnings/unsafe_property_access=1
-gdscript/warnings/unsafe_method_access=1
 gdscript/warnings/return_value_discarded=0
 gdscript/warnings/exclude_addons=true
 
@@ -35,27 +35,27 @@ gdscript/warnings/exclude_addons=true
 
 window/size/viewport_width=720
 window/size/viewport_height=1280
-window/size/window_width_override=540
-window/size/window_height_override=960
+window/size/window_width_override=450
+window/size/window_height_override=900
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+window/handheld/orientation=1
 
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/gut/plugin.cfg")
 
-[file_customization]
+[gui]
 
-folder_colors={
-"res://assets/": "orange",
-"res://data/": "green",
-"res://scenes/": "blue",
-"res://scripts/": "purple",
-"res://test/": "gray"
-}
+common/drop_mouse_on_gui_input_disabled=true
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=false
 
 [rendering]
 
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/canvas_textures/default_texture_filter=0
+environment/defaults/default_clear_color=Color(0.086, 0.114, 0.2, 1)

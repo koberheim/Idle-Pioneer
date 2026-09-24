@@ -1,0 +1,34 @@
+{
+	"tick_seconds": 0.1,
+	"offline_cap_hours": 4.0,
+	"offline_step_seconds": 2.0,
+
+	"base_rate": 1.0,
+	"prod_per_level": 0.25,
+	"colonist_production_bonus": 1.0,
+
+	"land_cargo_per_distance": 24.0,
+	"sea_cargo_per_distance": 60.0,
+	"cargo_per_level": 0.5,
+	"land_time_factor": 12.0,
+	"sea_time_factor": 22.0,
+	"speed_per_level": 0.2,
+
+	"craft_per_level": 0.3,
+
+	"colonist_cost_base": 25.0,
+	"colonist_cost_growth": 1.15,
+	"prod_cost_base": 40.0,
+	"prod_cost_growth": 1.13,
+	"cargo_cost_base": 60.0,
+	"cargo_cost_growth": 1.16,
+	"speed_cost_base": 60.0,
+	"speed_cost_growth": 1.16,
+	"workshop_cost_base": 100.0,
+	"workshop_cost_growth": 1.14,
+
+	"independence_gold": 1000000000.0,
+	"independence_muskets": 1,
+	"liberty_base": 6.0,
+	"settlement_floor": 0.4
+}
