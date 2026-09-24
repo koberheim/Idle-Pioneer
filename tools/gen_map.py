@@ -19,6 +19,7 @@ from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 W, H, T = 30, 60, 8
+TP = 12  # art pixels per tile in the rendered map (displayed at 2x)
 SEED = 1492
 
 rng = random.Random(SEED)
@@ -259,174 +260,10 @@ for cid, lst in sites.items():
 
 europe_lane = [list(capital), list(cap_port), [W - 1, cap_port[1]], [W + 2, cap_port[1]]]
 
-# ---------------------------------------------------------------- render
-PAL = {
-    "deep": (22, 52, 110), "deep2": (26, 60, 122), "mid": (33, 75, 142), "shallow": (52, 104, 168),
-    "foam": (170, 205, 230), "sand": (214, 190, 130), "sand2": (190, 164, 104),
-    "p": [(118, 150, 62), (110, 142, 56), (126, 158, 70)],
-    "g": [(92, 146, 60), (84, 136, 54), (100, 154, 66)],
-    "v": [(170, 160, 78), (158, 150, 70), (178, 168, 86)],
-    "t": [(152, 150, 118), (142, 140, 110), (162, 160, 128)],
-    "s": [(88, 116, 70), (78, 104, 64), (70, 100, 84)],
-    "f": [(92, 146, 60), (84, 136, 54)],
-    "c": [(118, 150, 62), (110, 142, 56)],
-    "h": [(142, 140, 72), (132, 128, 66)],
-    "m": [(128, 120, 100), (118, 110, 92)],
-    "leaf": (40, 98, 40), "leaf2": (58, 122, 48), "leafhi": (92, 150, 62), "trunk": (84, 58, 34),
-    "pine": (26, 78, 52), "pine2": (40, 98, 62),
-    "hill": (112, 108, 58), "hillhi": (170, 164, 92), "hillsh": (86, 82, 46),
-    "rock": (104, 96, 84), "rockhi": (170, 162, 150), "rocksh": (70, 64, 58), "snow": (236, 240, 244),
-    "reed": (60, 92, 58), "water_s": (70, 110, 120),
-}
-
-img = Image.new("RGB", (W * T, H * T))
-mask = Image.new("L", (W * T, H * T), 0)
-px = img.load()
-mk = mask.load()
-prng = random.Random(SEED + 9)
-
-
-def land_at_px(X, Y):
-    return is_land(X // T, Y // T)
-
-
-# distance (in pixels) to nearest land / water for shoreline shading
-dist_land = {}
-for Y in range(H * T):
-    for X in range(W * T):
-        if land_at_px(X, Y):
-            continue
-        best = 99
-        for dy in range(-12, 13, 2):
-            for dx in range(-12, 13, 2):
-                if land_at_px(X + dx, Y + dy) if 0 <= X + dx < W * T and 0 <= Y + dy < H * T else False:
-                    best = min(best, math.hypot(dx, dy))
-        dist_land[(X, Y)] = best
-
-for Y in range(H * T):
-    for X in range(W * T):
-        tx, ty = X // T, Y // T
-        t = grid[ty][tx]
-        if t == "~":
-            d = dist_land[(X, Y)]
-            if d <= 2.1:
-                c = PAL["foam"] if (X + Y) % 3 else PAL["shallow"]
-            elif d <= 6:
-                c = PAL["shallow"]
-            elif d <= 12:
-                c = PAL["mid"]
-            else:
-                c = PAL["deep"] if ((X // 4 + Y // 3) % 7) else PAL["deep2"]
-            px[X, Y] = c
-            mk[X, Y] = 255
-        else:
-            # beach where a land pixel touches water within 1-2 px
-            near_water = False
-            for dx, dy in ((2, 0), (-2, 0), (0, 2), (0, -2), (1, 1), (-1, -1), (1, -1), (-1, 1)):
-                xx, yy = X + dx, Y + dy
-                if 0 <= xx < W * T and 0 <= yy < H * T and not land_at_px(xx, yy):
-                    near_water = True
-                    break
-            if near_water and t not in "m":
-                px[X, Y] = PAL["sand"] if prng.random() > 0.15 else PAL["sand2"]
-            else:
-                base = PAL[t]
-                px[X, Y] = base[prng.randrange(len(base))] if prng.random() < 0.35 else base[0]
-
-
-def put(X, Y, c):
-    if 0 <= X < W * T and 0 <= Y < H * T and land_at_px(X, Y):
-        px[X, Y] = c
-
-
-def deciduous(X, Y):
-    for dx, dy in ((0, -3), (-1, -2), (0, -2), (1, -2), (-2, -1), (-1, -1), (0, -1), (1, -1), (2, -1), (-1, 0), (0, 0), (1, 0)):
-        put(X + dx, Y + dy, PAL["leaf"])
-    put(X - 1, Y - 2, PAL["leafhi"]); put(X, Y - 3, PAL["leafhi"]); put(X - 1, Y - 1, PAL["leaf2"])
-    put(X, Y + 1, PAL["trunk"])
-
-
-def pine(X, Y):
-    for dx, dy in ((0, -4), (0, -3), (-1, -2), (0, -2), (1, -2), (-1, -1), (0, -1), (1, -1), (-2, 0), (-1, 0), (0, 0), (1, 0), (2, 0)):
-        put(X + dx, Y + dy, PAL["pine"])
-    put(X, Y - 3, PAL["pine2"]); put(X - 1, Y - 1, PAL["pine2"])
-    put(X, Y + 1, PAL["trunk"])
-
-
-def hill(X, Y):
-    rows = [(-1, 1), (-3, 3), (-4, 4)]
-    for i, (a, b) in enumerate(rows):
-        for dx in range(a, b + 1):
-            put(X + dx, Y - 2 + i, PAL["hill"])
-    put(X - 1, Y - 2, PAL["hillhi"]); put(X - 2, Y - 1, PAL["hillhi"]); put(X - 3, Y, PAL["hillhi"])
-    put(X + 3, Y, PAL["hillsh"]); put(X + 2, Y - 1, PAL["hillsh"]); put(X + 4, Y, PAL["hillsh"])
-
-
-def mountain(X, Y):
-    for i in range(6):
-        for dx in range(-i, i + 1):
-            put(X + dx, Y - 5 + i, PAL["rock"])
-        put(X - i, Y - 5 + i, PAL["rockhi"])
-        put(X + i, Y - 5 + i, PAL["rocksh"])
-    put(X, Y - 5, PAL["snow"]); put(X - 1, Y - 4, PAL["snow"]); put(X, Y - 4, PAL["snow"])
-
-
-def reeds(X, Y):
-    for dx in (-2, 0, 2):
-        put(X + dx, Y, PAL["reed"]); put(X + dx, Y - 1, PAL["reed"])
-    put(X - 1, Y + 1, PAL["water_s"]); put(X + 1, Y + 1, PAL["water_s"])
-
-
-site_cells = {(s["x"], s["y"]) for lst in sites.values() for s in lst}
-for ty in range(H):
-    for tx in range(W):
-        t = grid[ty][tx]
-        if t == "~" or (tx, ty) in site_cells:
-            continue
-        X0, Y0 = tx * T, ty * T
-        if t == "f":
-            deciduous(X0 + 2 + prng.randrange(2), Y0 + 4)
-            deciduous(X0 + 5 + prng.randrange(2), Y0 + 7)
-        elif t == "c":
-            pine(X0 + 2 + prng.randrange(2), Y0 + 5)
-            pine(X0 + 5 + prng.randrange(2), Y0 + 8)
-        elif t == "t" and prng.random() < 0.4:
-            pine(X0 + 4, Y0 + 6)
-        elif t == "h":
-            hill(X0 + 4, Y0 + 6)
-        elif t == "m":
-            mountain(X0 + 4, Y0 + 7)
-        elif t == "s":
-            reeds(X0 + 4, Y0 + 5)
-        elif t in "gpv" and prng.random() < 0.12:
-            deciduous(X0 + 4, Y0 + 5)
-
-RIVERS = [[(5.5, 13), (8, 16), (10, 19.5), (12.5, 21.5)],
-          [(4, 27), (6, 31), (8.5, 35), (11, 38.5)],
-          [(3, 44), (5, 48), (8, 50), (10, 51.5)]]
-rr = random.Random(SEED + 11)
-for river in RIVERS:
-    pts = []
-    for (ax, ay), (bx, by) in zip(river, river[1:]):
-        steps = int(math.hypot(bx - ax, by - ay) * T * 1.5)
-        for i in range(steps):
-            f = i / steps
-            pts.append((ax + (bx - ax) * f, ay + (by - ay) * f))
-    wob = 0.0
-    for fx, fy in pts:
-        wob = max(-1.5, min(1.5, wob + rr.uniform(-0.35, 0.35)))
-        X, Y = int(fx * T + wob), int(fy * T)
-        for dx in (0, 1):
-            if 0 <= X + dx < W * T and 0 <= Y < H * T and land_at_px(X + dx, Y):
-                px[X + dx, Y] = PAL["shallow"] if dx == 0 else PAL["mid"]
-                mk[X + dx, Y] = 255
-
-os.makedirs(os.path.join(ROOT, "assets", "sprites"), exist_ok=True)
-img.save(os.path.join(ROOT, "assets", "sprites", "map.png"))
-mask.save(os.path.join(ROOT, "assets", "sprites", "map_water.png"))
+exec(open(os.path.join(ROOT, 'tools', 'map_render.py')).read())
 
 out = {
-    "width": W, "height": H, "tile": T,
+    "width": W, "height": H, "tile": TP,
     "grid": ["".join(r) for r in grid],
     "sites": sites,
     "paths": paths,

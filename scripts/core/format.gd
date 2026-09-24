@@ -30,6 +30,8 @@ static func num(value: float, small_decimals: int = 0) -> String:
 static func rate(value: float) -> String:
 	if value < 10.0:
 		return "%.2f" % value
+	if value < 1000.0:
+		return "%.1f" % value
 	return num(value)
 
 

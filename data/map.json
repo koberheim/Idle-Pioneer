@@ -1,7 +1,7 @@
 {
  "width": 30,
  "height": 60,
- "tile": 8,
+ "tile": 12,
  "grid": [
   "ttttttttttttttcc~~~~~~~~~~~~~~",
   "ttttttttttttttcccc~~~~~~~~~~~~",

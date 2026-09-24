@@ -1,0 +1,126 @@
+## Europe: recruit colonists at the docks and manage the warehouse - which goods
+## are sold on arrival and which are kept for crafting or the Congress.
+class_name EuropePage
+extends Page
+
+var _recruit: BuyButton
+var _docks_info: Label
+var _rows: Dictionary = {}
+var _structure: int = -1
+
+
+func _build_header(box: VBoxContainer) -> void:
+	var banner := TextureRect.new()
+	banner.texture = UI.tex("res://assets/sprites/harbor.png")
+	banner.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	banner.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	banner.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	banner.custom_minimum_size.y = 250
+	banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var frame := PanelContainer.new()
+	frame.add_theme_stylebox_override("panel", UI.frame("panel_navy", 14, 6))
+	frame.add_child(banner)
+	box.add_child(frame)
+	box.add_child(page_title("The Docks of Europe"))
+
+	var docks := UI.card("card")
+	var dv := UI.vbox(10)
+	docks.add_child(dv)
+	var head := UI.hbox(12)
+	head.add_child(UI.icon_rect(UI.icon("colonist"), 56))
+	var hv := UI.vbox(2)
+	hv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hv.add_child(UI.label("Recruit Colonists", UI.SIZE_BIG, UI.INK, true))
+	_docks_info = UI.wrap_label("", UI.SIZE_SMALL, UI.INK_SOFT)
+	hv.add_child(_docks_info)
+	head.add_child(hv)
+	dv.add_child(head)
+	var sel := BuyAmountSelector.new()
+	dv.add_child(sel)
+	_recruit = BuyButton.new(func() -> bool: return Game.recruit_colonists())
+	_recruit.custom_minimum_size.y = 80
+	dv.add_child(_recruit)
+	box.add_child(docks)
+
+	var wh := UI.hbox(10)
+	var t := section("Warehouse")
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	wh.add_child(t)
+	var sell_all := UI.button("Sell everything held", "button_gold", 56)
+	sell_all.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
+	sell_all.pressed.connect(func() -> void:
+		Game.sell_all_stock()
+		Sfx.play("coin")
+		refresh())
+	wh.add_child(sell_all)
+	box.add_child(wh)
+	box.add_child(UI.wrap_label("Goods arriving at the capital are sold at once unless you keep them. Kept goods feed workshops and Founding Fathers.", UI.SIZE_SMALL, UI.LIGHT_SOFT))
+
+
+func refresh() -> void:
+	var run: RunState = Game.run
+	if run == null:
+		return
+	var n: int = Game.colonist_count_to_buy()
+	var cost: float = Balance.colonist_cost(run, Game.meta, n)
+	_recruit.set_cost("Recruit %d  ·  %s" % [n, Format.num(cost)], run.gold >= cost)
+	_docks_info.text = "%d colonists, %d idle. Each works a colony (+%d%% output) or staffs a workshop. Prices rise with every recruit." % [
+		run.colonists_owned, run.colonists_idle(), int(Balance.v("colonist_production_bonus") * 100.0)]
+
+	if run.discovered.size() != _structure:
+		_structure = run.discovered.size()
+		_rebuild()
+	for id: String in _rows.keys():
+		_update_row(id)
+
+
+func _rebuild() -> void:
+	clear_list()
+	_rows.clear()
+	for id: String in Game.run.discovered:
+		var card := UI.card("card")
+		var row := UI.hbox(10)
+		card.add_child(row)
+		row.add_child(UI.icon_rect(UI.icon(id), 48))
+		var v := UI.vbox(0)
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var name_l := UI.label(Content.resource_name(id), UI.SIZE_BODY, UI.INK)
+		var info := UI.label("", UI.SIZE_SMALL, UI.INK_SOFT)
+		v.add_child(name_l)
+		v.add_child(info)
+		row.add_child(v)
+		var sell := UI.button("Sell", "button", 56)
+		sell.custom_minimum_size.x = 88
+		sell.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
+		var rid: String = id
+		sell.pressed.connect(func() -> void:
+			Game.sell_stock(rid)
+			Sfx.play("coin")
+			refresh())
+		row.add_child(sell)
+		var toggle := UI.button("", "button", 56)
+		toggle.custom_minimum_size.x = 150
+		toggle.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
+		toggle.pressed.connect(func() -> void:
+			Game.set_hold(rid, not Game.run.is_held(rid))
+			Sfx.play("click")
+			refresh())
+		row.add_child(toggle)
+		card.set_meta("info", info)
+		card.set_meta("sell", sell)
+		card.set_meta("toggle", toggle)
+		_rows[id] = card
+		list.add_child(card)
+
+
+func _update_row(id: String) -> void:
+	var card: Control = _rows[id]
+	var run: RunState = Game.run
+	var stock: float = run.stock_of(id)
+	(card.get_meta("info") as Label).text = "%s each  ·  held: %s" % [Format.num(Balance.sell_price(run, Game.meta, id), 1), Format.num(stock)]
+	(card.get_meta("sell") as Button).disabled = stock < 1.0
+	var held: bool = run.is_held(id)
+	var toggle: Button = card.get_meta("toggle")
+	toggle.text = "Keeping" if held else "Selling"
+	toggle.add_theme_stylebox_override("normal", UI.frame("button_gold" if held else "button_buy", 14, 8))
+	toggle.add_theme_color_override("font_color", UI.INK if held else UI.LIGHT)
