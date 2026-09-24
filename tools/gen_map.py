@@ -167,6 +167,9 @@ targets = {
     "indigo_reach": [(12, 46, "sea"), (6, 45, "land")],
     "sugar_isle": [(22, 52, "sea"), (25, 55, "sea")],
     "fur_post": [(14, 3, "sea"), (6, 5, "land")],
+    "whaling": [(9, 55, "sea"), (19, 57, "sea")],
+    "silver_mine": [(2, 23, "land"), (13, 8, "sea")],
+    "horse_ranch": [(3, 50, "land"), (25, 30, "sea")],
 }
 taken = {capital}
 sites = {"capital": [{"x": capital[0], "y": capital[1], "route": "sea"}]}

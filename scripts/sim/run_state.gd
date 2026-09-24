@@ -14,7 +14,7 @@ class ColonyState:
 	var prod_level: int = 0
 	var cargo_level: int = 0
 	var speed_level: int = 0
-	## Charter rank, bought with crafted goods (Idle Planet Miner's "colonize").
+	## Charter rank, bought with crafted goods.
 	var charter: int = 0
 	var stock: float = 0.0
 	var cargo: float = 0.0

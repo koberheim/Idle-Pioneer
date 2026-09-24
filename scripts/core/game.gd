@@ -463,7 +463,8 @@ func recall_governor(colony_id: String) -> void:
 
 ## Reward for tapping the treasure that drifts past on the map.
 func treasure_value() -> float:
-	return maxf(Balance.v("treasure_min_gold"), income_rate * Balance.v("treasure_income_seconds"))
+	var base: float = maxf(Balance.v("treasure_min_gold"), income_rate * Balance.v("treasure_income_seconds"))
+	return base * Balance.father_bonus(run, "treasure")
 
 
 func collect_treasure() -> float:

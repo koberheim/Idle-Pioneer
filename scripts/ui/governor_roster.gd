@@ -1,4 +1,4 @@
-## The permanent roster of colonial governors (Idle Planet Miner's managers):
+## The permanent roster of colonial governors:
 ## commission new ones and promote existing ones with Liberty.
 class_name GovernorRoster
 extends VBoxContainer

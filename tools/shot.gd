@@ -60,6 +60,12 @@ func _ready() -> void:
 			ev.shipments.append({})
 			ev.crafted["planks"] = 400.0
 			main.call("_on_offline", 7300.0, ev)
+		"late":
+			for i in 10:
+				Game.run.colonies[i].founded = true
+			Game.run.discovered.append_array(["furs", "whale_oil", "silver", "coats"])
+			main.call("_open_colony", "horse_ranch")
+			await _frames(20)
 		"treasure":
 			var mv: MapView = main.get("_map")
 			mv.set("_treasure_timer", 0.0)

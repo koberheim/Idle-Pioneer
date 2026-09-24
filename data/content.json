@@ -8,6 +8,9 @@
 		{"id": "indigo", "name": "Indigo", "price": 480, "kind": "raw"},
 		{"id": "sugar_cane", "name": "Sugar Cane", "price": 1600, "kind": "raw"},
 		{"id": "furs", "name": "Furs", "price": 5200, "kind": "raw"},
+		{"id": "whale_oil", "name": "Whale Oil", "price": 17000, "kind": "raw"},
+		{"id": "silver", "name": "Silver", "price": 55000, "kind": "raw"},
+		{"id": "horses", "name": "Horses", "price": 180000, "kind": "raw"},
 		{"id": "planks", "name": "Planks", "price": 4, "kind": "crafted"},
 		{"id": "salt_cod", "name": "Salt Cod", "price": 18, "kind": "crafted"},
 		{"id": "cigars", "name": "Cigars", "price": 70, "kind": "crafted"},
@@ -17,7 +20,11 @@
 		{"id": "dyed_cloth", "name": "Dyed Cloth", "price": 2700, "kind": "crafted"},
 		{"id": "tools", "name": "Tools", "price": 4800, "kind": "crafted"},
 		{"id": "rum", "name": "Rum", "price": 14000, "kind": "crafted"},
-		{"id": "muskets", "name": "Muskets", "price": 38000, "kind": "crafted"}
+		{"id": "muskets", "name": "Muskets", "price": 38000, "kind": "crafted"},
+		{"id": "coats", "name": "Fur Coats", "price": 16000, "kind": "crafted"},
+		{"id": "candles", "name": "Candles", "price": 52000, "kind": "crafted"},
+		{"id": "silverware", "name": "Silverware", "price": 190000, "kind": "crafted"},
+		{"id": "dragoons", "name": "Dragoons", "price": 900000, "kind": "crafted"}
 	],
 
 	"colonies": [
@@ -28,7 +35,10 @@
 		{"id": "ironworks", "resource": "iron_ore", "distance": 4, "found_cost": 250000, "flavor": "Bog iron and hillside ore dug from the hollows."},
 		{"id": "indigo_reach", "resource": "indigo", "distance": 5, "found_cost": 2500000, "flavor": "Indigo vats stain the river blue for a mile downstream."},
 		{"id": "sugar_isle", "resource": "sugar_cane", "distance": 6, "found_cost": 15000000, "flavor": "A lush island of cane fields and boiling houses."},
-		{"id": "fur_post", "resource": "furs", "distance": 7, "found_cost": 150000000, "flavor": "A distant trading post deep in the northern woods, rich in beaver pelts."}
+		{"id": "fur_post", "resource": "furs", "distance": 7, "found_cost": 150000000, "flavor": "A distant trading post deep in the northern woods, rich in beaver pelts."},
+		{"id": "whaling", "resource": "whale_oil", "distance": 8, "found_cost": 2000000000, "flavor": "Whaleboats put out from a windswept southern shore; the tryworks burn day and night."},
+		{"id": "silver_mine", "resource": "silver", "distance": 9, "found_cost": 30000000000, "flavor": "A rich vein of silver high in the hills, worth a king's ransom."},
+		{"id": "horse_ranch", "resource": "horses", "distance": 10, "found_cost": 450000000000, "flavor": "Open grassland where herds of fine horses are bred for the colonies' cavalry."}
 	],
 
 	"recipes": [
@@ -41,7 +51,11 @@
 		{"id": "dyed_cloth", "building": "Dye House", "inputs": {"cloth": 2, "indigo": 2}, "time": 1.375, "build_cost": 30000000},
 		{"id": "tools", "building": "Blacksmith's House", "inputs": {"pig_iron": 3, "planks": 1}, "time": 1.5, "build_cost": 30000000},
 		{"id": "rum", "building": "Rum Distillery", "inputs": {"sugar_cane": 4, "barrels": 1}, "time": 1.75, "build_cost": 150000000},
-		{"id": "muskets", "building": "Armory", "inputs": {"tools": 2, "planks": 2}, "time": 2.25, "build_cost": 300000000}
+		{"id": "muskets", "building": "Armory", "inputs": {"tools": 2, "planks": 2}, "time": 2.25, "build_cost": 300000000},
+		{"id": "coats", "building": "Fur Trader's House", "inputs": {"furs": 2}, "time": 1.5, "build_cost": 600000000},
+		{"id": "candles", "building": "Chandlery", "inputs": {"whale_oil": 2}, "time": 1.75, "build_cost": 8000000000},
+		{"id": "silverware", "building": "Silversmith", "inputs": {"silver": 2, "tools": 4}, "time": 2.0, "build_cost": 100000000000},
+		{"id": "dragoons", "building": "Stables & Barracks", "inputs": {"horses": 3, "muskets": 4, "coats": 2}, "time": 3.0, "build_cost": 1500000000000}
 	],
 
 	"fathers": [
@@ -56,6 +70,8 @@
 		{"id": "stuyvesant", "name": "Peter Stuyvesant", "title": "Director-General", "effect": "crafted_price", "value": 1.25, "desc": "Crafted goods sell for 25% more.", "cost": {"gold": 90000000, "barrels": 3000, "indigo": 8000}},
 		{"id": "hudson", "name": "Henry Hudson", "title": "Explorer of the North", "effect": "fur_production", "value": 2.0, "desc": "Fur production doubled.", "cost": {"gold": 500000000, "dyed_cloth": 3000, "tools": 1000}},
 		{"id": "franklin", "name": "Benjamin Franklin", "title": "Diplomat", "effect": "offline_hours", "value": 4.0, "desc": "Colonies keep working 4 more hours while you are away.", "cost": {"gold": 1200000000, "rum": 400}},
+		{"id": "cortes", "name": "Hernan Cortes", "title": "Conquistador", "effect": "treasure", "value": 3.0, "desc": "Drifting treasure is worth three times as much.", "cost": {"gold": 3000000000, "coats": 400}},
+		{"id": "washington", "name": "George Washington", "title": "Commander-in-Chief", "effect": "liberty", "value": 1.3, "desc": "Earn 30% more Liberty when you declare independence.", "cost": {"gold": 50000000000, "dragoons": 10, "silverware": 50}},
 		{"id": "jefferson", "name": "Thomas Jefferson", "title": "Author of the Declaration", "effect": "liberty", "value": 1.2, "desc": "Earn 20% more Liberty when you declare independence.", "cost": {"gold": 1500000000, "muskets": 25}}
 	],
 

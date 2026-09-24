@@ -48,9 +48,9 @@ pixelated), the atomic save pattern, and GUT.
    Each one assigned to a colony adds +100% output; in a workshop it adds
    crafting speed. This is the doc's central tension, restored.
 6. **Founding Fathers** (12) join Congress for gold plus kept goods and give
-   run-long bonuses. This is new — it's the Idle Planet Miner "projects" layer,
-   borrowed from Colonization's Continental Congress, and it gives kept goods
-   and crafting chains a purpose beyond resale.
+   run-long bonuses. This is new, drawn from Colonization's Continental
+   Congress, and it gives kept goods and crafting chains a purpose beyond
+   resale.
 7. **Declaring Independence** requires 1B gold earned this run *and* at least
    one Musket crafted (the doc's recommended narrative gate). It pays
    `floor(6 × sqrt(earned / 1B))` Liberty, wipes the run, and returns to the
@@ -59,25 +59,28 @@ pixelated), the atomic save pattern, and GUT.
    doc, plus **Commerce** (+10% sale price per level), since the doc says only
    prestige upgrades should raise prices but defined none that did.
 
-## Idle Planet Miner, system by system
+## Systems added beyond the original design
 
-The game deliberately mirrors Idle Planet Miner's structure in a colonial setting:
+Idle Planet Miner is the inspiration for the overall loop (a chain of
+producing sites, transport, crafting, a long-term prestige layer). Its systems
+are not copied one for one; these additions were chosen because they suit the
+colonial setting:
 
-| Idle Planet Miner | Idle Pioneer | Notes |
-|---|---|---|
-| Planets, bought in order | Colonies, founded in order | 8 colonies, each with its own raw good |
-| Mining rate / Ship speed / Cargo | Production / Roads or Faster Ships / Wagons or Cargo Holds | Buy x1 / x10 / x100 / Max, hold to repeat |
-| Ships flying ore to the mothership | Wagons and ships carrying goods to the capital | Land or sea is rolled per colony per run |
-| Smelters and crafters | Workshops (10 recipes, 1–3 step chains) | Staffed by colonists instead of bought slots |
-| Market, sell or keep | Europe warehouse: Selling / Keeping per good | |
-| Market price trends | Prices in Europe: 3 goods wanted ×1.6, 2 in glut ×0.6 | Rotates every 20 minutes of play |
-| Managers | Governors: permanent, bought and promoted with Liberty | ×1.5 at rank 1 up to ×3.5 at rank 5 |
-| Colonizing a planet | Colony Charters: Township → Free City, paid in crafted goods | +50% production and cargo per rank |
-| Projects | Founding Fathers in the Continental Congress | Gold plus kept goods |
-| Arks / asteroids to tap | Drifting treasure on the sea | About 90 seconds of income |
-| Ad boost | Royal Favor | ×2 production for 15 min, 2 h real-time cooldown, no ads |
-| Moving to a new galaxy | Declaring Independence | Needs 1B gold earned + a Musket |
-| Dark matter, rooms | Liberty, Liberty Reforms | Industry, Navigation, Settlement, Commerce |
+- **Governors** — a permanent roster bought and promoted with Liberty. Posted
+  to a colony, a governor multiplies its production, cargo or route speed
+  (×1.5 at rank 1 up to ×3.5 at rank 5). Survives independence.
+- **Colony Charters** — Township → Borough → Royal Charter → City → Free City,
+  each paid in crafted goods, each +50% production and cargo.
+- **Prices in Europe** — every 20 minutes of play, three goods are wanted
+  (×1.6) and two are in glut (×0.6). Deterministic, so offline catch-up agrees
+  with live play.
+- **Drifting treasure** — a wrecked merchantman's cargo floats past now and
+  then; tap it for about 90 seconds of income.
+- **Royal Favor** — petition the Crown for double production for 15 minutes,
+  on a 2-hour real-time cooldown. Free; there is no monetization.
+- **Late colonies** — a Whaling Station, Silver Mine and Horse Ranch sit past
+  the independence gate, with Fur Coats, Candles, Silverware and Dragoons, for
+  players pushing a run further for more Liberty.
 
 ## Other deliberate choices
 

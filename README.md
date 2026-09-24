@@ -1,7 +1,7 @@
 # Idle Pioneer
 
-An idle/incremental game for mobile in the spirit of *Idle Planet Miner*,
-set in the world of Sid Meier's *Colonization* (1994). Found colonies along a
+An idle/incremental colonial trade game for mobile, set in a New World
+inspired by Sid Meier's *Colonization* (1994). Found colonies along a
 New World coast, ship their goods to your capital, sell them to Europe or
 craft them into finer wares, invite Founding Fathers to Congress, and when the
 colonies are rich and armed, **declare independence** — earning Liberty for

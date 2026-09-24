@@ -11,7 +11,7 @@ var fastest_run_seconds: float = 0.0
 var music_on: bool = true
 var sfx_on: bool = true
 var hints_seen: Array[String] = []
-## Permanent roster (Idle Planet Miner's managers): {id, name, type, rank}.
+## Permanent roster of governors, kept across runs: {id, name, type, rank}.
 var governors: Array[Dictionary] = []
 var next_governor_id: int = 1
 ## Real-world time the Royal Favor can next be requested.
