@@ -46,6 +46,10 @@ func _ready() -> void:
 			main.call("_open_next_site")
 		"capital":
 			main.call("_open_colony", "c0")
+		"nogov":
+			Game.meta.governors.clear()
+			Game.run.governors.clear()
+			main.call("_open_colony", "c1")
 		"overview":
 			main.call("_show_overview")
 		"tip":
@@ -125,6 +129,16 @@ func _ready() -> void:
 		"relic":
 			main.call("_on_relic", "orrery", "treasure")
 	await _frames(40)
+	if OS.get_cmdline_user_args().has("burst=1"):
+		# Several frames in a row, to catch layout jitter.
+		for i in 6:
+			await _frames(3)
+			var fi: Image = get_viewport().get_texture().get_image()
+			fi.save_png(out_path.replace(".png", "_f%d.png" % i))
+			var sheet: Control = main.get("_sheet")
+			print("frame ", i, " sheet ", sheet.position, " ", sheet.size)
+			if i == 0:
+				_dump_wide(main, 0)
 	var img: Image = get_viewport().get_texture().get_image()
 	img.save_png(out_path)
 	print("saved ", out_path, " ", img.get_size())
@@ -172,3 +186,14 @@ func _seed_state() -> void:
 	Game.running = true
 	Game.meta.hints_seen.append("tip_welcome")
 	Game.save()
+
+
+func _dump_wide(n: Node, depth: int) -> void:
+	if n is Control:
+		var c: Control = n
+		var w: float = c.get_combined_minimum_size().x
+		if w > 640.0:
+			var t: String = (c as Label).text.left(40) if c is Label else ((c as Button).text.left(30) if c is Button else "")
+			print("  ".repeat(depth), c.get_class(), " ", c.name, " min_w=", w, " ", t)
+	for ch: Node in n.get_children():
+		_dump_wide(ch, depth + 1)

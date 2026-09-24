@@ -40,6 +40,7 @@ func _ready() -> void:
 	var t := UI.label("Declaration of Independence", 40, UI.INK, true)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	t.resized.connect(t.update_minimum_size)
 	t.custom_minimum_size.x = 10
 	v.add_child(t)
 
@@ -50,6 +51,7 @@ func _ready() -> void:
 	var last: String = Content.colony_name(run.nation_id, last_idx)
 	_text = UI.label(TEXT % ["New " + str(n.get("name", "World")), first, last], UI.SIZE_BODY, UI.INK)
 	_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_text.resized.connect(_text.update_minimum_size)
 	_text.custom_minimum_size.x = 10
 	_text.visible_ratio = 0.0
 	v.add_child(_text)

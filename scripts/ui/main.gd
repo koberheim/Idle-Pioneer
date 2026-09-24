@@ -382,12 +382,11 @@ func _layout_sheet() -> void:
 	if _sheet == null:
 		return
 	var w: float = _content.size.x
-	_sheet.fit(_content.size.y * 0.74)
-	_sheet.size = Vector2(w, 0)
-	var h: float = _sheet.get_combined_minimum_size().y
-	h = minf(h, _content.size.y)
-	_sheet.size = Vector2(w, h)
-	_sheet.position = Vector2(0, _content.size.y - h * _sheet_t)
+	_sheet.fit(floorf(_content.size.y * 0.74))
+	var h: float = ceilf(minf(_sheet.get_combined_minimum_size().y, _content.size.y))
+	if absf(_sheet.size.y - h) >= 1.0 or absf(_sheet.size.x - w) >= 1.0:
+		_sheet.size = Vector2(w, h)
+	_sheet.position = Vector2(0, roundf(_content.size.y - h * _sheet_t))
 
 
 func _on_advisor_go(target: String) -> void:

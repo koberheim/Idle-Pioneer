@@ -127,6 +127,7 @@ func _father_card(def: Dictionary, joined: bool) -> Control:
 	hv.add_child(UI.label(str(def["title"]), UI.SIZE_SMALL, UI.INK_SOFT))
 	var eff := UI.label(str(def["desc"]), UI.SIZE_BODY, UI.GREEN)
 	eff.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	eff.resized.connect(eff.update_minimum_size)
 	eff.custom_minimum_size.x = 10
 	hv.add_child(eff)
 	head.add_child(hv)

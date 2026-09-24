@@ -66,6 +66,7 @@ func _rebuild() -> void:
 		var name_l := UI.label(str(g["name"]), UI.SIZE_BODY, UI.INK)
 		var info := UI.label("", UI.SIZE_SMALL, UI.INK_SOFT)
 		info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		info.resized.connect(info.update_minimum_size)
 		info.custom_minimum_size.x = 10
 		v.add_child(name_l)
 		v.add_child(info)

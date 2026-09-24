@@ -22,6 +22,7 @@ func push(text: String, icon_name: String = "star", seconds: float = 3.0) -> voi
 	row.add_child(UI.icon_rect(UI.icon(icon_name), 36))
 	var l := UI.label(text, UI.SIZE_SMALL, UI.LIGHT)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.resized.connect(l.update_minimum_size)
 	l.custom_minimum_size.x = 10
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(l)

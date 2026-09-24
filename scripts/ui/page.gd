@@ -21,6 +21,7 @@ func _ready() -> void:
 	scroll.offset_top = 12
 	scroll.offset_bottom = -8
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_RESERVE
 	add_child(scroll)
 
 	var outer := UI.vbox(14)

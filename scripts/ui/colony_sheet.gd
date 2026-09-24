@@ -69,6 +69,7 @@ func _init() -> void:
 	_title = UI.label("", UI.SIZE_TITLE, UI.GOLD, true)
 	_subtitle = UI.label("", UI.SIZE_SMALL, UI.LIGHT_SOFT)
 	_subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_subtitle.resized.connect(_subtitle.update_minimum_size)
 	_subtitle.custom_minimum_size.x = 10
 	titles.add_child(_title)
 	titles.add_child(_subtitle)
@@ -84,6 +85,9 @@ func _init() -> void:
 
 	_scroll = ScrollContainer.new()
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	# Always reserve the scrollbar's width, so text never rewraps (and the
+	# sheet never changes height) when the bar comes and goes.
+	_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_RESERVE
 	root.add_child(_scroll)
 	_body = UI.vbox(10)
 	_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -94,6 +98,7 @@ func _init() -> void:
 	_body.add_child(_manage_box)
 	_stats = UI.label("", UI.SIZE_SMALL, UI.LIGHT)
 	_stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_stats.resized.connect(_stats.update_minimum_size)
 	_stats.custom_minimum_size.x = 10
 	_manage_box.add_child(_stats)
 	var trip_row := UI.hbox(10)
@@ -121,6 +126,7 @@ func _init() -> void:
 	_colonist_label = UI.label("", UI.SIZE_BODY, UI.INK)
 	_colonist_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_colonist_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_colonist_label.resized.connect(_colonist_label.update_minimum_size)
 	_colonist_label.custom_minimum_size.x = 10
 	col_row.add_child(_colonist_label)
 	_minus = _small_button("−", func() -> void: _assign(-1))
@@ -135,6 +141,7 @@ func _init() -> void:
 	gov_row.add_child(UI.icon_rect(UI.icon("scroll"), 44))
 	_gov_label = UI.label("", UI.SIZE_SMALL, UI.INK)
 	_gov_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_gov_label.resized.connect(_gov_label.update_minimum_size)
 	_gov_label.custom_minimum_size.x = 10
 	_gov_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	gov_row.add_child(_gov_label)
@@ -153,6 +160,7 @@ func _init() -> void:
 	ch_head.add_child(UI.icon_rect(UI.icon("star"), 44))
 	_charter_title = UI.label("", UI.SIZE_SMALL, UI.INK)
 	_charter_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_charter_title.resized.connect(_charter_title.update_minimum_size)
 	_charter_title.custom_minimum_size.x = 10
 	_charter_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	ch_head.add_child(_charter_title)
@@ -179,6 +187,7 @@ func _init() -> void:
 	_body.add_child(_found_box)
 	_found_detail = UI.label("", UI.SIZE_BODY, UI.LIGHT)
 	_found_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_found_detail.resized.connect(_found_detail.update_minimum_size)
 	_found_detail.custom_minimum_size.x = 10
 	_found_box.add_child(_found_detail)
 	_found_flavor = UI.wrap_label("", UI.SIZE_SMALL, UI.LIGHT_SOFT)
@@ -214,10 +223,12 @@ func _assign(delta: int) -> void:
 
 ## Caps the sheet to `max_height`, scrolling the body when it doesn't fit.
 func fit(max_height: float) -> void:
-	var header_h: float = get_combined_minimum_size().y - _scroll.custom_minimum_size.y
+	# Whole pixels only, and only when the target really changes: otherwise
+	# the sheet and its content chase each other by a pixel every frame.
+	var header_h: float = get_combined_minimum_size().y - _scroll.get_combined_minimum_size().y
 	var want: float = _body.get_combined_minimum_size().y
-	var h: float = clampf(want, 0.0, maxf(max_height - header_h, 120.0))
-	if not is_equal_approx(_scroll.custom_minimum_size.y, h):
+	var h: float = floorf(clampf(want, 0.0, maxf(max_height - header_h, 120.0)))
+	if absf(_scroll.custom_minimum_size.y - h) >= 1.0:
 		_scroll.custom_minimum_size.y = h
 
 

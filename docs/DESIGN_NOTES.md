@@ -59,7 +59,7 @@ independences (`unlock_after_runs` in balance.json), each introduced once by a
 | — | **Milestones**: colony upgrade levels 25, 50, 100, 150, 200, 300, 400, 500 (then every 250) double that track (production and cargo ×2, speed ×1.5); workshop levels double workshop speed. |
 | 1st | **The Ledger** tab (statistics and curiosities), **Relics** (30 real colonial artifacts in 6 sets; permanent small bonuses, set bonuses; from treasure 4%, each independence, and new colony-count records at 5/10/15/20/25), **the Almanac** (rare pages that skip an hour when read: one per independence, 1% from treasure, one per new colony record from 10). |
 | 2nd | **Specializations**: after its first charter a colony picks one of two (Boomtown, Market Town, Frontier Fort, Post Road, Supply Depot, Deepwater Harbor, Entrepot). |
-| 3rd | **Research** (planned, see RESEARCH_PLAN.md): in-run, resets each expedition. |
+| 3rd | **The Philosophical Society**: 102 in-run studies in 6 branches (main line, optional side paths, repeatables), paid in goods and gold, reset each expedition. See RESEARCH_PLAN.md. |
 
 Deferred ideas are in BACKLOG.md.
 

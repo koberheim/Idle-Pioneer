@@ -34,6 +34,7 @@ func _ready() -> void:
 
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_RESERVE
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(scroll)
 	var list := UI.vbox(12)
@@ -88,6 +89,7 @@ func _show_license(name: String, file: String) -> void:
 	var t := UI.label(name, UI.SIZE_BIG, UI.INK, true)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	t.resized.connect(t.update_minimum_size)
 	t.custom_minimum_size.x = 10
 	head.add_child(t)
 	var close := UI.button("✕", "button", 60)

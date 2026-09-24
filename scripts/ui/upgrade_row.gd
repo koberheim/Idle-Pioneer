@@ -23,6 +23,7 @@ func _init(icon_name: String, action: Callable) -> void:
 	title = UI.label("", UI.SIZE_BODY, UI.INK)
 	detail = UI.label("", UI.SIZE_SMALL, UI.INK_SOFT)
 	detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	detail.resized.connect(detail.update_minimum_size)
 	detail.custom_minimum_size.x = 10
 	text.add_child(title)
 	text.add_child(detail)

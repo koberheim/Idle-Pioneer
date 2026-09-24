@@ -73,6 +73,7 @@ func _ready() -> void:
 
 	_scroll = ScrollContainer.new()
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_RESERVE
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(_scroll)
 	_list = UI.vbox(10)
@@ -166,6 +167,7 @@ func _study_card(def: Dictionary) -> Control:
 	tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var title := UI.label("%s  (%d)" % [def["name"], int(def.get("year", 0))], UI.SIZE_BODY, UI.INK, true)
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	title.resized.connect(title.update_minimum_size)
 	title.custom_minimum_size.x = 10
 	tv.add_child(title)
 	tv.add_child(UI.wrap_label(str(def.get("hook", "")), UI.SIZE_SMALL, UI.INK_SOFT))

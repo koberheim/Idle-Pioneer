@@ -125,6 +125,7 @@ func _workshop_card(def: Dictionary) -> Control:
 
 	var info := UI.label("", UI.SIZE_SMALL, UI.INK_SOFT)
 	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	info.resized.connect(info.update_minimum_size)
 	info.custom_minimum_size.x = 10
 	v.add_child(info)
 	card.set_meta("info", info)
@@ -178,6 +179,7 @@ func _workshop_card(def: Dictionary) -> Control:
 	var sell_label := UI.label("", UI.SIZE_SMALL, UI.INK_SOFT)
 	sell_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sell_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	sell_label.resized.connect(sell_label.update_minimum_size)
 	sell_label.custom_minimum_size.x = 10
 	sell_row.add_child(sell_label)
 	var toggle := UI.button("", "button", 52)

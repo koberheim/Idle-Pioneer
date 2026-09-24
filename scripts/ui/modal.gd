@@ -38,6 +38,7 @@ func _init(title: String) -> void:
 func add_text(text: String, size: int = UI.SIZE_BODY, color: Color = UI.INK) -> Label:
 	var l := UI.label(text, size, color)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.resized.connect(l.update_minimum_size)
 	l.custom_minimum_size.x = 10
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	body.add_child(l)

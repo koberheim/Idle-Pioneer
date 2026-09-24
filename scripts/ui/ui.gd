@@ -67,8 +67,10 @@ static func frame(name: String, margin: float = 14.0, content: float = 14.0) -> 
 		sb.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
 		sb.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
 	else:
-		sb.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_TILE_FIT
-		sb.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_TILE_FIT
+		# Plain tiling: TILE_FIT rescales the texture whenever a panel changes
+		# size by a pixel, which reads as the wood grain shimmering.
+		sb.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_TILE
+		sb.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_TILE
 	return sb
 
 
@@ -134,6 +136,7 @@ static func label(text: String = "", size: int = SIZE_BODY, color: Color = INK, 
 static func wrap_label(text: String = "", size: int = SIZE_SMALL, color: Color = INK_SOFT) -> Label:
 	var l := label(text, size, color)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.resized.connect(l.update_minimum_size)
 	l.custom_minimum_size.x = 10
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return l

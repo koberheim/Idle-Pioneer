@@ -195,6 +195,7 @@ func _stats_card(title: String, rows: Array, needs_run: bool) -> void:
 		var name := UI.label(str(r[0]), UI.SIZE_SMALL, UI.INK_SOFT)
 		name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		name.resized.connect(name.update_minimum_size)
 		name.custom_minimum_size.x = 10
 		grid.add_child(name)
 		var value := UI.label("", UI.SIZE_SMALL, UI.INK)

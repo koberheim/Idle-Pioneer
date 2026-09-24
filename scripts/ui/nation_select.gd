@@ -61,6 +61,7 @@ func _ready() -> void:
 	var sub := UI.label(sub_text, UI.SIZE_BODY, UI.LIGHT)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	sub.resized.connect(sub.update_minimum_size)
 	sub.custom_minimum_size.x = 10
 	sub.add_theme_color_override("font_outline_color", Color("1a120c"))
 	sub.add_theme_constant_override("outline_size", 6)

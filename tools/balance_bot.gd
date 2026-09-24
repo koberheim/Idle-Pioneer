@@ -304,7 +304,9 @@ func _research() -> void:
 		var have: float = run.gold if k == "gold" else run.stock_of(k)
 		if have < float(cost[k]):
 			afford = false
-			if k != "gold" and run.gold >= float(cost["gold"]) * 0.5:
+			# Only finished goods are held back for studies; a raw good is
+			# usually the colony's income and holding it would starve the run.
+			if k != "gold" and Content.is_crafted(k) and run.gold >= float(cost["gold"]) * 0.5:
 				run.hold[k] = true
 	if afford:
 		for k: String in cost.keys():
@@ -314,6 +316,9 @@ func _research() -> void:
 				run.warehouse[k] = run.stock_of(k) - float(cost[k])
 		run.research[best] = run.study_level(best) + 1
 		run.research_version += 1
+		for k: String in cost.keys():
+			if k != "gold" and not _needed_by_workshop(k):
+				run.hold[k] = false
 		log_marks["studies"] = int(log_marks.get("studies", 0)) + 1
 
 

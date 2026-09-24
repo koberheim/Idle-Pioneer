@@ -29,12 +29,12 @@ Items marked ✅ were fixed in the commit after this plan was written.
 | High | The top bar overflows 720 px in the late game: Liberty and colonist counts aren't abbreviated, which pushes the settings button off-screen. | ✅ |
 | High | Saves rebuild the map from its seed, so any change to content, balance, generator or engine silently changes a saved run's colonies. | ✅ The save now stores each colony's site data and a generator version. |
 | High | Two failed saves in a row could wipe progress: the backup is overwritten even when the current file is bad, the save version is never checked, and a NaN value breaks loading. | ✅ |
-| Medium | Moving the device clock forward grants repeat offline catch-up and can lock Royal Favor. | Phase 1 |
-| Medium | The map redraws and pathfinds the Europe lane every frame, there's no FPS cap, and the terrain shader is heavy. | ✅ Lane cached and FPS capped; shader LOD in Phase 1 |
-| Medium | Touch targets (about 27–37 dp) and small text (about 10 sp) are below mobile guidelines, and there's no bottom safe area. | Phase 1 |
-| Low | Numbers above 9.2e18 overflow when converted to integers (Liberty, costs), and `Format.num` runs out of suffixes around 1e36. | Phase 1 |
-| Low | Frame hitches of 1–3 s drop a little production. | Phase 1 |
-| Low | Stray `__pycache__` files, unused art and font files, and dev folders (GUT, tools, tests, docs) would ship in the build. | Export filters, Phase 0 |
+| Medium | Moving the device clock forward grants repeat offline catch-up and can lock Royal Favor. | ✅ Offline time only beyond the latest time seen; Favor cooldown capped. |
+| Medium | The map redraws and pathfinds the Europe lane every frame, there's no FPS cap, and the terrain shader is heavy. | ✅ Lane cached, 60 fps cap, "Map effects: Light" setting. |
+| Medium | Touch targets (about 27–37 dp) and small text (about 10 sp) are below mobile guidelines, and there's no bottom safe area. | ✅ Partly: bottom safe area, text +10%, smallest buttons raised to 58–60. Confirm on devices. |
+| Low | Numbers above 9.2e18 overflow when converted to integers (Liberty, costs), and `Format.num` runs out of suffixes around 1e36. | ✅ |
+| Low | Frame hitches of 1–3 s drop a little production. | ✅ |
+| Low | Stray `__pycache__` files, unused art and font files, and dev folders (GUT, tools, tests, docs) would ship in the build. | ✅ Export filters in `export_presets.cfg`; unused font removed. |
 
 **Checked and fine:** every content cross-reference resolves and every effect is handled. Milestone math holds at the edges, and purchase guards are solid. The market isn't affected by clock changes. Pause and resume saves correctly.
 
@@ -65,6 +65,26 @@ Items marked ✅ were fixed in the commit after this plan was written.
 - A text-size setting.
 - Cloud save (Play Games or Game Center) or a save export/import code.
 - An in-app review prompt.
+
+## Progress (24 Sept 2026)
+
+- **Phase 0 done by Claude:**
+  - code fixes
+  - OFL license files
+  - Credits & Licenses screen
+  - export presets (`export_presets.cfg`, local, gitignored) and a setup guide (`docs/EXPORT_SETUP.md`)
+  - app and store icons, Android adaptive layers, Play feature graphic (`assets/icons/`)
+- **Phase 1 done by Claude:**
+  - the Philosophical Society (102 studies)
+  - clock protection
+  - save code export/import
+  - light map-effects setting
+- **Phase 0 still open, owner:**
+  - package id (placeholder `com.idlepioneer.game`)
+  - the credit line in `data/credits.json`
+  - the harbor art decision
+  - device profiling
+- **Phase 1 still open:** device playtests of the first runs.
 
 ## Phases
 

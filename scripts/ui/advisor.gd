@@ -20,6 +20,7 @@ func _init() -> void:
 	row.add_child(UI.icon_rect(UI.icon("portrait"), 52))
 	_label = UI.label("", UI.SIZE_SMALL, UI.INK)
 	_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_label.resized.connect(_label.update_minimum_size)
 	_label.custom_minimum_size.x = 10
 	_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
