@@ -18,7 +18,9 @@ func _ready() -> void:
 	Game.meta = MetaState.new()
 	Game.meta.music_on = false
 	Game.meta.sfx_on = false
-	if scenario != "nation" and scenario != "reforms":
+	if scenario == "fresh":
+		Game.start_run("dutch")
+	elif scenario != "nation" and scenario != "reforms":
 		_seed_state()
 	if scenario == "reforms":
 		Game.meta.liberty = 14
@@ -31,7 +33,7 @@ func _ready() -> void:
 		"sheet":
 			main.call("_open_colony", "fishery")
 		"found":
-			main.call("_open_colony", "ironworks")
+			main.call("_open_colony", "indigo_reach")
 		"capital":
 			main.call("_open_colony", "capital")
 		"workshops":

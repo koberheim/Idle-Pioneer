@@ -61,6 +61,7 @@ func boot() -> bool:
 
 func start_run(nation_id: String) -> void:
 	run = RunState.create(nation_id, _rng)
+	run.gold = Balance.v("start_gold")
 	running = true
 	income_rate = 0.0
 	_last_frame_unix = Time.get_unix_time_from_system()
