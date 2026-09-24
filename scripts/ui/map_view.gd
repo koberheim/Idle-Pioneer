@@ -306,6 +306,8 @@ func _draw_overlay() -> void:
 		if c.founded:
 			_draw_colony(c, s, nation_col)
 
+	_draw_clouds(s)
+
 	for f: Dictionary in _floaters:
 		var t: float = float(f["t"])
 		var a: float = clampf(1.6 - t, 0.0, 1.0)
@@ -321,7 +323,11 @@ func _draw_route(c: RunState.ColonyState, s: float) -> void:
 	if pts.size() < 2:
 		return
 	var sea: bool = Balance.is_sea(c)
-	var col: Color = Color(0.95, 0.97, 1.0, 0.35) if sea else Color(0.45, 0.32, 0.2, 0.75)
+	if not sea:
+		_overlay.draw_polyline(pts, Color(0.36, 0.27, 0.16, 0.55), 4.0 * s)
+		_overlay.draw_polyline(pts, Color(0.72, 0.6, 0.4, 0.85), 2.0 * s)
+		return
+	var col: Color = Color(0.95, 0.97, 1.0, 0.35)
 	var dash: float = 10.0 if sea else 7.0
 	var gap: float = 10.0 if sea else 5.0
 	var carry: float = 0.0
@@ -373,7 +379,7 @@ func _draw_unit(c: RunState.ColonyState, s: float) -> void:
 		dx = -dx
 	var sea: bool = Balance.is_sea(c)
 	var tex: Texture2D = _sprites["ship"] if sea else _sprites["wagon"]
-	var sz: Vector2 = tex.get_size() * s * 1.1
+	var sz: Vector2 = tex.get_size() * s * (1.0 if sea else 0.9)
 	var bob: float = sin(_time * 3.0 + float(c.id.hash() % 7)) * (1.5 if sea else 0.6) * s * 0.5
 	var r := Rect2(p - Vector2(sz.x / 2, sz.y * 0.8) + Vector2(0, bob), sz)
 	_overlay.draw_set_transform(Vector2.ZERO)
@@ -422,6 +428,7 @@ func _draw_colony(c: RunState.ColonyState, s: float, nation_col: Color) -> void:
 		var pulse: float = 0.5 + 0.5 * sin(_time * 5.0)
 		_overlay.draw_circle(center + Vector2(0, -4 * s), sz.x * 0.56, Color(1, 0.9, 0.5, 0.18 + 0.12 * pulse))
 	_overlay.draw_texture_rect(tex, r, false)
+	_draw_smoke(r, s, center.x)
 
 	# Flag on a pole at the top-right, waving.
 	var pole := r.position + Vector2(sz.x * 0.82, sz.y * 0.1)
@@ -481,3 +488,27 @@ func _draw_site(c: RunState.ColonyState, s: float) -> void:
 	_overlay.draw_rect(plate, Color(0.78, 0.6, 0.3, 0.9), false, 1.5)
 	_overlay.draw_texture_rect(UI.icon("gold"), Rect2(plate.position + Vector2(w - 34, 4), Vector2(24, 24)), false)
 	_overlay.draw_string(_font, plate.position + Vector2(8, fs + 3), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, UI.LIGHT)
+
+
+## A few pixel puffs rising from the chimneys.
+func _draw_smoke(r: Rect2, s: float, seed_x: float) -> void:
+	var origin := r.position + Vector2(r.size.x * 0.34, r.size.y * 0.2)
+	for i in 4:
+		var t: float = fmod(_time * 0.35 + float(i) * 0.25 + seed_x * 0.013, 1.0)
+		var p := origin + Vector2(sin(t * 5.0 + seed_x) * 3.0 * s + t * 6.0 * s, -t * 18.0 * s)
+		var sz: float = (1.0 + t * 2.0) * s
+		_overlay.draw_rect(Rect2(p.snapped(Vector2(s, s)), Vector2(sz, sz)), Color(0.86, 0.84, 0.8, 0.55 * (1.0 - t)))
+
+
+## Slow cloud shadows drifting across the land and sea.
+func _draw_clouds(s: float) -> void:
+	var w: float = _overlay.size.x
+	var h: float = _overlay.size.y
+	for i in 5:
+		var speed: float = 6.0 + float(i) * 1.7
+		var x: float = fmod(_time * speed + float(i) * 311.0, w + 500.0) - 250.0
+		var y: float = fmod(float(i) * 577.0 + 140.0, h)
+		var base := Vector2(x, y)
+		for j in 4:
+			var off := Vector2(float(j) * 38.0 - 60.0, sin(float(i * 3 + j)) * 18.0)
+			_overlay.draw_circle(base + off, 46.0 + float((i + j) % 3) * 14.0, Color(0.05, 0.08, 0.12, 0.07))

@@ -13,6 +13,7 @@ var _players: Array[AudioStreamPlayer] = []
 var _next: int = 0
 var _music: AudioStreamPlayer
 var _last_play: Dictionary = {}
+var _music_task: int = -1
 
 
 func _ready() -> void:
@@ -28,7 +29,29 @@ func _ready() -> void:
 	if DisplayServer.get_name() == "headless":
 		return
 	_build_sfx()
-	_music.stream = _file_or(MUSIC_DIR, "theme", _build_music())
+	var file_music: AudioStream = _file_or(MUSIC_DIR, "theme", null)
+	if file_music != null:
+		_music.stream = file_music
+	else:
+		# Synthesising the theme takes long enough to stall a phone's first
+		# frame, so it's built off the main thread and starts when ready.
+		_music_task = WorkerThreadPool.add_task(func() -> void:
+			var stream: AudioStreamWAV = _build_music()
+			_set_music.call_deferred(stream))
+
+
+func _exit_tree() -> void:
+	if _music_task >= 0:
+		WorkerThreadPool.wait_for_task_completion(_music_task)
+		_music_task = -1
+
+
+func _set_music(stream: AudioStream) -> void:
+	if _music_task >= 0:
+		WorkerThreadPool.wait_for_task_completion(_music_task)
+		_music_task = -1
+	_music.stream = stream
+	sync_music()
 
 
 func play(id: String) -> void:
