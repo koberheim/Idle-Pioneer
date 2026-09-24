@@ -13,6 +13,8 @@ signal father_joined(father_id: String)
 signal independence_declared(liberty: int)
 signal offline_progress(seconds: float, ev: SimEvents)
 signal purchased
+signal market_changed
+signal treasure_collected(amount: float)
 
 var save_path: String = "user://save.json"
 const AUTOSAVE_SECONDS := 15.0
@@ -34,6 +36,7 @@ var _last_frame_unix: float = 0.0
 var _income_window: float = 0.0
 var _income_time: float = 0.0
 var _rng := RandomNumberGenerator.new()
+var _market_period: int = -1
 
 
 func _ready() -> void:
@@ -87,6 +90,11 @@ func _process(delta: float) -> void:
 		Sim.step(run, meta, tick, ev)
 	_dispatch(ev)
 	_track_income(ev.gold_earned, delta)
+	var period: int = int(Balance.market_state(run)["period"])
+	if period != _market_period:
+		if _market_period >= 0:
+			market_changed.emit()
+		_market_period = period
 
 	_autosave_timer += delta
 	if _autosave_timer >= AUTOSAVE_SECONDS:
@@ -374,6 +382,110 @@ func buy_liberty_upgrade(upgrade_id: String) -> bool:
 		return false
 	meta.liberty -= cost
 	meta.upgrades[upgrade_id] = meta.level(upgrade_id) + 1
+	purchased.emit()
+	save()
+	return true
+
+
+func charter_affordable(colony_id: String) -> bool:
+	var c: RunState.ColonyState = run.colony(colony_id)
+	var cost: Dictionary = Balance.charter_cost(colony_id, c.charter + 1)
+	if cost.is_empty():
+		return false
+	for key: String in cost.keys():
+		if run.stock_of(key) + 0.0001 < float(cost[key]):
+			return false
+	return true
+
+
+func charter_colony(colony_id: String) -> bool:
+	var c: RunState.ColonyState = run.colony(colony_id)
+	if c == null or not c.founded or not charter_affordable(colony_id):
+		return false
+	var cost: Dictionary = Balance.charter_cost(colony_id, c.charter + 1)
+	for key: String in cost.keys():
+		run.warehouse[key] = run.stock_of(key) - float(cost[key])
+	c.charter += 1
+	purchased.emit()
+	save()
+	return true
+
+
+func commission_governor(type_id: String) -> bool:
+	var cost: int = Balance.governor_commission_cost(meta)
+	if meta.liberty < cost or Content.governor_type(type_id).is_empty():
+		return false
+	meta.liberty -= cost
+	var used: Array = []
+	for g: Dictionary in meta.governors:
+		used.append(g["name"])
+	var names: Array = Content.governor_names.filter(func(n: Variant) -> bool: return not used.has(n))
+	var name: String = str(names[_rng.randi_range(0, names.size() - 1)]) if not names.is_empty() else "Governor %d" % meta.next_governor_id
+	meta.governors.append({"id": meta.next_governor_id, "name": name, "type": type_id, "rank": 1})
+	meta.next_governor_id += 1
+	purchased.emit()
+	save()
+	return true
+
+
+func promote_governor(governor_id: int) -> bool:
+	var g: Dictionary = meta.governor(governor_id)
+	if g.is_empty():
+		return false
+	var cost: int = Balance.governor_rank_cost(int(g["rank"]))
+	if cost < 0 or meta.liberty < cost:
+		return false
+	meta.liberty -= cost
+	g["rank"] = int(g["rank"]) + 1
+	purchased.emit()
+	save()
+	return true
+
+
+## Posts a governor to a colony, moving them from wherever they were and
+## sending home whoever held the post before.
+func post_governor(colony_id: String, governor_id: int) -> bool:
+	var c: RunState.ColonyState = run.colony(colony_id)
+	if c == null or not c.founded or meta.governor(governor_id).is_empty():
+		return false
+	var prev: String = run.colony_of_governor(governor_id)
+	if prev != "":
+		run.governors.erase(prev)
+	run.governors[colony_id] = governor_id
+	purchased.emit()
+	return true
+
+
+func recall_governor(colony_id: String) -> void:
+	run.governors.erase(colony_id)
+	purchased.emit()
+
+
+## Reward for tapping the treasure that drifts past on the map.
+func treasure_value() -> float:
+	return maxf(Balance.v("treasure_min_gold"), income_rate * Balance.v("treasure_income_seconds"))
+
+
+func collect_treasure() -> float:
+	if run == null:
+		return 0.0
+	var amount: float = treasure_value()
+	run.gold += amount
+	run.lifetime_gold += amount
+	treasure_collected.emit(amount)
+	return amount
+
+
+func favor_ready_in() -> float:
+	return maxf(0.0, meta.favor_ready_unix - Time.get_unix_time_from_system())
+
+
+## Royal Favor: a free, timed production boost on a real-time cooldown.
+func request_favor() -> bool:
+	if run == null or favor_ready_in() > 0.0:
+		return false
+	run.favor_seconds += Balance.v("favor_seconds")
+	meta.favor_ready_unix = Time.get_unix_time_from_system() + Balance.v("favor_cooldown_seconds")
 	purchased.emit()
 	save()
 	return true

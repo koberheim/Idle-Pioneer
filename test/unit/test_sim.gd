@@ -3,8 +3,19 @@ extends GutTest
 var meta: MetaState
 
 
+var _saved_balance: Dictionary
+
+
 func before_each() -> void:
+	# Market demand moves prices; these tests assume list prices.
+	_saved_balance = Balance.k.duplicate()
+	Balance.k["market_up_mult"] = 1.0
+	Balance.k["market_down_mult"] = 1.0
 	meta = MetaState.new()
+
+
+func after_each() -> void:
+	Balance.k = _saved_balance
 
 
 func _fresh_run(seed_value: int = 3) -> RunState:
@@ -120,3 +131,17 @@ func test_discovery_records_first_arrival() -> void:
 	Sim.step(run, meta, 1.0, ev)
 	assert_true(run.discovered.has("timber"))
 	assert_eq(ev.discovered, ["timber"] as Array[String])
+
+
+func test_royal_favor_doubles_output_then_expires_mid_step() -> void:
+	var a := _fresh_run()
+	var b := _fresh_run()
+	a.favor_seconds = 30.0
+	b.favor_seconds = 30.0
+	_simulate(a, 100.0, 0.1)
+	var ev := SimEvents.new()
+	Sim.step(b, meta, 100.0, ev)
+	# 30s at 2/s + 70s at 1/s
+	assert_almost_eq(a.lifetime_gold, 130.0, 0.5)
+	assert_almost_eq(b.lifetime_gold, 130.0, 0.5)
+	assert_eq(b.favor_seconds, 0.0)

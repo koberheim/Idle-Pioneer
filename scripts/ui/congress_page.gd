@@ -14,6 +14,7 @@ var _father_cards: Dictionary = {}
 var _upgrade_rows: Dictionary = {}
 var _liberty_have: Label
 var _structure: String = ""
+var _roster: GovernorRoster
 
 
 func _build_header(box: VBoxContainer) -> void:
@@ -70,6 +71,8 @@ func refresh() -> void:
 	for id: String in _father_cards.keys():
 		_update_father(id)
 	_update_upgrades()
+	if _roster != null:
+		_roster.refresh()
 
 
 func _rebuild() -> void:
@@ -104,6 +107,10 @@ func _rebuild() -> void:
 		var row := UpgradeRow.new(str(icons.get(id, "star")), func() -> bool: return Game.buy_liberty_upgrade(id))
 		_upgrade_rows[id] = row
 		list.add_child(row)
+
+	list.add_child(section("Governors"))
+	_roster = GovernorRoster.new()
+	list.add_child(_roster)
 
 
 func _father_card(def: Dictionary, joined: bool) -> Control:

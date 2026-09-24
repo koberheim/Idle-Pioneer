@@ -14,6 +14,8 @@ class ColonyState:
 	var prod_level: int = 0
 	var cargo_level: int = 0
 	var speed_level: int = 0
+	## Charter rank, bought with crafted goods (Idle Planet Miner's "colonize").
+	var charter: int = 0
 	var stock: float = 0.0
 	var cargo: float = 0.0
 	## Round-trip progress, 0..1. 0 means waiting at the colony; the outbound
@@ -24,7 +26,7 @@ class ColonyState:
 		return {
 			"id": id, "founded": founded, "site": site, "colonists": colonists,
 			"prod_level": prod_level, "cargo_level": cargo_level, "speed_level": speed_level,
-			"stock": stock, "cargo": cargo, "trip": trip,
+			"charter": charter, "stock": stock, "cargo": cargo, "trip": trip,
 		}
 
 	static func from_dict(d: Dictionary) -> ColonyState:
@@ -36,6 +38,7 @@ class ColonyState:
 		c.prod_level = int(d.get("prod_level", 0))
 		c.cargo_level = int(d.get("cargo_level", 0))
 		c.speed_level = int(d.get("speed_level", 0))
+		c.charter = int(d.get("charter", 0))
 		c.stock = float(d.get("stock", 0.0))
 		c.cargo = float(d.get("cargo", 0.0))
 		c.trip = clampf(float(d.get("trip", 0.0)), 0.0, 0.999999)
@@ -78,6 +81,10 @@ var discovered: Array[String] = []
 var fathers: Array[String] = []
 var crafted: Dictionary = {}  # resource id -> int, crafted this run
 var shipments: int = 0
+## colony id -> governor id (from MetaState.governors) posted there this run.
+var governors: Dictionary = {}
+## Simulated seconds of Royal Favor (doubled production) remaining.
+var favor_seconds: float = 0.0
 
 
 static func create(p_nation_id: String, rng: RandomNumberGenerator) -> RunState:
@@ -121,6 +128,17 @@ func has_father(id: String) -> bool:
 	return fathers.has(id)
 
 
+func governor_at(colony_id: String) -> int:
+	return int(governors.get(colony_id, -1))
+
+
+func colony_of_governor(governor_id: int) -> String:
+	for k: String in governors.keys():
+		if int(governors[k]) == governor_id:
+			return k
+	return ""
+
+
 func colonists_assigned() -> int:
 	var n: int = 0
 	for c: ColonyState in colonies:
@@ -162,7 +180,8 @@ func to_dict() -> Dictionary:
 		"gold": gold, "lifetime_gold": lifetime_gold, "colonists_owned": colonists_owned,
 		"colonies": cols, "workshops": ws, "warehouse": warehouse.duplicate(),
 		"hold": hold.duplicate(), "discovered": discovered.duplicate(), "fathers": fathers.duplicate(),
-		"crafted": crafted.duplicate(), "shipments": shipments,
+		"crafted": crafted.duplicate(), "shipments": shipments, "governors": governors.duplicate(),
+		"favor_seconds": favor_seconds,
 	}
 
 
@@ -198,6 +217,9 @@ static func from_dict(d: Dictionary) -> RunState:
 	for k: String in (d.get("crafted", {}) as Dictionary).keys():
 		r.crafted[k] = int(d["crafted"][k])
 	r.shipments = int(d.get("shipments", 0))
+	r.favor_seconds = float(d.get("favor_seconds", 0.0))
+	for k: String in (d.get("governors", {}) as Dictionary).keys():
+		r.governors[k] = int(d["governors"][k])
 	# Colonists assigned beyond what's owned would make idle go negative.
 	if r.colonists_assigned() > r.colonists_owned:
 		r.colonists_owned = r.colonists_assigned()

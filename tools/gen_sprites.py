@@ -801,6 +801,25 @@ art([
     "................",
 ], "site", folder="map")
 
+art([
+    "................",
+    "....kkkkkkkk....",
+    "...kbbbbbbbbk...",
+    "..kbllllllllbk..",
+    "..kbllllllllbk..",
+    "..kkkkkkkkkkkk..",
+    "..kYyyyyyyyyYk..",
+    "..kbllkyykllbk..",
+    "..kbllkYYkllbk..",
+    "..kbllllllllbk..",
+    "..kYyyyyyyyyYk..",
+    "..kbBBBBBBBBbk..",
+    "...kkkkkkkkkk...",
+    "cc...cccc...cc..",
+    ".cccc....cccc...",
+    "................",
+], "chest", folder="map").save(os.path.join(OUT, "icons", "chest.png"))
+
 exec(open(os.path.join(ROOT, "tools", "colony_art.py")).read())
 
 # ------------------------------------------------------------------ portrait

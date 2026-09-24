@@ -91,6 +91,17 @@ func _pick() -> Array:
 	var planks: RunState.WorkshopState = run.workshop("planks")
 	if not planks.built and run.gold >= Balance.workshop_build_cost("planks") and run.founded_count() >= 2:
 		candidates.append(["workshop", "Timber sawn into planks sells for double. Build a Carpenter's Shop in Workshops.", "tab:1"])
+	if run.favor_seconds <= 0.0 and Game.favor_ready_in() <= 0.0 and run.founded_count() >= 2:
+		candidates.append(["favor", "The Crown is in a generous mood. Tap \"×2 Favor\" at the top to double production for a while.", ""])
+	for g: Dictionary in meta.governors:
+		if run.colony_of_governor(int(g["id"])) == "":
+			candidates.append(["gov_idle_%d" % run.founded_count(), "Governor %s awaits a posting. Tap a colony and appoint them." % g["name"], "colony:capital"])
+			break
+	for c: RunState.ColonyState in run.colonies:
+		if c.founded and Game.charter_affordable(c.id):
+			var cn: String = Content.colony_name(run.nation_id, Content.colony_index(c.id))
+			candidates.append(["charter_%s_%d" % [c.id, c.charter], "You have the goods to grant %s a new charter: more production and cargo." % cn, "colony:" + c.id])
+			break
 	for f: Dictionary in Content.fathers:
 		if not run.has_father(f["id"]) and Game.father_affordable(f["id"]):
 			candidates.append(["father_" + str(f["id"]), "%s is ready to join your Congress." % f["name"], "tab:3"])

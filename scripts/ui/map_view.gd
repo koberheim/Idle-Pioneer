@@ -5,6 +5,7 @@ class_name MapView
 extends Control
 
 signal colony_tapped(colony_id: String)
+signal treasure_tapped(world_pos: Vector2)
 
 const WATER_SHADER := preload("res://assets/shaders/water.gdshader")
 const DRAG_THRESHOLD := 14.0
@@ -31,6 +32,12 @@ var _map_px: Vector2 = Vector2(360, 720)
 var _font: Font = UI.FONT_BODY
 var _sprites: Dictionary = {}
 var _path_cache: Dictionary = {}
+var _water: Image
+## World position of the drifting treasure, or null. Seconds until the next
+## one appears, and how long the current one has been afloat.
+var _treasure: Variant = null
+var _treasure_age: float = 0.0
+var _treasure_timer: float = 45.0
 
 
 func _ready() -> void:
@@ -62,7 +69,8 @@ func _ready() -> void:
 	_overlay.draw.connect(_draw_overlay)
 	_world.add_child(_overlay)
 
-	for n: String in ["colony_1", "colony_2", "colony_3", "capital", "site", "wagon", "ship", "merchantman"]:
+	_water = UI.tex("res://assets/sprites/map_water.png").get_image()
+	for n: String in ["colony_1", "colony_2", "colony_3", "capital", "site", "wagon", "ship", "merchantman", "chest"]:
 		_sprites[n] = UI.tex("res://assets/sprites/map/%s.png" % n)
 
 	resized.connect(_layout)
@@ -179,6 +187,7 @@ func _process(delta: float) -> void:
 		_gold_timer = 0.0
 		_spawn_floater(tile_to_world(site_of("capital")) + Vector2(0, -60), "+" + Format.num(_pending_gold), UI.GOLD, "gold")
 		_pending_gold = 0.0
+	_update_treasure(delta)
 	var i: int = _floaters.size() - 1
 	while i >= 0:
 		_floaters[i]["t"] = float(_floaters[i]["t"]) + delta
@@ -266,6 +275,14 @@ func _gui_input(event: InputEvent) -> void:
 func _tap(world: Vector2) -> void:
 	if Game.run == null:
 		return
+	if _treasure != null and (_treasure as Vector2).distance_to(world) < 34.0 * scale_factor():
+		var at: Vector2 = _treasure
+		_treasure = null
+		_treasure_timer = randf_range(Balance.v("treasure_min_seconds"), Balance.v("treasure_max_seconds"))
+		var amount: float = Game.collect_treasure()
+		_spawn_floater(at + Vector2(-10, -30), "+" + Format.num(amount), UI.GOLD, "gold")
+		treasure_tapped.emit(at)
+		return
 	var best: String = ""
 	var best_d: float = 90.0 * scale_factor() / 2.0
 	for c: RunState.ColonyState in Game.run.colonies:
@@ -306,6 +323,7 @@ func _draw_overlay() -> void:
 		if c.founded:
 			_draw_colony(c, s, nation_col)
 
+	_draw_treasure(s)
 	_draw_clouds(s)
 
 	for f: Dictionary in _floaters:
@@ -512,3 +530,47 @@ func _draw_clouds(s: float) -> void:
 		for j in 4:
 			var off := Vector2(float(j) * 38.0 - 60.0, sin(float(i * 3 + j)) * 18.0)
 			_overlay.draw_circle(base + off, 46.0 + float((i + j) % 3) * 14.0, Color(0.05, 0.08, 0.12, 0.07))
+
+
+func _update_treasure(delta: float) -> void:
+	if Game.run == null or not is_visible_in_tree():
+		return
+	if _treasure != null:
+		_treasure_age += delta
+		_treasure = (_treasure as Vector2) + Vector2(4.0 * delta, sin(_time * 0.7) * 2.0 * delta)
+		if _treasure_age > Balance.v("treasure_lifetime_seconds"):
+			_treasure = null
+			_treasure_timer = randf_range(Balance.v("treasure_min_seconds"), Balance.v("treasure_max_seconds"))
+		return
+	_treasure_timer -= delta
+	if _treasure_timer > 0.0:
+		return
+	var s: float = scale_factor()
+	for attempt in 40:
+		var world := Vector2(randf_range(60.0, size.x - 90.0), _scroll + randf_range(80.0, size.y - 160.0))
+		var px := Vector2i(world / s)
+		if px.x < 0 or px.y < 0 or px.x >= _water.get_width() or px.y >= _water.get_height():
+			continue
+		if _water.get_pixelv(px).r > 0.5 and _water.get_pixelv(px + Vector2i(8, 0)).r > 0.5 and _water.get_pixelv(px - Vector2i(8, 0)).r > 0.5:
+			_treasure = world
+			_treasure_age = 0.0
+			return
+	_treasure_timer = 5.0
+
+
+func _draw_treasure(s: float) -> void:
+	if _treasure == null:
+		return
+	var p: Vector2 = _treasure
+	var tex: Texture2D = _sprites["chest"]
+	var sz: Vector2 = tex.get_size() * s * 1.6
+	var bob: float = sin(_time * 3.0) * 3.0
+	var fade: float = clampf((Balance.v("treasure_lifetime_seconds") - _treasure_age) / 3.0, 0.0, 1.0)
+	var pulse: float = 0.5 + 0.5 * sin(_time * 5.0)
+	_overlay.draw_circle(p, 34.0 + pulse * 6.0, Color(1.0, 0.78, 0.25, (0.28 + pulse * 0.2) * fade))
+	_overlay.draw_circle(p, 22.0, Color(1.0, 0.92, 0.6, 0.35 * fade))
+	_overlay.draw_texture_rect(tex, Rect2(p - sz / 2.0 + Vector2(0, bob), sz), false, Color(1, 1, 1, fade))
+	for i in 3:
+		var a: float = _time * 2.0 + float(i) * 2.1
+		var sp := p + Vector2(cos(a), sin(a)) * 26.0 + Vector2(0, bob)
+		_overlay.draw_rect(Rect2(sp, Vector2(s * 1.5, s * 1.5)), Color(1, 0.95, 0.7, 0.8 * fade * absf(sin(a * 1.7))))

@@ -10,6 +10,8 @@ var _gold_label: Label
 var _income_label: Label
 var _liberty_label: Label
 var _colonist_label: Label
+var _favor: Button
+var _favor_state: String = ""
 var _content: Control
 var _map: MapView
 var _pages: Array[Control] = []
@@ -42,6 +44,12 @@ func _ready() -> void:
 		Sfx.play("found")
 		_toasts.push("%s built. Assign colonists to begin." % Content.recipe(id)["building"], "hammer"))
 	Game.shipment_arrived.connect(_on_shipment)
+	Game.market_changed.connect(func() -> void:
+		var m: Dictionary = Balance.market_state(Game.run)
+		var names: PackedStringArray = []
+		for id: String in m["up"]:
+			names.append(Content.resource_name(id))
+		_toasts.push("News from Europe: demand soars for %s." % ", ".join(names), "ship_icon", 4.0))
 	get_tree().root.size_changed.connect(_layout_sheet)
 
 	if Game.boot():
@@ -81,6 +89,9 @@ func _build() -> void:
 	_map = MapView.new()
 	_map.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_map.colony_tapped.connect(_open_colony)
+	_map.treasure_tapped.connect(func(_at: Vector2) -> void:
+		Sfx.play("coin")
+		_toasts.push("Salvaged a drifting cargo from a wrecked merchantman!", "chest", 2.5))
 	_content.add_child(_map)
 	_pages.append(_map)
 
@@ -106,6 +117,7 @@ func _build() -> void:
 	_sheet = ColonySheet.new()
 	_sheet.visible = false
 	_sheet.closed.connect(_close_sheet)
+	_sheet.modal_requested.connect(func(m: Control) -> void: _overlay.add_child(m))
 	_content.add_child(_sheet)
 
 	root.add_child(_build_nav())
@@ -136,9 +148,20 @@ func _build_top_bar() -> Control:
 	_income_label = UI.label("", UI.SIZE_SMALL, UI.LIGHT_SOFT)
 	gv.add_child(_gold_label)
 	gv.add_child(_income_label)
-	gv.custom_minimum_size.x = 200
+	gv.custom_minimum_size.x = 170
 	row.add_child(gv)
 	row.add_child(UI.spacer())
+
+	_favor = UI.button("", "button_gold", 60)
+	_favor.custom_minimum_size.x = 132
+	_favor.icon = UI.icon("star")
+	_favor.expand_icon = true
+	_favor.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_favor.add_theme_constant_override("icon_max_width", 26)
+	_favor.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
+	_favor.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_favor.pressed.connect(_on_favor)
+	row.add_child(_favor)
 
 	row.add_child(UI.icon_rect(UI.icon("colonist"), 40))
 	_colonist_label = UI.label("", UI.SIZE_BODY, UI.LIGHT)
@@ -266,6 +289,7 @@ func _layout_sheet() -> void:
 	if _sheet == null:
 		return
 	var w: float = _content.size.x
+	_sheet.fit(_content.size.y * 0.74)
 	_sheet.size = Vector2(w, 0)
 	var h: float = _sheet.get_combined_minimum_size().y
 	h = minf(h, _content.size.y)
@@ -332,6 +356,52 @@ func _on_shipment(_colony_id: String, _res: String, _qty: float) -> void:
 	if now - _last_ship_sound > 5000:
 		_last_ship_sound = now
 		Sfx.play("coin")
+
+
+func _on_favor() -> void:
+	if Game.run == null:
+		return
+	if Game.run.favor_seconds > 0.0 or Game.favor_ready_in() > 0.0:
+		var m := Modal.new("Royal Favor")
+		if Game.run.favor_seconds > 0.0:
+			m.add_text("The Crown smiles on your colonies: production is doubled for another %s." % Format.duration(Game.run.favor_seconds))
+		else:
+			m.add_text("The Crown will hear your petition again in %s." % Format.duration(Game.favor_ready_in()))
+		m.add_button("Very well", "button_gold")
+		_overlay.add_child(m)
+		return
+	var m := Modal.new("Petition the Crown")
+	m.add_text("Ask the King for his favor: every colony produces double for %s. The Crown hears petitions every %s." % [
+		Format.duration(Balance.v("favor_seconds")), Format.duration(Balance.v("favor_cooldown_seconds"))])
+	m.add_button("Not now", "button")
+	m.add_button("Petition", "button_gold", func() -> void:
+		if Game.request_favor():
+			Sfx.play("fanfare")
+			_toasts.push("Royal Favor granted! Production doubled.", "star", 3.0))
+	_overlay.add_child(m)
+
+
+func _refresh_favor() -> void:
+	var run: RunState = Game.run
+	var state: String
+	if run.favor_seconds > 0.0:
+		state = "active"
+		_favor.text = Format.duration(run.favor_seconds)
+	elif Game.favor_ready_in() > 0.0:
+		state = "cooldown"
+		_favor.text = Format.duration(Game.favor_ready_in())
+	else:
+		state = "ready"
+		_favor.text = "×2 Favor"
+	if state == _favor_state:
+		return
+	_favor_state = state
+	var style: String = {"active": "button_buy", "cooldown": "button_disabled", "ready": "button_gold"}[state]
+	for s: String in ["normal", "hover", "pressed", "hover_pressed"]:
+		_favor.add_theme_stylebox_override(s, UI.frame(style, 14, 6))
+	var col: Color = UI.LIGHT if state == "active" else (Color("4a3e34") if state == "cooldown" else UI.INK)
+	for s: String in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color"]:
+		_favor.add_theme_color_override(s, col)
 
 
 func _show_settings() -> void:
@@ -422,6 +492,7 @@ func _refresh() -> void:
 	_income_label.text = "+%s / sec" % Format.num(Game.income_rate, 1)
 	_liberty_label.text = str(Game.meta.liberty)
 	_colonist_label.text = "%d/%d" % [run.colonists_idle(), run.colonists_owned]
+	_refresh_favor()
 	if _tab > 0:
 		(_pages[_tab] as Page).refresh()
 	if _sheet.visible:

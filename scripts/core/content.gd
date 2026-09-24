@@ -12,6 +12,9 @@ var recipes: Array[Dictionary] = []
 var fathers: Array[Dictionary] = []
 var nations: Array[Dictionary] = []
 var liberty_upgrades: Array[Dictionary] = []
+var charters: Array[Dictionary] = []
+var governor_types: Array[Dictionary] = []
+var governor_names: Array = []
 var colony_names: Dictionary = {}
 var map: Dictionary = {}
 
@@ -31,6 +34,9 @@ func _init() -> void:
 	fathers = _typed(data.get("fathers", []))
 	nations = _typed(data.get("nations", []))
 	liberty_upgrades = _typed(data.get("liberty_upgrades", []))
+	charters = _typed(data.get("charters", []))
+	governor_types = _typed(data.get("governor_types", []))
+	governor_names = data.get("governor_names", [])
 	colony_names = _load_json(NAMES_PATH)
 	map = _load_json(MAP_PATH)
 
@@ -65,6 +71,13 @@ func nation(id: String) -> Dictionary:
 
 func liberty_upgrade(id: String) -> Dictionary:
 	return _upgrade_by_id.get(id, {})
+
+
+func governor_type(type_id: String) -> Dictionary:
+	for t: Dictionary in governor_types:
+		if t["id"] == type_id:
+			return t
+	return {}
 
 
 func price(resource_id: String) -> float:
@@ -145,6 +158,10 @@ func _validate() -> void:
 		for input_id: String in (r["inputs"] as Dictionary).keys():
 			if not _resource_by_id.has(input_id):
 				push_error("Content: recipe %s uses unknown input %s" % [r["id"], input_id])
+	for ch: Dictionary in charters:
+		for key: String in (ch["goods"] as Dictionary).keys():
+			if not _resource_by_id.has(key):
+				push_error("Content: charter uses unknown good %s" % key)
 	for f: Dictionary in fathers:
 		for key: String in (f["cost"] as Dictionary).keys():
 			if key != "gold" and not _resource_by_id.has(key):

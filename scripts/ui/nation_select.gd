@@ -7,6 +7,7 @@ signal nation_chosen(nation_id: String)
 
 var _reform_rows: Dictionary = {}
 var _liberty_label: Label
+var _roster: GovernorRoster
 
 
 func _ready() -> void:
@@ -120,13 +121,22 @@ func _reforms_panel() -> Control:
 			return ok)
 		_reform_rows[id] = row
 		v.add_child(row)
+	v.add_child(UI.label("Governors", UI.SIZE_BIG, UI.INK, true))
+	_roster = GovernorRoster.new()
+	v.add_child(_roster)
 	return card
+
+
+func _process(_delta: float) -> void:
+	_refresh_reforms()
 
 
 func _refresh_reforms() -> void:
 	if _liberty_label == null:
 		return
 	_liberty_label.text = "%d Liberty to spend" % Game.meta.liberty
+	if _roster != null:
+		_roster.refresh()
 	for id: String in _reform_rows.keys():
 		var def: Dictionary = Content.liberty_upgrade(id)
 		var row: UpgradeRow = _reform_rows[id]

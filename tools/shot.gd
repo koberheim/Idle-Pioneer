@@ -60,6 +60,10 @@ func _ready() -> void:
 			ev.shipments.append({})
 			ev.crafted["planks"] = 400.0
 			main.call("_on_offline", 7300.0, ev)
+		"treasure":
+			var mv: MapView = main.get("_map")
+			mv.set("_treasure_timer", 0.0)
+			await _frames(30)
 		"settings":
 			main.call("_show_settings")
 	await _frames(40)
@@ -98,6 +102,13 @@ func _seed_state() -> void:
 	run.hold["timber"] = true
 	run.hold["cod"] = true
 	run.fathers.append("minuit")
+	Game.meta.liberty = 12
+	Game.meta.governors.append({"id": 1, "name": "John Winthrop", "type": "prod", "rank": 2})
+	Game.meta.governors.append({"id": 2, "name": "Jean Talon", "type": "cargo", "rank": 1})
+	Game.meta.next_governor_id = 3
+	run.governors["fishery"] = 1
+	run.colonies[1].charter = 1
+	run.warehouse["salt_cod"] = 90.0
 	run.warehouse["timber"] = 320.0
 	run.warehouse["planks"] = 45.0
 	var ev := SimEvents.new()

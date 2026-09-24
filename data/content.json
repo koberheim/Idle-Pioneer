@@ -68,6 +68,22 @@
 		{"id": "swedish", "name": "Sweden", "adjective": "Swedish", "color": "#3a86c8", "bonus": "liberty", "value": 1.15, "desc": "Earn 15% more Liberty on independence."}
 	],
 
+	"charters": [
+		{"title": "Township", "goods": {"planks": 150}},
+		{"title": "Borough", "goods": {"planks": 600, "salt_cod": 200}},
+		{"title": "Royal Charter", "goods": {"cloth": 300, "pig_iron": 150}},
+		{"title": "City", "goods": {"barrels": 200, "tools": 80}},
+		{"title": "Free City", "goods": {"rum": 60, "muskets": 12}}
+	],
+
+	"governor_types": [
+		{"id": "prod", "title": "Surveyor", "desc": "production"},
+		{"id": "cargo", "title": "Quartermaster", "desc": "cargo per trip"},
+		{"id": "speed", "title": "Pathfinder", "desc": "route speed"}
+	],
+
+	"governor_names": ["John Winthrop", "William Penn", "Samuel de Champlain", "Pieter Stuyvesant", "George Calvert", "Roger Williams", "John Smith", "Anne Hutchinson", "Pedro Menendez", "Antoine Cadillac", "Jean Talon", "William Bradford", "Thomas Dale", "Margaret Brent", "James Oglethorpe", "Johan Printz", "Adriaen Block", "Nathaniel Bacon", "Jacques Cartier", "Juan Ponce", "Eliza Lucas", "Cotton Mather", "Louis Frontenac", "Hannah Duston"],
+
 	"liberty_upgrades": [
 		{"id": "industry", "name": "Industry", "tagline": "The colonies grow productive", "desc": "+15% production per level", "per_level": 0.15, "costs": [3, 5, 9, 17, 30, 55, 99, 178, 320, 576]},
 		{"id": "navigation", "name": "Navigation", "tagline": "The sea lanes open", "desc": "+12% route speed and cargo per level", "per_level": 0.12, "costs": [4, 7, 13, 23, 42, 76, 137, 246]},

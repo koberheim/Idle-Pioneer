@@ -28,6 +28,33 @@
 	"workshop_cost_base": 100.0,
 	"workshop_cost_growth": 1.14,
 
+	"charter_bonus_per_level": 0.5,
+	"charter_scale_per_colony": 0.75,
+
+	"governor_bonus_base": 0.5,
+	"governor_bonus_per_rank": 0.5,
+	"governor_max_rank": 5,
+	"governor_commission_base": 3.0,
+	"governor_commission_growth": 1.6,
+	"governor_rank_cost_base": 4.0,
+	"governor_rank_cost_growth": 1.7,
+
+	"market_period_seconds": 1200.0,
+	"market_up_count": 3,
+	"market_down_count": 2,
+	"market_up_mult": 1.6,
+	"market_down_mult": 0.6,
+
+	"favor_multiplier": 2.0,
+	"favor_seconds": 900.0,
+	"favor_cooldown_seconds": 7200.0,
+
+	"treasure_min_seconds": 90.0,
+	"treasure_max_seconds": 240.0,
+	"treasure_lifetime_seconds": 25.0,
+	"treasure_income_seconds": 90.0,
+	"treasure_min_gold": 40.0,
+
 	"independence_gold": 1000000000.0,
 	"independence_muskets": 1,
 	"liberty_base": 6.0,

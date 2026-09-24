@@ -5,7 +5,14 @@ var _saved_run: RunState
 var _saved_path: String
 
 
+var _saved_balance: Dictionary
+
+
 func before_each() -> void:
+	# Market demand moves prices; these tests assume list prices.
+	_saved_balance = Balance.k.duplicate()
+	Balance.k["market_up_mult"] = 1.0
+	Balance.k["market_down_mult"] = 1.0
 	_saved_path = Game.save_path
 	Game.save_path = "user://test_game_save.json"
 	_saved_meta = Game.meta
@@ -18,6 +25,7 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	Balance.k = _saved_balance
 	SaveIO.delete(Game.save_path)
 	Game.save_path = _saved_path
 	Game.meta = _saved_meta
@@ -158,3 +166,58 @@ func test_format_numbers() -> void:
 	assert_eq(Format.num(12345.0), "12.3K")
 	assert_eq(Format.num(1.5e9), "1.50B")
 	assert_eq(Format.num(999999.0), "999K")
+
+
+func test_charter_consumes_goods_and_boosts_colony() -> void:
+	var cap := Game.run.colony("capital")
+	var before: float = Balance.production_rate(Game.run, Game.meta, cap)
+	assert_false(Game.charter_colony("capital"), "needs planks")
+	Game.run.warehouse["planks"] = 1000.0
+	assert_true(Game.charter_colony("capital"))
+	assert_eq(cap.charter, 1)
+	assert_almost_eq(Game.run.stock_of("planks"), 850.0, 0.01)
+	assert_almost_eq(Balance.production_rate(Game.run, Game.meta, cap), before * 1.5, 0.001)
+
+
+func test_governors_are_permanent_and_boost_their_post() -> void:
+	Game.meta.liberty = 100
+	assert_true(Game.commission_governor("prod"))
+	assert_eq(Game.meta.governors.size(), 1)
+	var gid: int = Game.meta.governors[0]["id"]
+	var cap := Game.run.colony("capital")
+	var before: float = Balance.production_rate(Game.run, Game.meta, cap)
+	assert_true(Game.post_governor("capital", gid))
+	assert_almost_eq(Balance.production_rate(Game.run, Game.meta, cap), before * 1.5, 0.001)
+	assert_true(Game.promote_governor(gid))
+	assert_almost_eq(Balance.production_rate(Game.run, Game.meta, cap), before * 2.0, 0.001)
+	Game.run.colony("fishery").founded = true
+	assert_true(Game.post_governor("fishery", gid))
+	assert_eq(Game.run.governor_at("capital"), -1, "a governor holds one post at a time")
+	Game.run.lifetime_gold = Balance.v("independence_gold")
+	Game.run.crafted["muskets"] = 1
+	Game.declare_independence()
+	assert_eq(Game.meta.governors.size(), 1, "governors survive independence")
+	var meta2 := MetaState.from_dict(JSON.parse_string(JSON.stringify(Game.meta.to_dict())))
+	assert_eq(int(meta2.governors[0]["rank"]), 2)
+
+
+func test_market_is_deterministic_and_rotates() -> void:
+	Balance.k = _saved_balance.duplicate()
+	var a: Dictionary = Balance.market_state(Game.run).duplicate(true)
+	var b: Dictionary = Balance.market_state(Game.run)
+	assert_eq(a["up"], b["up"])
+	assert_eq((a["up"] as Array).size(), int(Balance.v("market_up_count")))
+	for id: Variant in a["down"]:
+		assert_false((a["up"] as Array).has(id))
+	var id0: String = a["up"][0]
+	assert_almost_eq(Balance.sell_price(Game.run, Game.meta, id0), Content.price(id0) * Balance.v("market_up_mult"), 0.001)
+	Game.run.play_seconds += Balance.v("market_period_seconds") * 3.0
+	var c: Dictionary = Balance.market_state(Game.run)
+	assert_ne(c["period"], a["period"])
+
+
+func test_treasure_pays_out() -> void:
+	Game.run.gold = 0.0
+	var got: float = Game.collect_treasure()
+	assert_gt(got, 0.0)
+	assert_almost_eq(Game.run.gold, got, 0.001)

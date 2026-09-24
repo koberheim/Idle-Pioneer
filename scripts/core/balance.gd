@@ -7,6 +7,8 @@ extends Node
 const BALANCE_PATH := "res://data/balance.json"
 
 var k: Dictionary = {}
+var _market_cache_key: Array = []
+var _market_cache: Dictionary = {}
 
 
 func _init() -> void:
@@ -65,6 +67,10 @@ func production_rate(run: RunState, meta: MetaState, c: RunState.ColonyState) ->
 	rate *= liberty_mult(meta, "industry")
 	rate *= nation_bonus(run, "production")
 	rate *= father_bonus(run, "production")
+	rate *= charter_mult(c)
+	rate *= governor_mult(run, meta, c, "prod")
+	if run.favor_seconds > 0.0:
+		rate *= v("favor_multiplier")
 	if def.get("resource", "") == "furs":
 		rate *= father_bonus(run, "fur_production")
 	return rate
@@ -78,6 +84,8 @@ func cargo_capacity(run: RunState, meta: MetaState, c: RunState.ColonyState) -> 
 	cap *= 1.0 + v("cargo_per_level") * c.cargo_level
 	cap *= liberty_mult(meta, "navigation")
 	cap *= father_bonus(run, "cargo")
+	cap *= charter_mult(c)
+	cap *= governor_mult(run, meta, c, "cargo")
 	return cap
 
 
@@ -87,6 +95,7 @@ func round_trip_seconds(run: RunState, meta: MetaState, c: RunState.ColonyState)
 	var t: float = float(def["distance"]) * (v("sea_time_factor") if sea else v("land_time_factor"))
 	var speed: float = 1.0 + v("speed_per_level") * c.speed_level
 	speed *= liberty_mult(meta, "navigation")
+	speed *= governor_mult(run, meta, c, "speed")
 	if sea:
 		speed *= nation_bonus(run, "sea_speed") * father_bonus(run, "sea_speed")
 	else:
@@ -101,6 +110,49 @@ func route_throughput(run: RunState, meta: MetaState, c: RunState.ColonyState) -
 	if rt <= 0.0:
 		return INF
 	return cargo_capacity(run, meta, c) / rt
+
+
+func charter_mult(c: RunState.ColonyState) -> float:
+	return 1.0 + v("charter_bonus_per_level") * c.charter
+
+
+## Goods needed to raise a colony to charter level `level` (1-based), or {}
+## past the last charter. Farther colonies need proportionally more.
+func charter_cost(colony_id: String, level: int) -> Dictionary:
+	if level < 1 or level > Content.charters.size():
+		return {}
+	var scale: float = 1.0 + v("charter_scale_per_colony") * Content.colony_index(colony_id)
+	var out: Dictionary = {}
+	var goods: Dictionary = Content.charters[level - 1]["goods"]
+	for k: String in goods.keys():
+		out[k] = ceilf(float(goods[k]) * scale)
+	return out
+
+
+## A governor posted at this colony multiplies the stat matching their type.
+func governor_mult(run: RunState, meta: MetaState, c: RunState.ColonyState, type_id: String) -> float:
+	var gid: int = run.governor_at(c.id)
+	if gid < 0:
+		return 1.0
+	var g: Dictionary = meta.governor(gid)
+	if g.is_empty() or g["type"] != type_id:
+		return 1.0
+	return governor_multiplier_for_rank(int(g["rank"]))
+
+
+func governor_multiplier_for_rank(rank: int) -> float:
+	return 1.0 + v("governor_bonus_base") + v("governor_bonus_per_rank") * (rank - 1)
+
+
+func governor_commission_cost(meta: MetaState) -> int:
+	return int(ceil(v("governor_commission_base") * pow(v("governor_commission_growth"), meta.governors.size())))
+
+
+## Liberty to promote a governor from `rank` to rank + 1, or -1 at max rank.
+func governor_rank_cost(rank: int) -> int:
+	if rank >= int(v("governor_max_rank")):
+		return -1
+	return int(ceil(v("governor_rank_cost_base") * pow(v("governor_rank_cost_growth"), rank - 1)))
 
 
 func colony_scale(colony_id: String) -> float:
@@ -153,7 +205,52 @@ func sell_price(run: RunState, meta: MetaState, resource_id: String) -> float:
 	p *= nation_bonus(run, "sell_price")
 	p *= liberty_mult(meta, "commerce")
 	p *= father_bonus(run, "crafted_price") if Content.is_crafted(resource_id) else father_bonus(run, "raw_price")
+	p *= market_mult(run, resource_id)
 	return p
+
+
+# --- The European market --------------------------------------------------------
+
+## Demand in Europe shifts every market period: a few goods are wanted (sell
+## high), a couple are in glut (sell low). Derived from the run's start time
+## and simulated time, so it's deterministic and offline catch-up agrees with
+## live play.
+func market_state(run: RunState) -> Dictionary:
+	var period_len: float = v("market_period_seconds")
+	var period: int = int(floor(run.play_seconds / period_len))
+	var key: Array = [int(run.started_unix), period]
+	if key == _market_cache_key:
+		_market_cache["remaining"] = period_len * (period + 1) - run.play_seconds
+		return _market_cache
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([int(run.started_unix), period])
+	var ids: Array[String] = []
+	for r: Dictionary in Content.resources:
+		ids.append(str(r["id"]))
+	for i in range(ids.size() - 1, 0, -1):
+		var j: int = rng.randi_range(0, i)
+		var tmp: String = ids[i]
+		ids[i] = ids[j]
+		ids[j] = tmp
+	var up_n: int = int(v("market_up_count"))
+	var down_n: int = int(v("market_down_count"))
+	_market_cache_key = key
+	_market_cache = {
+		"period": period,
+		"up": ids.slice(0, up_n),
+		"down": ids.slice(up_n, up_n + down_n),
+		"remaining": period_len * (period + 1) - run.play_seconds,
+	}
+	return _market_cache
+
+
+func market_mult(run: RunState, resource_id: String) -> float:
+	var m: Dictionary = market_state(run)
+	if (m["up"] as Array).has(resource_id):
+		return v("market_up_mult")
+	if (m["down"] as Array).has(resource_id):
+		return v("market_down_mult")
+	return 1.0
 
 
 # --- Independence -----------------------------------------------------------

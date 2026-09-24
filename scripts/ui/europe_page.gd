@@ -7,6 +7,10 @@ var _recruit: BuyButton
 var _docks_info: Label
 var _rows: Dictionary = {}
 var _structure: int = -1
+var _market_timer: Label
+var _market_up: HBoxContainer
+var _market_down: HBoxContainer
+var _market_period: int = -1
 
 
 func _build_header(box: VBoxContainer) -> void:
@@ -42,6 +46,23 @@ func _build_header(box: VBoxContainer) -> void:
 	dv.add_child(_recruit)
 	box.add_child(docks)
 
+	var market := UI.card("card")
+	var mv := UI.vbox(8)
+	market.add_child(mv)
+	var mh := UI.hbox(10)
+	var mt := UI.label("Prices in Europe", UI.SIZE_BIG, UI.INK, true)
+	mt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mh.add_child(mt)
+	mh.add_child(UI.icon_rect(UI.icon("hourglass"), 28))
+	_market_timer = UI.label("", UI.SIZE_SMALL, UI.INK_SOFT)
+	mh.add_child(_market_timer)
+	mv.add_child(mh)
+	_market_up = UI.hbox(8)
+	_market_down = UI.hbox(8)
+	mv.add_child(_market_up)
+	mv.add_child(_market_down)
+	box.add_child(market)
+
 	var wh := UI.hbox(10)
 	var t := section("Warehouse")
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -67,6 +88,7 @@ func refresh() -> void:
 	_docks_info.text = "%d colonists, %d idle. Each works a colony (+%d%% output) or staffs a workshop. Prices rise with every recruit." % [
 		run.colonists_owned, run.colonists_idle(), int(Balance.v("colonist_production_bonus") * 100.0)]
 
+	_refresh_market(run)
 	if run.discovered.size() != _structure:
 		_structure = run.discovered.size()
 		_rebuild()
@@ -117,10 +139,39 @@ func _update_row(id: String) -> void:
 	var card: Control = _rows[id]
 	var run: RunState = Game.run
 	var stock: float = run.stock_of(id)
-	(card.get_meta("info") as Label).text = "%s each  ·  held: %s" % [Format.num(Balance.sell_price(run, Game.meta, id), 1), Format.num(stock)]
+	var info: Label = card.get_meta("info")
+	var mm: float = Balance.market_mult(run, id)
+	var arrow: String = " ▲" if mm > 1.0 else (" ▼" if mm < 1.0 else "")
+	info.text = "%s each%s  ·  held: %s" % [Format.num(Balance.sell_price(run, Game.meta, id), 1), arrow, Format.num(stock)]
+	info.add_theme_color_override("font_color", UI.GREEN if mm > 1.0 else (UI.RED if mm < 1.0 else UI.INK_SOFT))
 	(card.get_meta("sell") as Button).disabled = stock < 1.0
 	var held: bool = run.is_held(id)
 	var toggle: Button = card.get_meta("toggle")
 	toggle.text = "Keeping" if held else "Selling"
 	toggle.add_theme_stylebox_override("normal", UI.frame("button_gold" if held else "button_buy", 14, 8))
 	toggle.add_theme_color_override("font_color", UI.INK if held else UI.LIGHT)
+
+
+func _refresh_market(run: RunState) -> void:
+	var m: Dictionary = Balance.market_state(run)
+	var secs: int = int(m["remaining"])
+	_market_timer.text = "%d:%02d" % [secs / 60, secs % 60]
+	if int(m["period"]) == _market_period:
+		return
+	_market_period = int(m["period"])
+	_fill_market_row(_market_up, "Wanted ×%s" % str(Balance.v("market_up_mult")), m["up"], UI.GREEN)
+	_fill_market_row(_market_down, "Glut ×%s" % str(Balance.v("market_down_mult")), m["down"], UI.RED)
+
+
+func _fill_market_row(row: HBoxContainer, title: String, ids: Array, color: Color) -> void:
+	for c: Node in row.get_children():
+		c.queue_free()
+	var t := UI.label(title, UI.SIZE_SMALL, color)
+	t.custom_minimum_size.x = 130
+	row.add_child(t)
+	for id: Variant in ids:
+		var rid: String = str(id)
+		var known: bool = Game.run.discovered.has(rid)
+		var ic := UI.icon_rect(UI.icon(rid), 36)
+		ic.modulate = Color.WHITE if known else Color(0.15, 0.12, 0.1, 0.6)
+		row.add_child(ic)

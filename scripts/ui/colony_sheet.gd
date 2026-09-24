@@ -4,6 +4,7 @@ class_name ColonySheet
 extends PanelContainer
 
 signal closed
+signal modal_requested(modal: Control)
 
 var colony_id: String = ""
 
@@ -24,6 +25,13 @@ var _found_detail: Label
 var _found_button: BuyButton
 var _manage_box: VBoxContainer
 var _selector: BuyAmountSelector
+var _gov_label: Label
+var _gov_button: Button
+var _charter_title: Label
+var _charter_costs: HFlowContainer
+var _charter_button: BuyButton
+var _charter_level: int = -1
+var _scroll: ScrollContainer
 
 
 func _init() -> void:
@@ -51,8 +59,12 @@ func _init() -> void:
 	header.add_child(close)
 	root.add_child(header)
 
+	_scroll = ScrollContainer.new()
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	root.add_child(_scroll)
 	_body = UI.vbox(10)
-	root.add_child(_body)
+	_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_scroll.add_child(_body)
 
 	# --- founded colony ---
 	_manage_box = UI.vbox(10)
@@ -70,6 +82,16 @@ func _init() -> void:
 	_trip_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	trip_row.add_child(_trip_bar)
 	_manage_box.add_child(trip_row)
+
+	_selector = BuyAmountSelector.new()
+	_manage_box.add_child(_selector)
+
+	for track: String in ["prod", "cargo", "speed"]:
+		var icon_name: String = {"prod": "pick", "cargo": "crate", "speed": "speed"}[track]
+		var t: String = track
+		var row := UpgradeRow.new(icon_name, func() -> bool: return Game.upgrade_colony(colony_id, t))
+		_rows[track] = row
+		_manage_box.add_child(row)
 
 	var col_card := UI.card("card")
 	var col_row := UI.hbox(10)
@@ -92,15 +114,46 @@ func _init() -> void:
 	col_card.add_child(col_row)
 	_manage_box.add_child(col_card)
 
-	_selector = BuyAmountSelector.new()
-	_manage_box.add_child(_selector)
+	var gov_card := UI.card("card")
+	var gov_row := UI.hbox(10)
+	gov_row.add_child(UI.icon_rect(UI.icon("scroll"), 44))
+	_gov_label = UI.label("", UI.SIZE_SMALL, UI.INK)
+	_gov_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_gov_label.custom_minimum_size.x = 10
+	_gov_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	gov_row.add_child(_gov_label)
+	_gov_button = UI.button("Appoint", "button", 60)
+	_gov_button.custom_minimum_size.x = 150
+	_gov_button.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
+	_gov_button.pressed.connect(_open_governor_picker)
+	gov_row.add_child(_gov_button)
+	gov_card.add_child(gov_row)
+	_manage_box.add_child(gov_card)
 
-	for track: String in ["prod", "cargo", "speed"]:
-		var icon_name: String = {"prod": "pick", "cargo": "crate", "speed": "speed"}[track]
-		var t: String = track
-		var row := UpgradeRow.new(icon_name, func() -> bool: return Game.upgrade_colony(colony_id, t))
-		_rows[track] = row
-		_manage_box.add_child(row)
+	var ch_card := UI.card("card")
+	var ch_v := UI.vbox(6)
+	ch_card.add_child(ch_v)
+	var ch_head := UI.hbox(10)
+	ch_head.add_child(UI.icon_rect(UI.icon("star"), 44))
+	_charter_title = UI.label("", UI.SIZE_SMALL, UI.INK)
+	_charter_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_charter_title.custom_minimum_size.x = 10
+	_charter_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ch_head.add_child(_charter_title)
+	_charter_button = BuyButton.new(func() -> bool:
+		var ok: bool = Game.charter_colony(colony_id)
+		if ok:
+			Sfx.play("father")
+			refresh()
+		return ok)
+	_charter_button.custom_minimum_size = Vector2(170, 64)
+	ch_head.add_child(_charter_button)
+	ch_v.add_child(ch_head)
+	_charter_costs = HFlowContainer.new()
+	_charter_costs.add_theme_constant_override("h_separation", 14)
+	ch_v.add_child(_charter_costs)
+	_manage_box.add_child(ch_card)
+
 
 	# --- next colony to found ---
 	_found_box = UI.vbox(12)
@@ -118,7 +171,38 @@ func _init() -> void:
 
 func show_colony(id: String) -> void:
 	colony_id = id
+	_charter_level = -1
 	refresh()
+
+
+func _open_governor_picker() -> void:
+	Sfx.play("click")
+	var m := Modal.new("Appoint a Governor")
+	if Game.meta.governors.is_empty():
+		m.add_text("You have no governors yet. Commission them with Liberty in the Congress.", UI.SIZE_BODY, UI.INK_SOFT)
+	for g: Dictionary in Game.meta.governors:
+		var gid: int = g["id"]
+		var t: Dictionary = Content.governor_type(str(g["type"]))
+		var at: String = Game.run.colony_of_governor(gid)
+		var where: String = ""
+		if at == colony_id:
+			where = " (here)"
+		elif at != "":
+			where = " (at %s)" % Content.colony_name(Game.run.nation_id, Content.colony_index(at))
+		var b := UI.button("%s  ·  %s %s  ×%s %s%s" % [g["name"], t.get("title", ""), "★".repeat(int(g["rank"])), Format.rate(Balance.governor_multiplier_for_rank(int(g["rank"]))), t.get("desc", ""), where], "button", 64)
+		b.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
+		b.pressed.connect(func() -> void:
+			Game.post_governor(colony_id, gid)
+			Sfx.play("buy")
+			m.close()
+			refresh())
+		m.body.add_child(b)
+	if Game.run.governor_at(colony_id) >= 0:
+		m.add_button("Recall", "button", func() -> void:
+			Game.recall_governor(colony_id)
+			refresh())
+	m.add_button("Close", "button_gold")
+	modal_requested.emit(m)
 
 
 func _assign(delta: int) -> void:
@@ -182,6 +266,9 @@ func refresh() -> void:
 			_trip_bar.value = 1.0 - (c.trip - 0.5) * 2.0
 		_trip_bar.tooltip_text = "Round trip %ss" % Format.rate(rt)
 
+	_refresh_governor(c)
+	_refresh_charter(c)
+
 	var bonus: float = Balance.v("colonist_production_bonus") * 100.0
 	_colonist_label.text = "Colonists: %d   (+%d%% each)\n%d idle of %d" % [c.colonists, int(bonus), run.colonists_idle(), run.colonists_owned]
 	_minus.disabled = c.colonists <= 0
@@ -225,3 +312,65 @@ func _update_row(track: String, c: RunState.ColonyState, label_text: String, pre
 		title += "  (+%d)" % n
 	row.set_values(title, preview.call(), cost, Game.run.gold >= cost)
 
+
+
+func _refresh_governor(c: RunState.ColonyState) -> void:
+	var gid: int = Game.run.governor_at(c.id)
+	if gid < 0:
+		_gov_label.text = "No governor posted." if not Game.meta.governors.is_empty() else "No governor. Commission governors with Liberty in the Congress."
+		_gov_button.text = "Appoint"
+		_gov_button.disabled = Game.meta.governors.is_empty()
+		return
+	var g: Dictionary = Game.meta.governor(gid)
+	var t: Dictionary = Content.governor_type(str(g["type"]))
+	_gov_label.text = "Governor %s
+%s %s  ·  ×%s %s" % [g["name"], t.get("title", ""), "★".repeat(int(g["rank"])), Format.rate(Balance.governor_multiplier_for_rank(int(g["rank"]))), t.get("desc", "")]
+	_gov_button.text = "Change"
+	_gov_button.disabled = false
+
+
+func _refresh_charter(c: RunState.ColonyState) -> void:
+	var next: int = c.charter + 1
+	var title: String = "No charter" if c.charter == 0 else str(Content.charters[c.charter - 1]["title"])
+	var pct: int = int(Balance.v("charter_bonus_per_level") * 100.0)
+	var next_title: String = str(Content.charters[next - 1]["title"]) if next <= Content.charters.size() else ""
+	_charter_title.text = "Charter: %s  %s
++%d%% production and cargo per rank%s" % [title, "★".repeat(c.charter), pct, ("
+Next: " + next_title) if next_title != "" else ""]
+	var cost: Dictionary = Balance.charter_cost(c.id, next)
+	if cost.is_empty():
+		_charter_button.set_cost("Free City", false, "")
+		_charter_costs.visible = false
+		return
+	_charter_costs.visible = true
+	if _charter_level != next:
+		_charter_level = next
+		for n: Node in _charter_costs.get_children():
+			n.queue_free()
+		for key: String in cost.keys():
+			var item := UI.hbox(4)
+			item.add_child(UI.icon_rect(UI.icon(key), 30))
+			var l := UI.label("", UI.SIZE_SMALL, UI.INK)
+			l.name = "Amount"
+			item.add_child(l)
+			item.set_meta("res", key)
+			_charter_costs.add_child(item)
+	for item: Node in _charter_costs.get_children():
+		if not item.has_meta("res"):
+			continue
+		var key: String = item.get_meta("res")
+		var need: float = float(cost.get(key, 0.0))
+		var have: float = Game.run.stock_of(key)
+		var l: Label = item.get_node("Amount")
+		l.text = "%s / %s" % [Format.num(have), Format.num(need)]
+		l.add_theme_color_override("font_color", UI.GREEN if have >= need else UI.RED)
+	_charter_button.set_cost("Grant", Game.charter_affordable(c.id), "")
+
+
+## Caps the sheet to `max_height`, scrolling the body when it doesn't fit.
+func fit(max_height: float) -> void:
+	var header_h: float = get_combined_minimum_size().y - _scroll.custom_minimum_size.y
+	var want: float = _body.get_combined_minimum_size().y
+	var h: float = clampf(want, 0.0, maxf(max_height - header_h, 120.0))
+	if not is_equal_approx(_scroll.custom_minimum_size.y, h):
+		_scroll.custom_minimum_size.y = h

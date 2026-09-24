@@ -10,6 +10,17 @@ const EPS := 1e-9
 static func step(run: RunState, meta: MetaState, dt: float, ev: SimEvents) -> void:
 	if dt <= 0.0:
 		return
+	# Royal Favor ending mid-step: run the favoured part and the rest separately.
+	if run.favor_seconds > 0.0 and run.favor_seconds < dt:
+		var first: float = run.favor_seconds
+		step(run, meta, first, ev)
+		step(run, meta, dt - first, ev)
+		return
+	_step_all(run, meta, dt, ev)
+	run.favor_seconds = maxf(run.favor_seconds - dt, 0.0)
+
+
+static func _step_all(run: RunState, meta: MetaState, dt: float, ev: SimEvents) -> void:
 	run.play_seconds += dt
 	for c: RunState.ColonyState in run.colonies:
 		if c.founded:
