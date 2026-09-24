@@ -40,7 +40,7 @@ lives in `data/balance.json` or `data/content.json`.
 10. **Independence** at 1B gold earned and a Musket crafted pays Liberty
     (`6 × sqrt(earned / 1B)`, boosted by some Fathers and Sweden).
 11. **Liberty** buys compounding **Reforms** (Industry, Navigation,
-    Settlement, Commerce, Manufacture — ×1.12–1.15 per level, costs ×1.75)
+    Settlement, Commerce, Manufacture — ×1.12–1.15 per level, costs ×1.3 per level)
     and **Governors**, a permanent roster posted to colonies.
 
 Smaller systems: **Colony Charters** (Township → Free City, paid in crafted

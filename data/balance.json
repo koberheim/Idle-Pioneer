@@ -8,8 +8,8 @@
 
 	"colony_value_growth": 3.3,
 	"found_cost_first": 250.0,
-	"found_cost_growth_base": 8.0,
-	"found_cost_growth_step": 0.25,
+	"found_cost_growth_base": 7.0,
+	"found_cost_growth_step": 0.12,
 
 	"prod_per_level": 0.25,
 	"colonist_production_bonus": 1.0,
@@ -68,7 +68,7 @@
 	"independence_gold": 1000000000.0,
 	"independence_muskets": 1,
 	"liberty_base": 6.0,
-	"settlement_floor": 0.4,
+	"settlement_floor": 0.01,
 
 	"fathers_offered_per_tier": 4
 }
