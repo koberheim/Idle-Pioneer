@@ -2,13 +2,21 @@
 class_name Format
 extends RefCounted
 
-const SUFFIXES: Array[String] = ["", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"]
+## Named suffixes up to decillions; beyond that, scientific notation.
+const SUFFIXES: Array[String] = ["", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc", "UDc", "DDc", "TDc", "QaDc", "QiDc", "SxDc", "SpDc", "OcDc", "NoDc", "Vg"]
 
 
 ## 999 -> "999", 1234 -> "1.23K", 12345 -> "12.3K", 1.5e9 -> "1.50B".
 static func num(value: float, small_decimals: int = 0) -> String:
+	if is_nan(value):
+		return "0"
 	var sign: String = "-" if value < 0.0 else ""
 	var v: float = absf(value)
+	if is_inf(v):
+		return sign + "∞"
+	if v >= 1e66:
+		var e: int = int(floor(log(v) / log(10.0)))
+		return sign + "%.2fe%d" % [v / pow(10.0, e), e]
 	if v < 1000.0:
 		if small_decimals > 0 and v < 100.0 and not is_equal_approx(v, roundf(v)):
 			return sign + (("%." + str(small_decimals) + "f") % v)

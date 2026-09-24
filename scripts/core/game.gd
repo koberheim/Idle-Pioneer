@@ -126,10 +126,11 @@ func _record(ev: SimEvents) -> void:
 	if ev.gold_earned > 0.0:
 		meta.add_stat("gold_earned", ev.gold_earned)
 	for s: Dictionary in ev.shipments:
-		meta.add_stat("shipments")
+		var trips: int = int(s.get("trips", 1))
+		meta.add_stat("shipments", trips)
 		var c: RunState.ColonyState = run.colony(str(s["colony"])) if run != null else null
 		if c != null:
-			var leagues: float = Balance.route_length(run, c) * 2.0
+			var leagues: float = Balance.route_length(run, c) * 2.0 * trips
 			meta.add_stat("sea_leagues" if Balance.is_sea(run, c) else "land_leagues", leagues)
 	for id: String in ev.delivered.keys():
 		meta.add_stat("delivered_" + id, float(ev.delivered[id]))

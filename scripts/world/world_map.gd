@@ -4,6 +4,8 @@
 class_name WorldMap
 extends RefCounted
 
+## Bump when generation changes, so old saves keep their colonies' goods.
+const GENERATOR_VERSION := 1
 const W := 64
 const H := 96
 
@@ -528,7 +530,13 @@ func route(site_index: int) -> Dictionary:
 
 
 ## The lane from the capital's port east to Europe (off the map edge).
+var _europe_lane := PackedVector2Array()
+
+
+## The sea lane from the capital off the east edge of the map (cached).
 func europe_lane() -> PackedVector2Array:
+	if not _europe_lane.is_empty():
+		return _europe_lane
 	var cap: Dictionary = sites[capital_site]
 	var port: Vector2i = cap["port"]
 	var out := PackedVector2Array()
@@ -537,6 +545,7 @@ func europe_lane() -> PackedVector2Array:
 	for p: Vector2i in path:
 		out.append(Vector2(p))
 	out.append(Vector2(W + 3, port.y))
+	_europe_lane = out
 	return out
 
 

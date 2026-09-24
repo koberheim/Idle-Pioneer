@@ -472,7 +472,7 @@ func liberty_payout(run: RunState, meta: MetaState = null) -> int:
 		return 0
 	var raw: float = v("liberty_base") * sqrt(run.lifetime_gold / v("independence_gold"))
 	raw *= nation_bonus(run, "liberty") * bonus(run, _meta_or_game(meta), "liberty")
-	return int(floor(raw))
+	return int(floor(minf(raw, 9.0e18)))
 
 
 func liberty_upgrade_cost(meta: MetaState, upgrade_id: String) -> int:
@@ -481,7 +481,7 @@ func liberty_upgrade_cost(meta: MetaState, upgrade_id: String) -> int:
 		return -1
 	if upgrade_id == "settlement" and liberty_mult(meta, upgrade_id) <= v("settlement_floor") + 0.0001:
 		return -1
-	return int(ceil(float(def["base_cost"]) * pow(float(def["growth"]), meta.level(upgrade_id))))
+	return int(ceil(minf(float(def["base_cost"]) * pow(float(def["growth"]), meta.level(upgrade_id)), 9.0e18)))
 
 
 # --- Helpers ----------------------------------------------------------------

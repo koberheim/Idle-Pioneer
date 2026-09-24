@@ -77,7 +77,7 @@ func _ready() -> void:
 		"offline":
 			var ev := SimEvents.new()
 			ev.gold_earned = 123456.0
-			ev.shipments.append({})
+			ev.add_shipment("c1", "timber", 40.0, 212)
 			ev.crafted["planks"] = 400.0
 			main.call("_on_offline", 7300.0, ev)
 		"treasure":
@@ -86,6 +86,11 @@ func _ready() -> void:
 			await _frames(30)
 		"settings":
 			main.call("_show_settings")
+		"bigbar":
+			Game.meta.liberty = 23456789
+			Game.run.colonists_owned = 4800
+			Game.run.gold = 1.23e40
+			main.call("_refresh")
 		"ledger":
 			main.call("_select_tab", 4)
 		"ledger2":

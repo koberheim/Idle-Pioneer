@@ -400,8 +400,8 @@ func _on_offline(seconds: float, ev: SimEvents) -> void:
 	if seconds > capped + 1.0:
 		m.add_text("(Colonists rest after %s without their governor.)" % Format.duration(Balance.offline_cap_seconds(Game.run)), UI.SIZE_SMALL, UI.INK_SOFT)
 	m.add_line("gold", "+%s gold" % Format.num(ev.gold_earned))
-	if ev.shipments.size() > 0:
-		m.add_line("ship_icon", "%d shipment%s landed" % [ev.shipments.size(), "" if ev.shipments.size() == 1 else "s"])
+	if ev.trips > 0:
+		m.add_line("ship_icon", "%s shipment%s landed" % [Format.num(ev.trips), "" if ev.trips == 1 else "s"])
 	var crafted: float = 0.0
 	for k: String in ev.crafted.keys():
 		crafted += float(ev.crafted[k])
@@ -452,8 +452,8 @@ func _on_almanac_read(seconds: float, ev: SimEvents) -> void:
 	var m := Modal.new("A Page of the Almanac")
 	m.add_text("You turn the page, and %s pass in the colonies." % Format.duration(seconds), UI.SIZE_BODY, UI.INK_SOFT)
 	m.add_line("gold", "+%s gold" % Format.num(ev.gold_earned))
-	if ev.shipments.size() > 0:
-		m.add_line("ship_icon", "%d shipment%s landed" % [ev.shipments.size(), "" if ev.shipments.size() == 1 else "s"])
+	if ev.trips > 0:
+		m.add_line("ship_icon", "%s shipment%s landed" % [Format.num(ev.trips), "" if ev.trips == 1 else "s"])
 	m.add_button("Splendid", "button_gold")
 	_overlay.add_child(m)
 	_refresh()
@@ -602,6 +602,11 @@ func _notification(what: int) -> void:
 			_close_sheet()
 		elif _tab != 0:
 			_select_tab(0)
+		else:
+			# Back on the home screen leaves the game, saving first.
+			if Game.running:
+				Game.save()
+			get_tree().quit()
 
 
 # --- Refresh --------------------------------------------------------------------
@@ -628,8 +633,8 @@ func _refresh() -> void:
 	var run: RunState = Game.run
 	_gold_label.text = Format.num(run.gold)
 	_income_label.text = "+%s / sec" % Format.num(Game.income_rate, 1)
-	_liberty_label.text = str(Game.meta.liberty)
-	_colonist_label.text = "%d/%d" % [run.colonists_idle(), run.colonists_owned]
+	_liberty_label.text = Format.num(Game.meta.liberty)
+	_colonist_label.text = "%s/%s" % [Format.num(run.colonists_idle()), Format.num(run.colonists_owned)]
 	_refresh_favor()
 	if _tab > 0:
 		(_pages[_tab] as Page).refresh()

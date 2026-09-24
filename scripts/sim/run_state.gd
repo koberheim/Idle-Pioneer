@@ -241,12 +241,47 @@ func to_dict() -> Dictionary:
 		"hold": hold.duplicate(), "discovered": discovered.duplicate(), "fathers": fathers.duplicate(),
 		"crafted": crafted.duplicate(), "shipments": shipments, "governors": governors.duplicate(),
 		"favor_seconds": favor_seconds,
+		# The map is rebuilt from its seed, but what each settled site
+		# produces is kept so a generator change can't swap it.
+		"world_version": WorldMap.GENERATOR_VERSION,
+		"colony_order": Array(world.colony_order),
+		"site_data": _site_data(),
 	}
+
+
+func _site_data() -> Dictionary:
+	var out: Dictionary = {}
+	for c: ColonyState in colonies:
+		var s: Dictionary = world.sites[c.site]
+		out[str(c.site)] = {"resource": s["resource"], "richness": s.get("richness", 1.0)}
+	return out
 
 
 ## Tolerant of partial saves; content added since the save was written is
 ## filled in rather than dropped. Returns null for saves from before random
 ## maps existed, which can't be converted.
+## Pins the saved colony order and the goods of settled sites onto a freshly
+## generated map, in case generation has changed since the save was made.
+func _restore_world(d: Dictionary) -> void:
+	var order: Array = d.get("colony_order", [])
+	var valid: bool = not order.is_empty()
+	for v: Variant in order:
+		if int(v) < 0 or int(v) >= world.sites.size():
+			valid = false
+	if valid:
+		var typed: Array[int] = []
+		for v: Variant in order:
+			typed.append(int(v))
+		world.colony_order = typed
+	var sd: Dictionary = d.get("site_data", {})
+	for k: String in sd.keys():
+		var i: int = int(k)
+		var entry: Dictionary = sd[k]
+		if i >= 0 and i < world.sites.size() and not Content.resource(str(entry.get("resource", ""))).is_empty():
+			world.sites[i]["resource"] = str(entry["resource"])
+			world.sites[i]["richness"] = float(entry.get("richness", 1.0))
+
+
 static func from_dict(d: Dictionary) -> RunState:
 	if not d.has("map_seed"):
 		return null
@@ -255,6 +290,7 @@ static func from_dict(d: Dictionary) -> RunState:
 	r.map_style = str(d.get("map_style", WorldMap.STYLE_RANDOM))
 	r.map_seed = int(d.get("map_seed", 0))
 	r.world = WorldMap.build(r.map_style, r.map_seed)
+	r._restore_world(d)
 	r.started_unix = float(d.get("started_unix", Time.get_unix_time_from_system()))
 	r.play_seconds = float(d.get("play_seconds", 0.0))
 	r.gold = float(d.get("gold", 0.0))

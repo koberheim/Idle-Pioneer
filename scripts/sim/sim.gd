@@ -67,6 +67,13 @@ static func _step_colony(run: RunState, meta: MetaState, c: RunState.ColonyState
 	var guard: int = 0
 	while remaining > EPS and guard < 100000:
 		guard += 1
+		# Many short voyages in one step (late game, offline catch-up): settle
+		# whole round trips in closed form instead of one at a time.
+		if c.trip <= 0.0 and c.stock >= 1.0 and remaining >= 3.0 * rt and rate * rt >= 1.0:
+			var n: int = int(minf(floor(remaining / rt), 1.0e12)) - 1
+			_batch_trips(run, meta, c, res, n, rate * rt, cap, ev)
+			remaining -= float(n) * rt
+			continue
 		if c.trip <= 0.0:
 			if c.stock >= 1.0:
 				c.cargo = minf(c.stock, cap)
@@ -95,13 +102,46 @@ static func _step_colony(run: RunState, meta: MetaState, c: RunState.ColonyState
 				c.trip = 0.0
 
 
+## `n` complete round trips starting at the colony with its current stock.
+## Each trip loads min(stock, cap) and `per_trip` more is produced meanwhile.
+static func _batch_trips(run: RunState, meta: MetaState, c: RunState.ColonyState, res: String, n: int, per_trip: float, cap: float, ev: SimEvents) -> void:
+	var s0: float = c.stock
+	var delivered: float
+	var final_stock: float
+	if per_trip >= cap:
+		# The route is the bottleneck: after the first load every trip is full.
+		var first: float = minf(s0, cap)
+		delivered = first + float(n - 1) * cap
+		final_stock = s0 - first + per_trip + float(n - 1) * (per_trip - cap)
+	else:
+		# A backlog drains by (cap - per_trip) a trip, then trips carry what
+		# was produced during the previous voyage.
+		var m: int = 0
+		if s0 >= cap:
+			m = mini(int(minf(floor((s0 - cap) / (cap - per_trip)), 1.0e12)) + 1, n)
+		delivered = float(m) * cap
+		var s: float = s0 - float(m) * (cap - per_trip)
+		if n > m:
+			delivered += s + float(n - m - 1) * per_trip
+			final_stock = per_trip
+		else:
+			final_stock = s
+	c.stock = maxf(final_stock, 0.0)
+	c.cargo = 0.0
+	c.trip = 0.0
+	run.shipments += n
+	ev.add_shipment(c.id, res, delivered, n)
+	ev.add(ev.delivered, res, delivered)
+	receive(run, meta, res, delivered, ev)
+
+
 static func _unload(run: RunState, meta: MetaState, c: RunState.ColonyState, res: String, ev: SimEvents) -> void:
 	if c.cargo <= 0.0:
 		return
 	var qty: float = c.cargo
 	c.cargo = 0.0
 	run.shipments += 1
-	ev.shipments.append({"colony": c.id, "resource": res, "qty": qty})
+	ev.add_shipment(c.id, res, qty)
 	ev.add(ev.delivered, res, qty)
 	receive(run, meta, res, qty, ev)
 
@@ -113,12 +153,12 @@ static func _step_workshop(run: RunState, meta: MetaState, w: RunState.WorkshopS
 	var inputs: Dictionary = def["inputs"]
 	var limit: int = 1 << 30
 	for input_id: String in inputs.keys():
-		limit = mini(limit, int(floor(run.stock_of(input_id) / float(inputs[input_id]) + EPS)))
+		limit = mini(limit, int(minf(floor(run.stock_of(input_id) / float(inputs[input_id]) + EPS), 1.0e15)))
 	if limit <= 0:
 		# Waiting for materials; the bench keeps any work already done on the current item.
 		return
 	var total: float = w.progress + dt
-	var n: int = mini(int(floor(total / t)), limit)
+	var n: int = mini(int(minf(floor(total / t), 1.0e15)), limit)
 	if n <= 0:
 		w.progress = total
 		return
