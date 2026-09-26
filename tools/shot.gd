@@ -73,7 +73,7 @@ func _ready() -> void:
 			p.scroll.scroll_vertical = 900
 		"independence":
 			Game.run.lifetime_gold = 3e9
-			Game.run.crafted["muskets"] = 3
+			Game.run.warehouse["muskets"] = 3.0
 			main.call("_select_tab", 3)
 			await _frames(5)
 			main.call("_show_independence")

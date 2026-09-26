@@ -63,3 +63,23 @@ func test_north_america_has_its_landmarks() -> void:
 	assert_true(m.is_ocean(int(gulf.x), int(gulf.y)), "Gulf of Mexico")
 	assert_eq(m.t_at(int(superior.x), int(superior.y)), WorldMap.T.LAKE, "Lake Superior")
 	assert_true(m.is_land(int(cuba.x), int(cuba.y)), "Cuba")
+
+
+func test_every_site_fits_its_terrain_across_many_maps() -> void:
+	var bad: Array[String] = []
+	var missing: Array[String] = []
+	for style: String in [WorldMap.STYLE_RANDOM, WorldMap.STYLE_NORTH_AMERICA]:
+		for seed_value in range(1, 101 if style == WorldMap.STYLE_RANDOM else 21):
+			var w := WorldMap.build(style, seed_value)
+			var have := {}
+			for i in w.sites.size():
+				var s: Dictionary = w.sites[i]
+				if i != w.capital_site and not w.site_fits(s, str(s["resource"])):
+					bad.append("%s/%d site %d: %s on terrain %d" % [style, seed_value, i, s["resource"], int(s["terrain"])])
+			for i in w.colony_order:
+				have[str(w.sites[i]["resource"])] = true
+			for id: String in Content.raw_resources():
+				if not have.has(id):
+					missing.append("%s/%d lacks %s" % [style, seed_value, id])
+	assert_eq(bad.size(), 0, "sites on unsuitable terrain: %s" % str(bad.slice(0, 5)))
+	assert_eq(missing.size(), 0, "maps missing goods: %s" % str(missing.slice(0, 5)))

@@ -114,6 +114,7 @@ func production_rate(run: RunState, meta: MetaState, c: RunState.ColonyState) ->
 	rate *= nation_bonus(run, "production")
 	rate *= bonus(run, meta, "production")
 	rate *= spec_mult(c, "prod")
+	rate *= run.sim_rate
 	rate *= charter_mult(c)
 	rate *= governor_mult(run, meta, c, "prod")
 	if run.favor_seconds > 0.0:
@@ -463,6 +464,7 @@ func workshop_speed(run: RunState, meta: MetaState, w: RunState.WorkshopState) -
 	var speed: float = labour * pow(v("workshop_speed_growth"), w.level)
 	speed *= research_mult(run, "workshop_speed", [w.id])
 	speed *= milestone_mult(w.level, v("milestone_workshop_mult"))
+	speed *= run.sim_rate
 	speed *= bonus(run, meta, "craft_speed") * liberty_mult(meta, "manufacture")
 	return speed
 
@@ -584,7 +586,14 @@ func offline_cap_seconds(run: RunState, meta: MetaState = null) -> float:
 
 func independence_ready(run: RunState) -> bool:
 	return run.lifetime_gold >= v("independence_gold") \
-		and int(run.crafted.get("muskets", 0)) >= int(v("independence_muskets"))
+		and run.stock_of("muskets") + 0.0001 >= v("independence_muskets")
+
+
+## Muskets set aside for the militia: never sold, needed to declare.
+func militia_reserve(run: RunState, resource_id: String) -> float:
+	if resource_id != "muskets":
+		return 0.0
+	return minf(run.stock_of("muskets"), v("independence_muskets"))
 
 
 func liberty_payout(run: RunState, meta: MetaState = null) -> int:

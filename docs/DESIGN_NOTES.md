@@ -37,7 +37,7 @@ lives in `data/balance.json` or `data/content.json`.
    every 30 minutes: four goods wanted (×1.6), three in glut (×0.6).
 9. **Congress**: 16 Founding Fathers are offered each run (4 per tier) out of
    38, for gold plus kept goods.
-10. **Independence** at 2.5B gold earned and a Musket crafted pays Liberty
+10. **Independence** at 2.5B gold earned and a Musket kept in the warehouse (the first one crafted is always set aside for the militia) pays Liberty
     (`9.5 × sqrt(earned / 2.5B)`, boosted by some Fathers and Sweden).
 11. **Liberty** buys compounding **Reforms** (Industry, Navigation,
     Settlement, Commerce, Manufacture — ×1.12–1.15 per level, costs ×1.3 per level)
@@ -47,6 +47,21 @@ Smaller systems: **Colony Charters** (Township → Free City, paid in crafted
 goods, +50% production and cargo each), **drifting treasure** to tap, and
 **Royal Favor** (×2 production for 15 minutes every 2 hours, free — there is no
 monetization).
+
+## Rules the simulation keeps
+
+- **Same result at any step size.** Live play ticks every 0.1 s; offline
+  catch-up and Almanac pages use 120 s steps. Workshops that want the same good
+  hold *claims* on the stock, shared by each workshop's rate of use, so the
+  split doesn't depend on step length. Steps are split where Royal Favor ends
+  and where the 30-minute market changes.
+- **Time away runs at half pace** (`offline_efficiency` 0.5, 4 h cap plus
+  relics and studies). Almanac pages run at full pace.
+- **Independence is committed the moment the Declaration is signed**, and
+  saved at once.
+- **Maps:** every site produces a good its terrain (or coast) can yield; if a
+  map has nowhere for a needed good, one spare site's tile becomes a fitting
+  terrain.
 
 ## Systems that open up over time
 
@@ -81,22 +96,22 @@ good feeds something further up, except the luxury end products.
 | 1 | Molasses | 3 Sugar Cane | Boiling House | Rum |
 | 1 | Cured Tobacco | 2 Tobacco | Curing Barn | Cigars |
 | 1 | Cloth | 2 Cotton | Weaver's House | Sailcloth, Dyed Cloth, Fur Coats |
-| 1 | Candles | 2 Whale Oil | Chandlery | luxury |
-| 2 | Pig Iron | 2 Iron Ore + 1 Charcoal | Bloomery | Tools, Barrels, Muskets |
+| 1 | Spermaceti Candles | 2 Whale Oil (sperm whale) | Chandlery | luxury |
+| 2 | Pig Iron | 2 Iron Ore + 1 Charcoal | Blast Furnace | Tools, Barrels, Muskets |
 | 2 | Provisions | 2 Flour + 2 Salt Cod | Commissary | Merchantman (ship's stores) |
 | 2 | Sailcloth | 2 Cloth | Sail Loft | Merchantman |
 | 2 | Tools | 1 Pig Iron + 1 Lumber | Blacksmith | Muskets, Merchantman |
 | 2 | Barrels | 2 Lumber + 1 Pig Iron (hoops) | Cooperage | Rum |
 | 2 | Dyed Cloth | 2 Cloth + 1 Indigo | Dye House | Uniforms |
-| 2 | Saddles | 3 Leather | Saddlery | Dragoons |
+| 2 | Saddles | 3 Leather | Saddlery | Dragoon Kits |
 | 2 | Cigars | 2 Cured Tobacco | Cigar Maker | luxury |
 | 2 | Fur Coats | 2 Furs + 1 Cloth | Furrier | luxury |
 | 2 | Silverware | 3 Silver | Silversmith | luxury |
 | 3 | Rum | 2 Molasses + 1 Barrel | Distillery | luxury |
-| 3 | Muskets | 2 Pig Iron + 1 Lumber + 1 Tools | Armory | Dragoons, independence |
-| 3 | Uniforms | 2 Dyed Cloth + 1 Leather | Tailor | Dragoons |
+| 3 | Muskets | 2 Pig Iron + 1 Lumber + 1 Tools | Armory | Dragoon Kits, independence (1 kept) |
+| 3 | Uniforms | 2 Dyed Cloth + 1 Leather | Tailor | Dragoon Kits |
 | 4 | Merchantman | 40 Lumber, 20 Tar, 20 Rope, 10 Sailcloth, 5 Tools, 10 Provisions | Shipyard | final product |
-| 4 | Dragoons | 2 Horses, 2 Saddles, 2 Muskets, 2 Uniforms | Cavalry Barracks | final product |
+| 4 | Dragoon Kits | 2 Horses, 2 Saddles, 2 Muskets, 2 Uniforms | Cavalry Barracks | final product |
 
 Sale prices rise roughly 2–3× over the value of the inputs at each step, so
 deeper chains pay more. Every map guarantees all 14 raw goods appear among

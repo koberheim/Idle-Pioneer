@@ -98,6 +98,14 @@ var research: Dictionary = {}
 ## Bumped whenever `research` changes, so derived effects can be cached.
 var research_version: int = 0
 
+## 1 while the player is here; the offline efficiency during catch-up.
+## Not saved.
+var sim_rate: float = 1.0
+## Workshop claims on shared stock: recipe id -> {input id: units}. Lets
+## workshops that compete for a good split it fairly however short the step.
+## Not saved; rebuilt within a few ticks.
+var claims: Dictionary = {}
+
 var _research_fx: Dictionary = {}
 var _research_fx_key: int = -1
 

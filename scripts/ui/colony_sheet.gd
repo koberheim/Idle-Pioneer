@@ -35,6 +35,7 @@ var _charter_costs: HFlowContainer
 var _charter_button: BuyButton
 var _charter_level: int = -1
 var _spec_box: VBoxContainer
+var _good_flavor: Label
 var _spec_key: String = ""
 
 const FLAVOR := {
@@ -101,6 +102,8 @@ func _init() -> void:
 	_stats.resized.connect(_stats.update_minimum_size)
 	_stats.custom_minimum_size.x = 10
 	_manage_box.add_child(_stats)
+	_good_flavor = UI.wrap_label("", 17, UI.LIGHT_SOFT)
+	_manage_box.add_child(_good_flavor)
 	var trip_row := UI.hbox(10)
 	_trip_label = UI.label("", UI.SIZE_SMALL, UI.LIGHT_SOFT)
 	_trip_label.custom_minimum_size.x = 220
@@ -258,6 +261,10 @@ func refresh() -> void:
 	_title.text = Content.colony_name(run.nation_id, c.tier)
 	_subtitle.text = "%s  ·  %s" % [res_name, "Capital" if c.tier == 0 else site_summary(run, site)]
 	_portrait.texture = UI.tex("res://assets/sprites/map/%s.png" % UI.colony_sprite_name(c))
+	var fl: String = Content.good_flavor(res)
+	_good_flavor.visible = fl != ""
+	if _good_flavor.text != fl:
+		_good_flavor.text = fl
 
 	var rate: float = Balance.production_rate(run, meta, c)
 	if c.tier == 0:

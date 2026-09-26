@@ -142,7 +142,14 @@ func _update_row(id: String) -> void:
 	var info: Label = card.get_meta("info")
 	var mm: float = Balance.market_mult(run, id)
 	var arrow: String = " ▲" if mm > 1.0 else (" ▼" if mm < 1.0 else "")
-	info.text = "%s each%s  ·  held: %s" % [Format.num(Balance.sell_price(run, Game.meta, id), 1), arrow, Format.num(stock)]
+	var users: PackedStringArray = []
+	for def: Dictionary in Content.recipes:
+		var w: RunState.WorkshopState = run.workshop(str(def["id"]))
+		if w != null and w.built and w.colonists > 0 and Balance.recipe_inputs(run, w.id).has(id):
+			users.append(str(def["building"]))
+	var used: String = ("
+Used by: " + ", ".join(users)) if not users.is_empty() else ""
+	info.text = "%s each%s  ·  held: %s%s" % [Format.num(Balance.sell_price(run, Game.meta, id), 1), arrow, Format.num(stock), used]
 	info.add_theme_color_override("font_color", UI.GREEN if mm > 1.0 else (UI.RED if mm < 1.0 else UI.INK_SOFT))
 	(card.get_meta("sell") as Button).disabled = stock < 1.0
 	var held: bool = run.is_held(id)

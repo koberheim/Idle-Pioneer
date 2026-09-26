@@ -127,7 +127,7 @@ func test_freeman_brings_free_colonists() -> void:
 
 func test_declaring_independence_wipes_run_and_keeps_meta() -> void:
 	Game.run.lifetime_gold = Balance.v("independence_gold") * 4.0
-	Game.run.crafted["muskets"] = 1
+	Game.run.warehouse["muskets"] = 1.0
 	Game.meta.upgrades["industry"] = 2
 	var paid: int = Game.declare_independence()
 	assert_eq(paid, int(floor(Balance.v("liberty_base") * 2.0)))
@@ -230,7 +230,7 @@ func test_governors_are_permanent_and_boost_their_post() -> void:
 	assert_true(Game.post_governor("c1", gid))
 	assert_eq(Game.run.governor_at("c0"), -1, "a governor holds one post at a time")
 	Game.run.lifetime_gold = Balance.v("independence_gold")
-	Game.run.crafted["muskets"] = 1
+	Game.run.warehouse["muskets"] = 1.0
 	Game.declare_independence()
 	assert_eq(Game.meta.governors.size(), 1, "governors survive independence")
 
@@ -254,3 +254,28 @@ func test_treasure_pays_out() -> void:
 	var got: float = Game.collect_treasure()
 	assert_gt(got, 0.0)
 	assert_almost_eq(Game.run.gold, got, 0.001)
+
+
+func test_readable_but_broken_save_falls_back_to_backup() -> void:
+	Game.save()
+	# A good backup, then a main file that parses but is missing its colonies.
+	Game.save()
+	var f := FileAccess.open(Game.save_path, FileAccess.WRITE)
+	f.store_string(JSON.stringify({"meta": {"liberty": 3}, "run": {"map_seed": 5, "colonies": [], "gold": 1.0}}))
+	f.close()
+	var d: Dictionary = SaveIO.read(Game.save_path)
+	assert_false(d.is_empty())
+	assert_false(((d.get("run", {}) as Dictionary).get("colonies", []) as Array).is_empty())
+
+
+func test_colony_records_pay_out_once_relics_unlock() -> void:
+	# A record of 5 colonies set on the first run, before relics existed.
+	Game.meta.best_colonies = 5
+	Game.meta.runs_completed = 0
+	Game.claim_record_rewards()
+	assert_eq(Game.meta.relics.size(), 0)
+	Game.meta.runs_completed = 1
+	Game.claim_record_rewards()
+	assert_eq(Game.meta.relics.size(), 1)
+	Game.claim_record_rewards()
+	assert_eq(Game.meta.relics.size(), 1, "paid only once")

@@ -122,6 +122,9 @@ func _workshop_card(def: Dictionary) -> Control:
 	titles.add_child(_recipe_line(def))
 	head.add_child(titles)
 	v.add_child(head)
+	var fl: String = Content.building_flavor(id)
+	if fl != "":
+		v.add_child(UI.wrap_label(fl, 17, UI.INK_SOFT))
 
 	var info := UI.label("", UI.SIZE_SMALL, UI.INK_SOFT)
 	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -246,7 +249,11 @@ func _update_card(id: String) -> void:
 	up.set_milestone(w.level, "×%s speed" % Format.mult(Balance.v("milestone_workshop_mult")))
 
 	var held: bool = run.is_held(id)
-	(card.get_meta("sell_label") as Label).text = "%s sell for %s. In store: %s" % [Content.resource_name(id), Format.num(price), Format.num(run.stock_of(id))]
+	# Market swings can make crafting a loss for a while; say so plainly.
+	var worth: String = "the inputs fetch %s" % Format.num(in_value)
+	if in_value > price:
+		worth += " - selling the inputs pays more right now"
+	(card.get_meta("sell_label") as Label).text = "%s sell for %s (%s). In store: %s" % [Content.resource_name(id), Format.num(price), worth, Format.num(run.stock_of(id))]
 	var toggle: Button = card.get_meta("toggle")
 	toggle.text = "Keep for crafting" if held else "Auto-sell"
 	toggle.add_theme_stylebox_override("normal", UI.frame("button_gold" if held else "button", 14, 8))

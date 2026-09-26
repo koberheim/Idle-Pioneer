@@ -5,7 +5,7 @@ class_name WorldMap
 extends RefCounted
 
 ## Bump when generation changes, so old saves keep their colonies' goods.
-const GENERATOR_VERSION := 1
+const GENERATOR_VERSION := 2
 const W := 64
 const H := 96
 
@@ -464,6 +464,29 @@ func _pick_resource(c: Vector2i, coastal: bool, rng: RandomNumberGenerator) -> S
 	return str(weights.keys()[0])
 
 
+## The first terrain whose land (or, failing that, coast) yields `id`.
+func _terrain_for(id: String) -> int:
+	for kind: String in ["resources", "coastal"]:
+		for i in Content.terrains.size():
+			if _terrain_has(i, kind, id):
+				return i
+	return -1
+
+
+func _terrain_has(t_id: int, kind: String, id: String) -> bool:
+	if t_id < 0 or t_id >= Content.terrains.size():
+		return false
+	return (Content.terrains[t_id].get(kind, {}) as Dictionary).has(id)
+
+
+## Whether a site's terrain (and coast, for sea goods) can produce `id`.
+func site_fits(s: Dictionary, id: String) -> bool:
+	var t: Dictionary = Content.terrains[int(s["terrain"])]
+	if (t.get("resources", {}) as Dictionary).has(id):
+		return true
+	return (t.get("coastal", {}) as Dictionary).has(id) and s["port"] != Vector2i(-1, -1)
+
+
 ## Every raw good must be obtainable somewhere, or some recipe chains would be
 ## impossible on this map.
 func _ensure_every_resource(rng: RandomNumberGenerator) -> void:
@@ -474,17 +497,34 @@ func _ensure_every_resource(rng: RandomNumberGenerator) -> void:
 		var need: int = 2 - int(counts.get(id, 0))
 		if need <= 0:
 			continue
+		# Only ever a site whose terrain can produce the good: first taking
+		# from goods that are plentiful, then from any good with a spare site.
 		var candidates: Array[int] = []
-		for i in range(1, sites.size()):
-			var s: Dictionary = sites[i]
-			var t: Dictionary = Content.terrains[int(s["terrain"])]
-			var fits: bool = (t.get("resources", {}) as Dictionary).has(id) or ((t.get("coastal", {}) as Dictionary).has(id) and s["port"] != Vector2i(-1, -1))
-			if fits and int(counts.get(s["resource"], 0)) > 3:
-				candidates.append(i)
-		if candidates.is_empty():
+		for spare in [3, 2, 1]:
 			for i in range(1, sites.size()):
-				if int(counts.get(sites[i]["resource"], 0)) > 3:
+				if site_fits(sites[i], id) and int(counts.get(sites[i]["resource"], 0)) > spare:
 					candidates.append(i)
+			if candidates.size() >= need:
+				break
+		# Last resort, a few maps in a hundred: no site's land can produce it
+		# (say, whale oil on a warm-water map). Turn a spare site's own tile
+		# into a terrain that can, so the map stays plausible and complete.
+		while candidates.size() < need:
+			var t_id: int = _terrain_for(id)
+			var sea_good: bool = not _terrain_has(t_id, "resources", id)
+			var pick_site: int = -1
+			for i in range(1, sites.size()):
+				if candidates.has(i) or int(counts.get(sites[i]["resource"], 0)) <= 1:
+					continue
+				if sea_good and sites[i]["port"] == Vector2i(-1, -1):
+					continue
+				pick_site = i
+				break
+			if pick_site < 0 or t_id < 0:
+				break
+			sites[pick_site]["terrain"] = t_id
+			terrain[idx(int(sites[pick_site]["x"]), int(sites[pick_site]["y"]))] = t_id
+			candidates.append(pick_site)
 		for n in need:
 			if candidates.is_empty():
 				break

@@ -23,6 +23,10 @@ var relics: Array[String] = []
 var almanacs: int = 0
 ## Most colonies ever founded in one run (relic and almanac rewards).
 var best_colonies: int = 1
+## Colony-record rewards already paid, kept apart from the record itself so
+## records set before relics unlock still pay out once they do.
+var record_relics_claimed: Array[int] = []
+var record_almanac_claimed: int = 0
 ## Counters for the Ledger: stat id -> float. See Game.stat().
 var stats: Dictionary = {}
 ## The latest wall-clock time this save has seen. Offline time is only
@@ -70,6 +74,7 @@ func to_dict() -> Dictionary:
 		"hints_seen": hints_seen.duplicate(), "tips_on": tips_on, "governors": governors.duplicate(true),
 		"next_governor_id": next_governor_id, "favor_ready_unix": favor_ready_unix,
 		"relics": relics.duplicate(), "almanacs": almanacs, "best_colonies": best_colonies,
+		"record_relics_claimed": record_relics_claimed.duplicate(), "record_almanac_claimed": record_almanac_claimed,
 		"stats": stats.duplicate(), "max_seen_unix": max_seen_unix, "lite_map": lite_map,
 	}
 
@@ -94,11 +99,17 @@ static func from_dict(d: Dictionary) -> MetaState:
 			"type": str(g.get("type", "prod")), "rank": int(g.get("rank", 1))})
 	m.favor_ready_unix = float(d.get("favor_ready_unix", 0.0))
 	m.next_governor_id = int(d.get("next_governor_id", m.governors.size() + 1))
+	# Relics renamed since a save was written keep their place in the collection.
+	const RENAMED := {"scrimshaw": "bill_of_lading"}
 	for v: Variant in d.get("relics", []):
-		if not Content.relic(str(v)).is_empty() and not m.relics.has(str(v)):
-			m.relics.append(str(v))
+		var rid: String = str(RENAMED.get(str(v), str(v)))
+		if not Content.relic(rid).is_empty() and not m.relics.has(rid):
+			m.relics.append(rid)
 	m.almanacs = int(d.get("almanacs", 0))
 	m.best_colonies = int(d.get("best_colonies", 1))
+	for v: Variant in d.get("record_relics_claimed", []):
+		m.record_relics_claimed.append(int(v))
+	m.record_almanac_claimed = int(d.get("record_almanac_claimed", 0))
 	m.max_seen_unix = float(d.get("max_seen_unix", 0.0))
 	m.lite_map = bool(d.get("lite_map", false))
 	for k: String in (d.get("stats", {}) as Dictionary).keys():

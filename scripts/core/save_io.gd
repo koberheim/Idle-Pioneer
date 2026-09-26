@@ -44,7 +44,7 @@ static func read(path: String) -> Dictionary:
 			continue
 		found_any = true
 		var parsed: Variant = _load(candidate)
-		if parsed is Dictionary and (parsed as Dictionary).has("meta"):
+		if valid(parsed):
 			var d: Dictionary = parsed
 			if int(d.get("version", 1)) > VERSION:
 				push_warning("SaveIO: %s is from a newer version of the game" % candidate)
@@ -71,8 +71,40 @@ static func _load(p: String) -> Variant:
 
 
 static func _parses(p: String) -> bool:
-	var v: Variant = _load(p)
-	return v is Dictionary and (v as Dictionary).has("meta")
+	return valid(_load(p))
+
+
+## A save that not only parses but has the shape the game needs; a readable
+## but broken file falls back to the backup instead of loading as garbage.
+static func valid(v: Variant) -> bool:
+	if not (v is Dictionary):
+		return false
+	var d: Dictionary = v
+	if not (d.get("meta") is Dictionary):
+		return false
+	var meta: Dictionary = d["meta"]
+	for k: String in ["liberty", "runs_completed"]:
+		if meta.has(k) and not _is_number(meta[k]):
+			return false
+	var run: Variant = d.get("run", {})
+	if not (run is Dictionary):
+		return false
+	var r: Dictionary = run
+	if r.is_empty():
+		return true
+	if not r.has("map_seed") or not (r.get("colonies") is Array) or (r["colonies"] as Array).is_empty():
+		return false
+	for k: String in ["gold", "lifetime_gold", "play_seconds"]:
+		if r.has(k) and not _is_number(r[k]):
+			return false
+	for c: Variant in r["colonies"]:
+		if not (c is Dictionary) or not (c as Dictionary).has("site"):
+			return false
+	return true
+
+
+static func _is_number(v: Variant) -> bool:
+	return (typeof(v) == TYPE_FLOAT or typeof(v) == TYPE_INT) and not is_nan(float(v)) and not is_inf(float(v))
 
 
 ## JSON has no NaN or infinity; they would come back as null and break

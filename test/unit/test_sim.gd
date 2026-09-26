@@ -17,7 +17,9 @@ func after_each() -> void:
 
 
 func _fresh_run(seed_value: int = 3) -> RunState:
-	return RunState.create("dutch", WorldMap.STYLE_RANDOM, seed_value)
+	var run := RunState.create("dutch", WorldMap.STYLE_RANDOM, seed_value)
+	run.started_unix = 1000.0  # identical market rolls for compared runs
+	return run
 
 
 func _developed_run() -> RunState:
@@ -160,3 +162,80 @@ func test_royal_favor_doubles_output_then_expires_mid_step() -> void:
 	assert_almost_eq(a.lifetime_gold, 149.5, 0.5)
 	assert_almost_eq(b.lifetime_gold, 149.5, 0.5)
 	assert_eq(b.favor_seconds, 0.0)
+
+
+# --- Live and offline agree ------------------------------------------------------
+
+func _chain_run() -> RunState:
+	var run := _fresh_run()
+	for i in 3:
+		run.found_next()
+	for id: String in ["lumber", "charcoal", "tar"]:
+		var w := run.workshop(id)
+		w.built = true
+		w.colonists = 1
+	run.hold["timber"] = true
+	return run
+
+
+func test_competing_workshops_share_stock_at_any_step_size() -> void:
+	var live := _chain_run()
+	var away := _chain_run()
+	_simulate(live, 600.0, 0.1)
+	_simulate(away, 600.0, 120.0)
+	for id: String in ["lumber", "charcoal", "tar"]:
+		var a: float = float(live.crafted.get(id, 0))
+		var b: float = float(away.crafted.get(id, 0))
+		assert_gt(a, 0.0, "%s made live" % id)
+		assert_almost_eq(b, a, a * 0.1 + 3.0, "%s offline vs live" % id)
+
+
+func test_musket_chain_runs_offline_as_it_does_live() -> void:
+	var make := func() -> RunState:
+		var run := _fresh_run()
+		for i in 5:
+			run.found_next()
+		for c: RunState.ColonyState in run.colonies:
+			c.prod_level = 40
+		for id: String in ["lumber", "charcoal", "pig_iron", "tools", "muskets"]:
+			var w := run.workshop(id)
+			w.built = true
+			w.colonists = 2
+			for input_id: String in (Content.recipe(id)["inputs"] as Dictionary).keys():
+				run.hold[input_id] = true
+		run.warehouse["iron_ore"] = 2000.0
+		return run
+	var live: RunState = make.call()
+	var away: RunState = make.call()
+	_simulate(live, 3600.0, 0.5)
+	_simulate(away, 3600.0, 120.0)
+	var a: float = float(live.crafted.get("muskets", 0))
+	var b: float = float(away.crafted.get("muskets", 0))
+	assert_gt(a, 0.0)
+	assert_almost_eq(b, a, a * 0.1 + 2.0)
+
+
+func test_market_change_splits_the_step() -> void:
+	var run := _fresh_run()
+	var period: float = Balance.v("market_period_seconds")
+	run.play_seconds = period - 10.0
+	var ev := SimEvents.new()
+	Sim.step(run, meta, 30.0, ev)
+	assert_almost_eq(run.play_seconds, period + 20.0, 0.001)
+
+
+func test_offline_catch_up_runs_at_half_pace() -> void:
+	var run := _developed_run()
+	var c: RunState.ColonyState = run.colonies[0]
+	var full: float = Balance.production_rate(run, meta, c)
+	run.sim_rate = Balance.v("offline_efficiency")
+	assert_almost_eq(Balance.production_rate(run, meta, c), full * 0.5, full * 0.001)
+	run.sim_rate = 1.0
+
+
+func test_first_musket_is_kept_for_the_militia() -> void:
+	var run := _fresh_run()
+	var ev := SimEvents.new()
+	Sim.receive(run, meta, "muskets", 3.0, ev)
+	assert_almost_eq(run.stock_of("muskets"), 1.0, 0.001)
+	assert_gt(ev.gold_earned, 0.0)

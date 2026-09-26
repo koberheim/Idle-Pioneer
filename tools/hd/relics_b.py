@@ -673,65 +673,44 @@ def octant():
     ic.save("relic_octant", colors=40)
 
 
-def scrimshaw():
-    """A sperm whale's tooth with a ship scratched into it in black."""
+def bill_of_lading():
+    """A printed bill of lading: woodcut ship at the head, printed lines with
+    the merchant's handwritten entries, tilted slightly."""
     ic = Icon(seed=112)
-    ic.shadow(20, 45, 14, 2.2)
-    P0, P1, P2 = (18.5, 41), (12.5, 17), (37, 2.5)
-
-    def bez(t):
-        u = 1 - t
-        return (u * u * P0[0] + 2 * u * t * P1[0] + t * t * P2[0], u * u * P0[1] + 2 * u * t * P1[1] + t * t * P2[1])
-
-    def der(t):
-        return (2 * (1 - t) * (P1[0] - P0[0]) + 2 * t * (P2[0] - P1[0]), 2 * (1 - t) * (P1[1] - P0[1]) + 2 * t * (P2[1] - P1[1]))
-
-    def side(t, k=1.0):
-        x, y = bez(t)
-        dx, dy = der(t)
-        L = math.hypot(dx, dy)
-        nx, ny = -dy / L, dx / L
-        w = (11.4 * (1 - t) ** 0.8 + 0.3) * k
-        return (x + nx * w, y + ny * w), (x - nx * w, y - ny * w)
-    N = 24
-    L_, R_ = [], []
-    for i in range(N + 1):
-        a, b = side(i / N)
-        L_.append(a)
-        R_.append(b)
-    tooth = L_ + R_[::-1]
-    ic.poly(tooth, IVORY, light=0.2, dark=0.3, angle=-150)
-    # yellowed toward the root, in bands like old ivory
-    for t0, t1, k in ((0.0, 0.1, 0.55), (0.1, 0.2, 0.35), (0.2, 0.3, 0.18)):
-        pts = [side(t0 + (t1 - t0) * j / 4)[0] for j in range(5)] + [side(t1 - (t1 - t0) * j / 4)[1] for j in range(5)]
-        ic.poly(pts, mix(IVORY, IVORY_D, k), light=0.15, dark=0.3, angle=-150)
-    # rounded shading: highlight down the lit side, shadow down the other
-    ic.line([side(t, 0.7)[1] for t in (0.05, 0.25, 0.45, 0.65, 0.85)], mix(IVORY, WHITE, 0.7), 1.0)
-    ic.line([side(t, 0.78)[0] for t in (0.02, 0.2, 0.4, 0.6, 0.8, 0.92)], mul(IVORY, 0.8), 1.5)
-    # root end: the hollow of the cut tooth
-    bx, by = bez(0)
-    dx0, dy0 = der(0)
-    na = math.degrees(math.atan2(dx0, -dy0))
-    ic.poly(rot_ell(bx, by, 11.6, 2.8, na), mix(IVORY_D, WOOD_L, 0.3), light=0.2, dark=0.25)
-    ic.poly(rot_ell(bx + 0.3, by + 0.2, 7.4, 1.5, na), mix(IVORY_D, WOOD_D, 0.45), shade=False)
-    # scratched border rings
-    for t in (0.12, 0.62):
-        ic.line([side(t, 0.92)[0], bez(t), side(t, 0.92)[1]], SCRATCH, 0.5)
-    # the ship: hull, three masts, sails, a wave line
-    hy = 31
-    ic.poly([(10.4, hy - 0.8), (26.2, hy - 1.6), (24, hy + 1.8), (12.4, hy + 1.8)], SCRATCH, shade=False)
-    sail = mix(SCRATCH, IVORY, 0.78)
-    for x, top in ((14.6, 17.6), (21.4, 18.6)):
-        for y0, y1, w0, w1 in ((top + 1.2, top + 5.4, 2.0, 2.6), (top + 6.4, hy - 2.2, 2.8, 3.2)):
-            q = [(x - w0, y0), (x + w0, y0), (x + w1, y1), (x - w1, y1)]
-            ic.poly(q, sail, shade=False)
-            ic.line(q + [q[0]], SCRATCH, 0.5)
-        ic.line([(x, hy - 1), (x, top)], SCRATCH, 0.6)
-    ic.line([(21.6, 18.8), (27.4, 28.2), (24.8, 28.4)], SCRATCH, 0.5)
-    ic.dot(14.6, 17, RED_D, 0.6)
-    ic.line([(9.6, 34), (11.6, 33.2), (13.6, 34), (15.6, 33.2), (17.6, 34), (19.6, 33.2), (21.6, 34), (23.6, 33.2), (26, 34)], SCRATCH, 0.55)
-    glint(ic, 32.5, 9.5, 2.2, WHITE)
-    ic.save("relic_scrimshaw", colors=36)
+    ic.shadow(25, 44, 19, 2.5)
+    A = 6
+    R = lambda pts: rp(pts, A)
+    paper = mix(PARCH, (214, 184, 128), 0.2)
+    ic.poly(R([(6, 7), (42, 7), (42, 41), (6, 41)]), paper, light=0.16, dark=0.22)
+    edge = mix(PARCH_D, TOBACCO, 0.3)
+    ic.line(R([(6, 7), (42, 7)]), edge, 0.9)
+    ic.line(R([(6, 41), (42, 41)]), mul(edge, 0.9), 0.9)
+    ic.line(R([(6, 7), (6, 41)]), edge, 0.9)
+    ic.line(R([(42, 7), (42, 41)]), mul(edge, 0.85), 0.9)
+    ic.speckle((6, 7, 42, 41), mix(PARCH_D, TOBACCO, 0.2), 10, 0.5)
+    # woodcut ship in the corner of the printed form
+    hull = R([(9, 17), (19, 17), (17.5, 19.5), (10.5, 19.5)])
+    ic.poly(hull, INK_SOFT, shade=False)
+    ic.line(R([(14, 17), (14, 10)]), INK_SOFT, 0.7)
+    ic.poly(R([(14.4, 10.5), (18.5, 15.8), (14.4, 15.8)]), mix(paper, INK_SOFT, 0.35), shade=False)
+    ic.poly(R([(13.6, 11.5), (10, 15.8), (13.6, 15.8)]), mix(paper, INK_SOFT, 0.35), shade=False)
+    ic.line(R([(8.5, 20.8), (19.5, 20.8)]), mix(paper, INK_SOFT, 0.5), 0.6)
+    # printed heading and the familiar opening words
+    ic.line(R([(22, 11), (39, 11)]), INK, 1.4)
+    words(ic, 22, 39, 14.6, INK_SOFT, 0.7, R)
+    words(ic, 22, 39, 17.6, INK_SOFT, 0.7, R)
+    # printed lines with brown handwritten entries
+    brown = mix(TOBACCO_D, INK, 0.3)
+    for y in (24, 28, 32):
+        ic.line(R([(9, y + 1.2), (39, y + 1.2)]), mix(paper, INK_SOFT, 0.45), 0.5)
+        squiggle(ic, 10, 26 + (y % 7), y, brown, 0.7, 0.9, R)
+    # signature and a small red wax wafer
+    squiggle(ic, 22, 37, 37, INK, 0.75, 1.1, R)
+    sx, sy = R([(12, 36.5)])[0]
+    ic.circle(sx, sy, 3.2, WAX, light=0.35, dark=0.4)
+    ic.dot(sx - 1.2, sy - 1.2, mix(WAX, CREAM, 0.55), 0.55)
+    glint(ic, 38.5, 9.5)
+    ic.save("relic_bill_of_lading", colors=36)
 
 
 def letter_of_marque():
@@ -909,7 +888,7 @@ def atlantic_neptune():
 
 ALL = [mayflower_compact, bay_psalm, pine_tree_shilling, new_england_primer, coquina_stone,
        long_rifle, conestoga_wheel, point_blanket, grasshopper_vane, revere_teapot,
-       octant, scrimshaw, letter_of_marque, try_pot, atlantic_neptune]
+       octant, bill_of_lading, letter_of_marque, try_pot, atlantic_neptune]
 NAMES = ["relic_" + f.__name__ for f in ALL]
 
 

@@ -157,10 +157,13 @@ func _catch_up(seconds: float) -> void:
 	var ev := SimEvents.new()
 	var chunk: float = Balance.v("offline_step_seconds")
 	var remaining: float = capped
+	# Colonies left to themselves work at a reduced pace.
+	run.sim_rate = Balance.v("offline_efficiency")
 	while remaining > 0.0:
 		var s: float = minf(chunk, remaining)
 		Sim.step(run, meta, s, ev)
 		remaining -= s
+	run.sim_rate = 1.0
 	_record(ev)
 	meta.add_stat("offline_seconds", capped)
 	for id: String in ev.discovered:
@@ -303,15 +306,25 @@ func found_colony() -> bool:
 ## A new record for colonies in one run can turn up a relic or an almanac page.
 func _check_colony_record() -> void:
 	var n: int = run.colonies.size()
-	if n <= meta.best_colonies:
-		return
-	meta.best_colonies = n
-	if not Balance.unlocked(meta, "relics"):
-		return
-	if (Balance.k.get("relic_colony_records", []) as Array).has(float(n)) or (Balance.k.get("relic_colony_records", []) as Array).has(n):
-		grant_relic("record")
-	if n >= int(Balance.v("almanac_record_from")) and Balance.unlocked(meta, "almanac"):
-		grant_almanac(1, "record")
+	if n > meta.best_colonies:
+		meta.best_colonies = n
+	claim_record_rewards()
+
+
+## Pays any colony-record rewards earned but not yet given, including records
+## set before relics or the Almanac had unlocked.
+func claim_record_rewards() -> void:
+	if Balance.unlocked(meta, "relics"):
+		for t: Variant in Balance.k.get("relic_colony_records", []):
+			var threshold: int = int(t)
+			if meta.best_colonies >= threshold and not meta.record_relics_claimed.has(threshold):
+				meta.record_relics_claimed.append(threshold)
+				grant_relic("record")
+	if Balance.unlocked(meta, "almanac"):
+		var from: int = maxi(int(Balance.v("almanac_record_from")), meta.record_almanac_claimed + 1)
+		for n in range(from, meta.best_colonies + 1):
+			meta.record_almanac_claimed = n
+			grant_almanac(1, "record")
 
 
 func recruit_colonists() -> bool:
@@ -346,12 +359,24 @@ func assign_to_workshop(recipe_id: String, delta: int) -> bool:
 	if w.colonists + delta < 0:
 		return false
 	w.colonists += delta
-	# A staffed workshop needs its inputs kept rather than sold.
+	# A staffed workshop needs its inputs kept rather than sold; once the
+	# last worker leaves, inputs no other staffed workshop uses go back to sale.
 	if w.colonists > 0:
 		for input_id: String in Balance.recipe_inputs(run, recipe_id).keys():
 			run.hold[input_id] = true
+	elif delta < 0:
+		for input_id: String in Balance.recipe_inputs(run, recipe_id).keys():
+			if not _staffed_user(input_id):
+				run.hold[input_id] = false
 	purchased.emit()
 	return true
+
+
+func _staffed_user(resource_id: String) -> bool:
+	for w: RunState.WorkshopState in run.workshops.values():
+		if w.built and w.colonists > 0 and Balance.recipe_inputs(run, w.id).has(resource_id):
+			return true
+	return false
 
 
 func workshop_unlocked(recipe_id: String) -> bool:
@@ -396,10 +421,11 @@ func set_hold(resource_id: String, held: bool) -> void:
 
 
 func sell_stock(resource_id: String) -> void:
-	var qty: float = run.stock_of(resource_id)
+	var keep: float = Balance.militia_reserve(run, resource_id)
+	var qty: float = run.stock_of(resource_id) - keep
 	if qty <= 0.0:
 		return
-	run.warehouse[resource_id] = 0.0
+	run.warehouse[resource_id] = keep
 	var ev := SimEvents.new()
 	Sim.sell(run, meta, resource_id, qty, ev)
 	_dispatch(ev)
@@ -409,9 +435,10 @@ func sell_stock(resource_id: String) -> void:
 func sell_all_stock() -> void:
 	var ev := SimEvents.new()
 	for id: String in run.warehouse.keys():
-		var qty: float = run.stock_of(id)
+		var keep: float = Balance.militia_reserve(run, id)
+		var qty: float = run.stock_of(id) - keep
 		if qty > 0.0:
-			run.warehouse[id] = 0.0
+			run.warehouse[id] = keep
 			Sim.sell(run, meta, id, qty, ev)
 	_dispatch(ev)
 	purchased.emit()
@@ -474,6 +501,7 @@ func declare_independence() -> int:
 			grant_relic("independence")
 	if Balance.unlocked(meta, "almanac"):
 		grant_almanac(int(Balance.v("almanac_per_independence")), "independence")
+	claim_record_rewards()
 	save()
 	independence_declared.emit(liberty)
 	return liberty

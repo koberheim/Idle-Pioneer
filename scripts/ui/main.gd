@@ -52,7 +52,12 @@ func _ready() -> void:
 		var names: PackedStringArray = []
 		for id: String in m["up"]:
 			names.append(Content.resource_name(id))
-		_toasts.push("News from Europe: demand soars for %s." % ", ".join(names), "ship_icon", 4.0))
+		_toasts.push("News from Europe: demand soars for %s." % ", ".join(names), "ship_icon", 4.0)
+		# Now and then, a line from the colonial papers.
+		if randf() < 0.5:
+			var g: String = Content.flavor_line("gazette")
+			if g != "":
+				_toasts.push(g, "scroll", 4.5))
 	Game.milestone_reached.connect(_on_milestone)
 	Game.relic_found.connect(_on_relic)
 	Game.almanac_gained.connect(func(count: int, source: String) -> void:
@@ -400,10 +405,11 @@ func _on_advisor_go(target: String) -> void:
 
 func _show_independence() -> void:
 	var o := IndependenceOverlay.new()
-	o.signed.connect(func() -> void:
-		var liberty: int = Game.declare_independence()
+	o.commit = func() -> int: return Game.declare_independence()
+	o.finished.connect(func() -> void:
 		_show_nation_select()
-		_toasts.push("Independence! You earned %d Liberty." % liberty, "liberty", 5.0))
+		_toasts.push("Independence! A new frontier awaits.", "liberty", 5.0)
+		_flush_deferred())
 	_overlay.add_child(o)
 
 
@@ -412,7 +418,7 @@ func _show_independence() -> void:
 func _on_offline(seconds: float, ev: SimEvents) -> void:
 	var m := Modal.new("While You Were Away")
 	var capped: float = minf(seconds, Balance.offline_cap_seconds(Game.run, Game.meta))
-	m.add_text("Your colonies kept working for %s." % Format.duration(capped), UI.SIZE_BODY, UI.INK_SOFT)
+	m.add_text("Your colonies kept working for %s, at half pace without you." % Format.duration(capped), UI.SIZE_BODY, UI.INK_SOFT)
 	if seconds > capped + 1.0:
 		m.add_text("(Colonists rest after %s without their governor.)" % Format.duration(Balance.offline_cap_seconds(Game.run)), UI.SIZE_SMALL, UI.INK_SOFT)
 	m.add_line("gold", "+%s gold" % Format.num(ev.gold_earned))
@@ -442,7 +448,27 @@ func _on_milestone(what: String, track: String, level: int) -> void:
 	_toasts.push("Milestone! %s reaches level %d and %s." % [name, level, effect], "milestone", 3.5)
 
 
+var _deferred: Array[Callable] = []
+
+
+func _ceremony_open() -> bool:
+	for c: Node in _overlay.get_children():
+		if c is IndependenceOverlay:
+			return true
+	return false
+
+
+func _flush_deferred() -> void:
+	var calls: Array[Callable] = _deferred.duplicate()
+	_deferred.clear()
+	for c: Callable in calls:
+		c.call()
+
+
 func _on_relic(id: String, source: String) -> void:
+	if _ceremony_open():
+		_deferred.append(func() -> void: _on_relic(id, "independence"))
+		return
 	var r: Dictionary = Content.relic(id)
 	var how: String = {"treasure": "Among the salvage you find something remarkable.",
 		"independence": "A keepsake of independence, carried home.",
@@ -480,6 +506,9 @@ func _on_founded(id: String) -> void:
 	var c: RunState.ColonyState = Game.run.colony(id)
 	var name: String = Content.colony_name(Game.run.nation_id, c.tier)
 	_toasts.push("%s is founded! It will produce %s." % [name, Content.resource_name(Game.run.resource_of(c)).to_lower()], Game.run.resource_of(c), 4.0)
+	var fl: String = Content.flavor_line("founding")
+	if fl != "":
+		_toasts.push(fl, "colonist", 3.5)
 	# The sheet was showing the site; now show the colony that stands there.
 	if _sheet.visible and _sheet.colony_id == "":
 		_sheet.show_colony(id)

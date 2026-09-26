@@ -98,7 +98,7 @@ func test_every_screen_and_button_survives_use() -> void:
 func test_independence_ceremony_ends_the_run() -> void:
 	Game.run = RunState.create("swedish", WorldMap.STYLE_NORTH_AMERICA, 3)
 	Game.run.lifetime_gold = Balance.v("independence_gold") * 9.0
-	Game.run.crafted["muskets"] = 2
+	Game.run.warehouse["muskets"] = 2.0
 	Game.running = true
 	Game.save()
 	await _boot()
@@ -109,9 +109,28 @@ func test_independence_ceremony_ends_the_run() -> void:
 		if c is IndependenceOverlay:
 			overlay = c
 	assert_not_null(overlay)
-	overlay.emit_signal("signed")
+	# Signing commits at once: the saved game already has no run and the
+	# Liberty is paid, even if the player quits during the ceremony.
+	overlay.call("_on_sign")
 	await wait_process_frames(2)
 	assert_null(Game.run)
 	# Swedish bonus: liberty_base * sqrt(9) * 1.15
-	assert_eq(Game.meta.liberty, int(floor(Balance.v("liberty_base") * 3.0 * 1.15)))
+	var expected: int = int(floor(Balance.v("liberty_base") * 3.0 * 1.15))
+	assert_eq(Game.meta.liberty, expected)
+	var saved: Dictionary = SaveIO.read(Game.save_path)
+	assert_true((saved.get("run", {}) as Dictionary).is_empty())
+	assert_eq(int(saved["meta"]["liberty"]), expected)
+	overlay.emit_signal("finished")
+	await wait_process_frames(2)
 	assert_not_null(main.get("_nation_select"))
+
+
+func test_congress_shows_every_offered_figure() -> void:
+	Game.start_run("english")
+	Game.save()
+	await _boot()
+	main.call("_select_tab", 3)
+	await wait_process_frames(3)
+	var page: Node = main.get("_pages")[3]
+	var cards: Dictionary = page.get("_father_cards")
+	assert_eq(cards.size(), Balance.fathers_offered(Game.run).size())

@@ -11,6 +11,7 @@ func before_each() -> void:
 
 func _late_run() -> RunState:
 	var run := RunState.create("english", WorldMap.STYLE_RANDOM, 7)
+	run.started_unix = 1000.0  # same market rolls for every copy
 	while run.found_next() != null:
 		pass
 	for c: RunState.ColonyState in run.colonies:

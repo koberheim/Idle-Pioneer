@@ -55,9 +55,9 @@ func refresh() -> void:
 	var gate: float = Balance.v("independence_gold")
 	_gold_bar.value = clampf(run.lifetime_gold / gate, 0.0, 1.0)
 	_gold_label.text = "Gold earned this run: %s / %s" % [Format.num(run.lifetime_gold), Format.num(gate)]
-	var muskets: int = int(run.crafted.get("muskets", 0))
+	var muskets: int = int(run.stock_of("muskets"))
 	var need: int = int(Balance.v("independence_muskets"))
-	_musket_label.text = ("✔ " if muskets >= need else "✘ ") + "Arm the militia: craft %d musket%s at the Armory (%d made)" % [need, "" if need == 1 else "s", muskets]
+	_musket_label.text = ("✔ " if muskets >= need else "✘ ") + "Arm the militia: %d musket%s kept in the warehouse (%d)" % [need, "" if need == 1 else "s", muskets]
 	_musket_label.add_theme_color_override("font_color", UI.GREEN if muskets >= need else UI.RED)
 	var payout: int = Balance.liberty_payout(run)
 	_liberty_label.text = "Liberty on declaring: %d" % payout if payout > 0 else "Liberty on declaring: none yet"
@@ -82,14 +82,19 @@ func _rebuild() -> void:
 
 	list.add_child(section("Founding Fathers"))
 	list.add_child(UI.wrap_label("Great figures join your Congress for this run in exchange for gold and kept goods.", UI.SIZE_SMALL, UI.LIGHT_SOFT))
-	var shown_unjoined: int = 0
-	for def: Dictionary in Balance.fathers_offered(Game.run):
+	# Everyone offered this run is shown, by tier, so any figure can be
+	# chosen (or skipped) regardless of the others.
+	var offered: Array[Dictionary] = Balance.fathers_offered(Game.run)
+	offered.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a.get("tier", 1)) < int(b.get("tier", 1)))
+	var tier_shown: int = 0
+	const TIER_NAMES := ["", "First Congress", "Men and Women of Affairs", "The Cause", "The Founders"]
+	for def: Dictionary in offered:
 		var id: String = def["id"]
 		var joined: bool = Game.run.has_father(id)
-		if not joined:
-			shown_unjoined += 1
-			if shown_unjoined > 5:
-				continue
+		var tier: int = int(def.get("tier", 1))
+		if tier != tier_shown:
+			tier_shown = tier
+			list.add_child(UI.label(TIER_NAMES[clampi(tier, 1, 4)], UI.SIZE_BODY, UI.GOLD, true))
 		var card := _father_card(def, joined)
 		_father_cards[id] = card
 		list.add_child(card)

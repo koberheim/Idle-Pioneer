@@ -3,8 +3,15 @@
 class_name IndependenceOverlay
 extends Control
 
+## Emitted the moment the Declaration is signed; the handler must commit the
+## independence and return the Liberty actually paid.
 signal signed
+## Emitted when the player leaves the ceremony for the next expedition.
+signal finished
 signal cancelled
+
+## Commits independence and returns the Liberty paid (set by the owner).
+var commit: Callable
 
 const TEXT := "We, the representatives of the colonies of %s, assembled in Congress, do solemnly publish and declare that these united colonies are, and of right ought to be, free and independent. Our harbours are full, our militia armed, and our fortunes our own.\n\nLet the bells ring from %s to %s."
 
@@ -60,7 +67,7 @@ func _ready() -> void:
 	_result = UI.label("Liberty to be earned: %d" % _liberty, UI.SIZE_BIG, UI.INK, true)
 	_result.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(_result)
-	var keep := UI.wrap_label("You keep: Liberty and your reforms.  You lose: every colony, colonist, workshop, Founding Father and all gold.", UI.SIZE_SMALL, UI.INK_SOFT)
+	var keep := UI.wrap_label("You keep: Liberty, reforms, governors, relics and Almanac pages.  You lose: every colony, colonist, workshop, study, Founding Father and all gold.", UI.SIZE_SMALL, UI.INK_SOFT)
 	keep.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(keep)
 
@@ -99,9 +106,14 @@ func _ready() -> void:
 
 func _on_sign() -> void:
 	if _done:
-		signed.emit()
+		finished.emit()
 		queue_free()
 		return
+	# Independence is won the moment the quill touches the page: commit and
+	# save now, so closing the game during the ceremony can't undo it.
+	if commit.is_valid():
+		_liberty = int(commit.call())
+	signed.emit()
 	_sign_btn.disabled = true
 	_cancel_btn.visible = false
 	_text.visible_ratio = 1.0

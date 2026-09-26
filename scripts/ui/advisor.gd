@@ -65,8 +65,8 @@ func _pick() -> Array:
 	var candidates: Array = []
 	if Balance.independence_ready(run):
 		candidates.append(["declare_%d" % meta.runs_completed, "The colonies are rich and armed. Congress awaits your Declaration of Independence!", "tab:3"])
-	if run.lifetime_gold >= Balance.v("independence_gold") and int(run.crafted.get("muskets", 0)) < int(Balance.v("independence_muskets")):
-		candidates.append(["muskets_%d" % meta.runs_completed, "Congress will not declare without an armed militia. An Armory makes Muskets from pig iron, lumber and tools.", "tab:1"])
+	if run.lifetime_gold >= Balance.v("independence_gold") and run.stock_of("muskets") < Balance.v("independence_muskets"):
+		candidates.append(["muskets_%d" % meta.runs_completed, "Congress will not declare without an armed militia. An Armory makes Muskets from pig iron, lumber and tools; the first is kept for the militia.", "tab:1"])
 	for c: RunState.ColonyState in run.colonies:
 		if c.tier > 0 and c.stock > Balance.cargo_capacity(run, meta, c) * 2.0:
 			var n: String = Content.colony_name(run.nation_id, c.tier)

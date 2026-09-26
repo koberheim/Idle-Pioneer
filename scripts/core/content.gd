@@ -6,6 +6,7 @@ const CONTENT_PATH := "res://data/content.json"
 const NAMES_PATH := "res://data/colony_names.json"
 
 const RESEARCH_PATH := "res://data/research.json"
+const FLAVOR_PATH := "res://data/flavor.json"
 
 var resources: Array[Dictionary] = []
 var terrains: Array[Dictionary] = []
@@ -22,6 +23,9 @@ var relic_sets: Array[Dictionary] = []
 var specializations: Array[Dictionary] = []
 var research: Array[Dictionary] = []
 var research_branches: Array[Dictionary] = []
+## Small period touches: a line per good and workshop, gazette snippets,
+## founding lines. See data/flavor.json.
+var flavor: Dictionary = {}
 
 var _resource_by_id: Dictionary = {}
 var _recipe_by_id: Dictionary = {}
@@ -47,6 +51,8 @@ func _init() -> void:
 	relic_sets = _typed(data.get("relic_sets", []))
 	specializations = _typed(data.get("specializations", []))
 	# The Philosophical Society's studies live in their own file.
+	if FileAccess.file_exists(FLAVOR_PATH):
+		flavor = _load_json(FLAVOR_PATH)
 	if FileAccess.file_exists(RESEARCH_PATH):
 		var rd: Dictionary = _load_json(RESEARCH_PATH)
 		research = _typed(rd.get("research", []))
@@ -101,6 +107,20 @@ func relics_in_set(set_id: String) -> Array[Dictionary]:
 		if r["set"] == set_id:
 			out.append(r)
 	return out
+
+
+func good_flavor(id: String) -> String:
+	return str((flavor.get("goods", {}) as Dictionary).get(id, ""))
+
+
+func building_flavor(id: String) -> String:
+	return str((flavor.get("buildings", {}) as Dictionary).get(id, ""))
+
+
+## A random line from a flavor list ("gazette", "founding"), or "".
+func flavor_line(list: String) -> String:
+	var lines: Array = flavor.get(list, [])
+	return str(lines[randi() % lines.size()]) if not lines.is_empty() else ""
 
 
 func study(id: String) -> Dictionary:
