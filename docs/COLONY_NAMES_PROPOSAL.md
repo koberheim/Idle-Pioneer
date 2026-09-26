@@ -1,6 +1,6 @@
-# Colony names: proposal
+# Colony names
 
-This proposal replaces `data/colony_names.json`. The file ready to swap in is `data/colony_names.proposed.json`, which has the same keys (`english`, `french`, `spanish`, `dutch`, `portuguese`, `swedish`) and 25 strings per nation. Index 0 is the capital. Nothing in the game code needs to change.
+**Approved and in use** (`data/colony_names.json`). The file has the same keys (`english`, `french`, `spanish`, `dutch`, `portuguese`, `swedish`) and 25 strings per nation. Index 0 is the capital. Nothing in the game code needs to change.
 
 ## Naming convention
 

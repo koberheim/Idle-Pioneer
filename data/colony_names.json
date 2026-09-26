@@ -1,44 +1,44 @@
 {
   "english": [
-    "St. John's", "Jamestown", "Cuper's Cove", "Henricus", "St. George's",
-    "Plymouth", "Sandy Point Town", "Salem", "Bridgetown", "Charlestown",
-    "Boston", "St. Mary's City", "Hartford", "Providence", "New Haven",
-    "Port Royal", "New York", "Charleston", "Philadelphia", "Kingston",
-    "Annapolis", "Williamsburg", "Baltimore", "Savannah", "Halifax"
+    "Jamestown", "Cuper's Cove", "Henricus", "Plymouth", "Ferryland",
+    "Old Road", "Salem", "Bridgetown", "Boston", "St. Mary's City",
+    "Hartford", "Providence", "New Haven", "Charles Town", "Moose Factory",
+    "Philadelphia", "York Factory", "Kingston", "Annapolis", "Williamsburg",
+    "Baltimore", "Savannah", "Frederica", "Halifax", "Pittsburgh"
   ],
   "french": [
-    "Fort Caroline", "Tadoussac", "Port Royal", "Quebec", "Plaisance",
-    "Trois-Rivieres", "Fort Royal", "Montreal", "Basse-Terre", "Cayenne",
-    "Cap-Francais", "Fort Frontenac", "Grand-Pre", "Biloxi", "Detroit",
-    "Mobile", "Kaskaskia", "Natchitoches", "Louisbourg", "New Orleans",
-    "Baton Rouge", "Vincennes", "Port-au-Prince", "Fort Duquesne", "St. Louis"
+    "Québec", "La Caroline", "Tadoussac", "Port-Royal", "Trois-Rivières",
+    "Saint-Pierre", "Montréal", "Basse-Terre", "Plaisance", "Fort-Royal",
+    "Cap-Français", "Fort Frontenac", "Grand-Pré", "Fort Maurepas", "Détroit",
+    "La Mobile", "Kaskaskia", "Louisbourg", "Natchitoches", "Fort Rosalie",
+    "La Nouvelle-Orléans", "Vincennes", "Port-au-Prince", "Fort Duquesne", "Saint-Louis"
   ],
   "spanish": [
-    "La Isabela", "Santo Domingo", "Trinidad", "Baracoa", "Santiago de Cuba",
-    "Havana", "Panama City", "San Juan", "Santiago de los Caballeros", "Granada",
-    "Leon", "San Salvador", "Ciudad Real", "Comayagua", "Campeche",
-    "Merida", "St. Augustine", "Portobelo", "Santa Fe", "Matanzas",
-    "Pensacola", "Albuquerque", "San Antonio", "San Diego", "San Francisco"
+    "Santo Domingo", "La Isabela", "Concepción de la Vega", "Caparra", "Nombre de Dios",
+    "Baracoa", "Bayamo", "Trinidad", "Santiago de Cuba", "Vera Cruz",
+    "La Habana", "Granada", "León", "San Salvador", "Puebla de los Ángeles",
+    "Campeche", "Mérida", "Guadalajara", "Zacatecas", "San Agustín",
+    "Portobelo", "Santa Fe", "Santa María de Galve", "Alburquerque", "San Antonio de Béxar"
   ],
   "dutch": [
-    "Fort Nassau", "Fort Orange", "New Amsterdam", "Rensselaerswyck", "Swaanendael",
-    "Willemstad", "Breukelen", "Vlissingen", "Gravesend", "New Amstel",
-    "Beverwijck", "Wiltwyck", "Midwout", "New Utrecht", "New Harlem",
-    "Bushwick", "Schenectady", "New Dorp", "Oranjestad", "Philipsburg",
-    "New Zeeland", "New Utrecht Landing", "New Delft", "New Rotterdam", "New Haarlemmermeer"
+    "Nieuw Amsterdam", "Fort Nassau", "Fort Oranje", "Nieuw Walcheren", "Pavonia",
+    "Rensselaerswijck", "Swanendael", "Fort de Goede Hoop", "Willemstad", "Vriessendael",
+    "Vlissingen", "'s-Gravesande", "Breuckelen", "Nieuw Amersfoort", "Fort Beversreede",
+    "Beverwijck", "Midwout", "Nieuw Amstel", "Nieuw Utrecht", "Nieuw Haarlem",
+    "Bergen", "Boswijck", "Schenectade", "Wiltwijck", "Philipsburg"
   ],
   "portuguese": [
-    "Labrador", "Terra Nova", "Porto Seguro", "Itamaraca", "Sao Vicente",
-    "Igarassu", "Olinda", "Santos", "Salvador", "Vitoria",
-    "Sao Paulo", "Angra dos Reis", "Rio de Janeiro", "Joao Pessoa", "Natal",
-    "Sao Luis", "Cabo Frio", "Belem", "Sao Sebastiao", "Fortaleza",
-    "Sao Francisco do Sul", "Paraty", "Desterro", "Colonia do Sacramento", "Mariana"
+    "São João", "Terra do Lavrador", "Baía da Conceição", "Cabo Raso", "Ilha dos Bacalhaus",
+    "Cabo da Espera", "Farelhão", "Água Forte", "Rio Fermoso", "Onze Mil Virgens",
+    "Ilha do Fogo", "Cabo Frei Luís", "Boa Vista", "Cabo Bretão", "Os Barbados",
+    "Cabo de Santa Maria", "Nova Viana", "São Miguel", "Nova Terceira", "Vila Franca",
+    "Nossa Senhora da Luz", "Espírito Santo", "Santa Cruz", "Nova Aveiro", "Angra Nova"
   ],
   "swedish": [
-    "Fort Christina", "Finland", "Torne", "Nya Goteborg", "Printzhof",
-    "Fort Nya Elfsborg", "Upland", "Wicaco", "Fort Nya Korsholm", "Kingsessing",
-    "Passyunk", "Carolusborg", "Fort Witsen", "Fort Batenstein", "Christiansborg",
-    "Ruy Coninck", "Fort Trefaldighet", "Apollonia", "Cabelon", "Gustavia",
-    "New Uppsala", "New Kalmar", "New Falun", "New Visby", "New Karlskrona"
+    "Fort Christina", "Finland", "Upland", "Fort Nya Elfsborg", "Fort Nya Götheborg",
+    "Printzhof", "Printztorp", "Provins", "Kingsessing", "Mölndal",
+    "Fort Nya Vasa", "Fort Nya Korsholm", "Torne", "Sveaborg", "Nya Stockholm",
+    "Fort Trefaldighet", "Christinahamn", "Ammansland", "Timmerön", "Strandviken",
+    "Sidoland", "Wicaco", "Gustavia", "Fort Gustaf", "Fort Carl"
   ]
 }

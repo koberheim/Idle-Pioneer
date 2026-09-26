@@ -22,7 +22,7 @@ func _ready() -> void:
 	Game.meta.music_on = false
 	Game.meta.sfx_on = false
 	if scenario == "fresh":
-		Game.start_run("dutch", map_style)
+		Game.start_run("french", map_style)
 	elif scenario != "nation" and scenario != "reforms":
 		_seed_state()
 	if scenario == "reforms":
