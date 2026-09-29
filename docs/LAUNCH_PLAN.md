@@ -16,7 +16,7 @@ Items marked ✅ were fixed in the commit after this plan was written.
 
 **Tests:** 41 automated tests (sim, game, world, UI smoke), plus a balance bot, a screenshot harness and a map preview tool.
 
-**Privacy:** there is no network code, no analytics and no ads. Store privacy forms are simply "no data collected".
+**Privacy:** the game itself collects nothing. The owner chose a free-with-light-ads model plus a US$4.99 Ad-Free purchase (see MONETIZATION.md), so the store privacy forms must declare the AdMob SDK's data collection. Drafts of the privacy, support and landing pages are in `docs/site/`.
 
 ## Audit findings
 
@@ -86,6 +86,32 @@ Items marked ✅ were fixed in the commit after this plan was written.
   - device profiling
 - **Phase 1 still open:** device playtests of the first runs.
 
+## Second review (27 Sept 2026) — status
+
+- **Section A fixed:**
+  - saves carry their world
+  - save failures are shown and retried
+  - deep save validation, and saves from newer versions are refused
+  - market-boundary pricing
+  - Congress cache
+  - Back button and interruption handling
+  - scrolling dialogs with safe areas
+  - Large text option
+  - long catch-ups run in slices with progress
+  - offline pace explained
+- **Monetization part 1 done:**
+  - the `Platform` layer with a desktop stand-in
+  - "Consult the Almanac" rewarded bonus
+  - the between-expeditions interstitial
+  - Ad-Free / Restore / version in Settings
+- **Monetization part 2 open:** native AdMob, UMP and billing backends. These need a working Android build.
+- **Rights:** the Europe banner is now original art made in code, and the AI source was removed.
+- **Still the owner's to do:**
+  - accounts and package ID
+  - the credit line
+  - hosting `docs/site`
+  - a rented Mac for iOS
+
 ## Phases
 
 ### Phase 0: technical hardening (3–5 days)
@@ -114,7 +140,7 @@ Items marked ✅ were fixed in the commit after this plan was written.
 | Play Console account ($25, identity verification) | Owner |
 | Upload keystore: create and back up offline; enroll in Play App Signing | Owner (Claude provides the `keytool` command) |
 | Privacy policy page (e.g. GitHub Pages) | Claude drafts; owner hosts |
-| Data safety ("no data collected"), IARC questionnaire, app content declarations (not for children, no ads) | Claude drafts answers; owner submits |
+| Data safety (declare the AdMob SDK's collection), "Contains ads", in-app purchase, IARC questionnaire, target audience (not for children) | Claude drafts answers; owner submits |
 | Store listing text, screenshots, feature graphic | Claude; owner approves |
 | Recruit 12+ testers, run 14+ days, fix issues, apply for production | Owner; Claude fixes |
 
@@ -123,11 +149,11 @@ Items marked ✅ were fixed in the commit after this plan was written.
 |---|---|
 | Apple Developer Program, a Mac with Xcode 26, bundle id, certificates | Owner |
 | iOS export (privacy manifest, icons), archive in Xcode, TestFlight | Owner, using the Mac |
-| App Store Connect: privacy ("Data Not Collected"), age rating, screenshots, listing, review notes | Claude drafts; owner submits |
+| App Store Connect: App Privacy (AdMob data use), Ad-Free non-consumable, age rating, screenshots, listing, review notes | Claude drafts; owner submits |
 | Decide iPhone-only or iPad as well | Owner |
 
 ### Phase 4: launch and after
-- Play staged rollout (10% → 100%); watch Android vitals.
+- First Play release goes to the chosen countries all at once (percentage rollouts only apply to later updates), so consider a limited-country launch first; use staged rollouts for updates and watch Android vitals.
 - Yearly upkeep: Android target API (each August) and Xcode/SDK (each April).
 - Post-launch roadmap: the BACKLOG items (Royal Commissions, Seasons, Frontier events, the Constitution), localization, cloud save.
 

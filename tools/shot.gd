@@ -126,6 +126,8 @@ func _ready() -> void:
 				await _frames(5)
 				var sc2: ScrollContainer = rs.get("_scroll")
 				sc2.scroll_vertical = 1400
+		"consult":
+			main.call("_on_consult")
 		"bigbar":
 			Game.meta.liberty = 23456789
 			Game.run.colonists_owned = 4800

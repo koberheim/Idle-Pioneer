@@ -36,6 +36,10 @@ var max_seen_unix: float = 0.0
 var lite_map: bool = false
 ## Interface size: text and buttons scaled up for readability.
 var large_ui: bool = false
+## Real-world time "Consult the Almanac" (the rewarded skip) is next ready.
+var ad_skip_ready_unix: float = 0.0
+## When the last between-expeditions ad was shown.
+var last_interstitial_unix: float = 0.0
 
 
 func governor(governor_id: int) -> Dictionary:
@@ -77,7 +81,7 @@ func to_dict() -> Dictionary:
 		"next_governor_id": next_governor_id, "favor_ready_unix": favor_ready_unix,
 		"relics": relics.duplicate(), "almanacs": almanacs, "best_colonies": best_colonies,
 		"record_relics_claimed": record_relics_claimed.duplicate(), "record_almanac_claimed": record_almanac_claimed,
-		"stats": stats.duplicate(), "max_seen_unix": max_seen_unix, "lite_map": lite_map, "large_ui": large_ui,
+		"stats": stats.duplicate(), "max_seen_unix": max_seen_unix, "lite_map": lite_map, "large_ui": large_ui, "ad_skip_ready_unix": ad_skip_ready_unix, "last_interstitial_unix": last_interstitial_unix,
 	}
 
 
@@ -115,6 +119,8 @@ static func from_dict(d: Dictionary) -> MetaState:
 	m.max_seen_unix = float(d.get("max_seen_unix", 0.0))
 	m.lite_map = bool(d.get("lite_map", false))
 	m.large_ui = bool(d.get("large_ui", false))
+	m.ad_skip_ready_unix = float(d.get("ad_skip_ready_unix", 0.0))
+	m.last_interstitial_unix = float(d.get("last_interstitial_unix", 0.0))
 	for k: String in (d.get("stats", {}) as Dictionary).keys():
 		m.stats[k] = float(d["stats"][k])
 	return m

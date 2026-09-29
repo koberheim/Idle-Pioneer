@@ -67,6 +67,17 @@ func _ready() -> void:
 		_toasts.push("You found %s of the Almanac! Read %s in the Ledger." % ["a page" if count == 1 else "%d pages" % count, "it" if count == 1 else "them"], "almanac", 4.0))
 	Game.almanac_read.connect(_on_almanac_read)
 	Game.catch_up_progress.connect(_on_catch_up_progress)
+	Platform.rewarded_finished.connect(func(placement: String, completed: bool) -> void:
+		if placement != "almanac":
+			return
+		if completed:
+			Game.consult_almanac()
+		else:
+			_toasts.push("The almanac closes unread. No reward this time.", "almanac", 3.0))
+	Platform.purchase_failed.connect(func(reason: String) -> void: _toasts.push(reason, "lock", 4.0))
+	Platform.ad_free_changed.connect(func(owned: bool) -> void:
+		if owned:
+			_toasts.push("Thank you! Ads are gone for good.", "star", 4.0))
 	Game.save_status_changed.connect(func(ok: bool) -> void:
 		_save_banner.visible = not ok
 		if ok:
@@ -140,6 +151,7 @@ func _build() -> void:
 		_toasts.push("Salvaged a drifting cargo from a wrecked merchantman!", "chest", 2.5))
 	_map.next_site_tapped.connect(_open_next_site)
 	_map.overview_requested.connect(_show_overview)
+	_map.consult_requested.connect(_on_consult)
 	_content.add_child(_map)
 	_pages.append(_map)
 
@@ -443,6 +455,7 @@ func _show_independence() -> void:
 	o.commit = func() -> int: return Game.declare_independence()
 	o.finished.connect(func() -> void:
 		_show_nation_select()
+		_maybe_interstitial()
 		_toasts.push("Independence! A new frontier awaits.", "liberty", 5.0)
 		_flush_deferred())
 	_overlay.add_child(o)
@@ -574,6 +587,42 @@ func _on_catch_up_progress(f: float) -> void:
 		_catch_screen.queue_free()
 		_catch_screen = null
 		_catch_bar = null
+
+
+## The rewarded bonus: a free half hour of the colonies' work every few
+## hours. Ad-Free owners get it without watching anything.
+func _on_consult() -> void:
+	var wait: float = Game.consult_ready_in()
+	if wait > 0.0:
+		_toasts.push("The almanac can be consulted again in %s." % Format.duration(wait), "almanac", 3.0)
+		return
+	var m := Modal.new("Consult the Almanac")
+	var mins: int = int(Balance.v("ad_skip_seconds") / 60.0)
+	if Platform.is_ad_free():
+		m.add_text("Skip ahead %d minutes: the colonies work at full pace, all at once. Ready again in %s." % [mins, Format.duration(Balance.v("ad_skip_cooldown_seconds"))], UI.SIZE_BODY, UI.INK_SOFT)
+		m.add_button("Not now", "button")
+		m.add_button("Consult", "button_gold", func() -> void: Game.consult_almanac())
+	elif Platform.rewarded_ready():
+		m.add_text("Watch a short ad to skip ahead %d minutes: the colonies work at full pace, all at once. Ready again in %s." % [mins, Format.duration(Balance.v("ad_skip_cooldown_seconds"))], UI.SIZE_BODY, UI.INK_SOFT)
+		m.add_button("Not now", "button")
+		m.add_button("Watch", "button_gold", func() -> void: Platform.show_rewarded("almanac"))
+	else:
+		m.add_text("The almanac is out of reach just now (no connection?). Try again later; nothing else is affected.", UI.SIZE_BODY, UI.INK_SOFT)
+		m.add_button("Close", "button_gold")
+	_overlay.add_child(m)
+
+
+## Between expeditions, after independence is saved: at most one short ad,
+## never after the first expedition, never for Ad-Free owners.
+func _maybe_interstitial() -> void:
+	var now: float = Time.get_unix_time_from_system()
+	if Game.meta.runs_completed < int(Balance.v("interstitial_after_runs")):
+		return
+	if now - Game.meta.last_interstitial_unix < Balance.v("interstitial_min_gap_seconds"):
+		return
+	if Platform.show_interstitial("between_expeditions"):
+		Game.meta.last_interstitial_unix = now
+		Game.save()
 
 
 func _on_founded(id: String) -> void:
@@ -724,6 +773,43 @@ func _show_settings() -> void:
 		m.close()
 		_show_credits())
 	m.body.add_child(credits)
+	# Ad-Free, restore and privacy choices.
+	var store_row := UI.hbox(10)
+	var ad_free := UI.button("", "button_gold", 56)
+	ad_free.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
+	ad_free.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var sync_store := func() -> void:
+		if Platform.is_ad_free():
+			ad_free.text = "Ad-Free: thank you!"
+			ad_free.disabled = true
+		else:
+			var price: String = Platform.ad_free_price()
+			ad_free.text = "Remove ads" + ("  ·  " + price if price != "" else "")
+	sync_store.call()
+	ad_free.pressed.connect(func() -> void:
+		Sfx.play("click")
+		Platform.buy_ad_free())
+	Platform.ad_free_changed.connect(func(_o: bool) -> void:
+		if is_instance_valid(ad_free):
+			sync_store.call())
+	var restore := UI.button("Restore purchases", "button", 56)
+	restore.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
+	restore.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	restore.pressed.connect(func() -> void:
+		Sfx.play("click")
+		Platform.restore_purchases()
+		_toasts.push("Checking with the store...", "scroll", 2.0))
+	store_row.add_child(ad_free)
+	store_row.add_child(restore)
+	m.body.add_child(store_row)
+	if Platform.privacy_options_required():
+		var privacy := UI.button("Privacy choices", "button", 56)
+		privacy.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
+		privacy.pressed.connect(func() -> void: Platform.show_privacy_options())
+		m.body.add_child(privacy)
+	var version := UI.label("Version %s" % str(ProjectSettings.get_setting("application/config/version", "dev")), 16, UI.INK_SOFT)
+	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	m.body.add_child(version)
 	var meta: MetaState = Game.meta
 	var stats: String = ("While you're away, colonies work at half pace for up to %s.\n" % Format.duration(Balance.offline_cap_seconds(Game.run, meta))) if Game.run != null else ""
 	stats += "Independence declared: %d times\nLiberty earned in all: %d" % [meta.runs_completed, meta.lifetime_liberty]
@@ -833,6 +919,8 @@ func _refresh() -> void:
 	_liberty_label.text = Format.num(Game.meta.liberty)
 	_colonist_label.text = "%s/%s" % [Format.num(run.colonists_idle()), Format.num(run.colonists_owned)]
 	_refresh_favor()
+	if _map.consult_button != null:
+		_map.consult_button.modulate.a = 1.0 if Game.consult_ready_in() <= 0.0 else 0.45
 	if _tab > 0:
 		(_pages[_tab] as Page).refresh()
 	if _sheet.visible:

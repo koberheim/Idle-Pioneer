@@ -785,7 +785,12 @@ func read_almanac() -> bool:
 		return false
 	meta.almanacs -= 1
 	meta.add_stat("almanacs_read")
-	var seconds: float = Balance.v("almanac_seconds")
+	_skip_ahead(Balance.v("almanac_seconds"))
+	return true
+
+
+## Runs `seconds` of the colonies' work at once, at full pace.
+func _skip_ahead(seconds: float) -> void:
 	var ev := SimEvents.new()
 	var chunk: float = Balance.v("offline_step_seconds")
 	var remaining: float = seconds
@@ -799,6 +804,21 @@ func read_almanac() -> bool:
 	almanac_read.emit(seconds, ev)
 	purchased.emit()
 	save()
+
+
+func consult_ready_in() -> float:
+	return clampf(meta.ad_skip_ready_unix - Time.get_unix_time_from_system(), 0.0, Balance.v("ad_skip_cooldown_seconds"))
+
+
+## "Consult the Almanac": the optional rewarded bonus, a short skip ahead on a
+## real-time cooldown. Granted once per cooldown however often it's called,
+## so a duplicated ad callback can't pay twice.
+func consult_almanac() -> bool:
+	if run == null or consult_ready_in() > 0.0:
+		return false
+	meta.ad_skip_ready_unix = Time.get_unix_time_from_system() + Balance.v("ad_skip_cooldown_seconds")
+	meta.add_stat("almanac_consulted")
+	_skip_ahead(Balance.v("ad_skip_seconds"))
 	return true
 
 

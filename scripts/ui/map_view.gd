@@ -9,6 +9,7 @@ signal colony_tapped(colony_id: String)
 signal next_site_tapped
 signal treasure_tapped(world_pos: Vector2)
 signal overview_requested
+signal consult_requested
 
 const TERRAIN_SHADER := preload("res://assets/shaders/terrain.gdshader")
 const TILE := 24.0
@@ -23,6 +24,8 @@ const MAX_ZOOM := 2.6
 var world: Node2D
 var _terrain: Sprite2D
 var _decor: Node2D
+## The rewarded "Consult the Almanac" button (dimmed while cooling down).
+var consult_button: Button
 var _dynamic: Node2D
 var _labels: Control
 var _data_img: Image
@@ -123,6 +126,18 @@ func _build_buttons() -> void:
 		Sfx.play("click")
 		overview_requested.emit())
 	box.add_child(m)
+	consult_button = Button.new()
+	consult_button.icon = UI.icon("almanac")
+	consult_button.expand_icon = true
+	consult_button.focus_mode = Control.FOCUS_NONE
+	consult_button.custom_minimum_size = Vector2(64, 64)
+	consult_button.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	consult_button.add_theme_constant_override("icon_max_width", 40)
+	consult_button.tooltip_text = "Consult the Almanac"
+	consult_button.pressed.connect(func() -> void:
+		Sfx.play("click")
+		consult_requested.emit())
+	box.add_child(consult_button)
 
 
 # --- World data -----------------------------------------------------------------
