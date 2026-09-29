@@ -148,6 +148,19 @@ static func icon_filter(shown_px: float) -> CanvasItem.TextureFilter:
 	return CanvasItem.TEXTURE_FILTER_NEAREST if shown_px >= 44.0 else CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 
 
+## Top and bottom safe-area insets (notch, status bar, home indicator,
+## gesture bar) in canvas units, for full-screen overlays. Zero on desktop.
+static func safe_insets(ctl: CanvasItem) -> Vector2:
+	if not OS.has_feature("mobile"):
+		return Vector2.ZERO
+	var safe: Rect2i = DisplayServer.get_display_safe_area()
+	var screen: Vector2i = DisplayServer.screen_get_size()
+	if screen.y <= 0 or safe.size.y <= 0:
+		return Vector2.ZERO
+	var k: float = ctl.get_viewport_rect().size.y / float(screen.y)
+	return Vector2(float(safe.position.y) * k, maxf(0.0, float(screen.y - safe.end.y)) * k)
+
+
 static func icon_rect(texture: Texture2D, px: float = 32.0) -> TextureRect:
 	var r := TextureRect.new()
 	r.texture = texture

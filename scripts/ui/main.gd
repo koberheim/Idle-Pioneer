@@ -66,13 +66,16 @@ func _ready() -> void:
 		Sfx.play("father")
 		_toasts.push("You found %s of the Almanac! Read %s in the Ledger." % ["a page" if count == 1 else "%d pages" % count, "it" if count == 1 else "them"], "almanac", 4.0))
 	Game.almanac_read.connect(_on_almanac_read)
+	Game.catch_up_progress.connect(_on_catch_up_progress)
 	Game.save_status_changed.connect(func(ok: bool) -> void:
 		_save_banner.visible = not ok
 		if ok:
 			_toasts.push("Progress saved.", "scroll", 2.0))
 	get_tree().root.size_changed.connect(_layout_sheet)
 
-	if Game.boot():
+	var booted: bool = Game.boot()
+	apply_ui_scale()
+	if booted:
 		_start_ui()
 	elif Game.save_from_newer_version:
 		var m := Modal.new("Please Update the Game")
@@ -80,6 +83,15 @@ func _ready() -> void:
 		_overlay.add_child(m)
 	else:
 		_show_nation_select()
+
+
+const LARGE_UI_SCALE := 1.12
+
+
+## Everything (text, buttons, icons) a little bigger for easier reading and
+## tapping; the layout reflows into the narrower space.
+func apply_ui_scale() -> void:
+	get_tree().root.content_scale_factor = LARGE_UI_SCALE if Game.meta.large_ui else 1.0
 
 
 func _safe_bottom() -> float:
@@ -473,6 +485,8 @@ func _on_milestone(what: String, track: String, level: int) -> void:
 
 var _deferred: Array[Callable] = []
 var _save_banner: PanelContainer
+var _catch_screen: Control
+var _catch_bar: ProgressBar
 
 
 func _ceremony_open() -> bool:
@@ -523,6 +537,43 @@ func _on_almanac_read(seconds: float, ev: SimEvents) -> void:
 	m.add_button("Splendid", "button_gold")
 	_overlay.add_child(m)
 	_refresh()
+
+
+## While a long absence is being worked through, a small screen holds the
+## player's attention (and input) so the game never looks frozen.
+func _on_catch_up_progress(f: float) -> void:
+	if _catch_screen == null and f < 1.0:
+		_catch_screen = Control.new()
+		_catch_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		_catch_screen.mouse_filter = Control.MOUSE_FILTER_STOP
+		var dim := ColorRect.new()
+		dim.color = Color(0.05, 0.04, 0.03, 0.8)
+		dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		_catch_screen.add_child(dim)
+		var center := CenterContainer.new()
+		center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		_catch_screen.add_child(center)
+		var panel := PanelContainer.new()
+		panel.add_theme_stylebox_override("panel", UI.frame("panel", 14, 26))
+		panel.custom_minimum_size.x = 560
+		center.add_child(panel)
+		var v := UI.vbox(14)
+		panel.add_child(v)
+		var t := UI.label("The Colonies Report In", UI.SIZE_BIG, UI.INK, true)
+		t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(t)
+		var sub := UI.wrap_label("Tallying the ledgers from while you were away...", UI.SIZE_SMALL, UI.INK_SOFT)
+		sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(sub)
+		_catch_bar = UI.bar("bar_fill")
+		v.add_child(_catch_bar)
+		_overlay.add_child(_catch_screen)
+	if _catch_bar != null:
+		_catch_bar.value = f
+	if f >= 1.0 and _catch_screen != null:
+		_catch_screen.queue_free()
+		_catch_screen = null
+		_catch_bar = null
 
 
 func _on_founded(id: String) -> void:
@@ -640,6 +691,16 @@ func _show_settings() -> void:
 	m.body.add_child(sound)
 	m.body.add_child(tips)
 	m.body.add_child(lite)
+	var big := UI.button("", "button", 64)
+	var sync_big := func() -> void:
+		big.text = "Text & buttons: " + ("Large" if Game.meta.large_ui else "Normal")
+	sync_big.call()
+	big.pressed.connect(func() -> void:
+		Game.meta.large_ui = not Game.meta.large_ui
+		Sfx.play("click")
+		apply_ui_scale()
+		sync_big.call())
+	m.body.add_child(big)
 	var codes := UI.hbox(10)
 	var export_b := UI.button("Copy save code", "button", 56)
 	export_b.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
@@ -664,7 +725,8 @@ func _show_settings() -> void:
 		_show_credits())
 	m.body.add_child(credits)
 	var meta: MetaState = Game.meta
-	var stats: String = "Independence declared: %d times\nLiberty earned in all: %d" % [meta.runs_completed, meta.lifetime_liberty]
+	var stats: String = ("While you're away, colonies work at half pace for up to %s.\n" % Format.duration(Balance.offline_cap_seconds(Game.run, meta))) if Game.run != null else ""
+	stats += "Independence declared: %d times\nLiberty earned in all: %d" % [meta.runs_completed, meta.lifetime_liberty]
 	if meta.fastest_run_seconds > 0.0:
 		stats += "\nFastest independence: %s" % Format.duration(meta.fastest_run_seconds)
 	if Game.run != null:

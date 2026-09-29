@@ -7,6 +7,7 @@ signal dismissed
 var body: VBoxContainer
 var buttons: HBoxContainer
 var panel: PanelContainer
+var _scroll: ScrollContainer
 
 
 func _init(title: String) -> void:
@@ -18,6 +19,9 @@ func _init(title: String) -> void:
 	add_child(dim)
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var inset: Vector2 = UI.safe_insets(self)
+	center.offset_top = inset.x
+	center.offset_bottom = -inset.y
 	add_child(center)
 	panel = PanelContainer.new()
 	panel.add_theme_stylebox_override("panel", UI.frame("panel", 14, 26))
@@ -28,8 +32,15 @@ func _init(title: String) -> void:
 	var t := UI.label(title, UI.SIZE_TITLE, UI.INK, true)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
+	# A long message scrolls; the buttons below always stay in view.
+	_scroll = ScrollContainer.new()
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	v.add_child(_scroll)
 	body = UI.vbox(10)
-	v.add_child(body)
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_scroll.add_child(body)
+	body.minimum_size_changed.connect(_fit)
+	resized.connect(_fit)
 	buttons = UI.hbox(12)
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.add_child(buttons)
@@ -63,6 +74,13 @@ func add_button(text: String, style: String = "button", action: Callable = Calla
 		close())
 	buttons.add_child(b)
 	return b
+
+
+func _fit() -> void:
+	var limit: float = maxf(get_viewport_rect().size.y * 0.62 - UI.safe_insets(self).x - UI.safe_insets(self).y, 200.0)
+	var h: float = floorf(minf(body.get_combined_minimum_size().y, limit))
+	if absf(_scroll.custom_minimum_size.y - h) >= 1.0:
+		_scroll.custom_minimum_size.y = h
 
 
 func close() -> void:

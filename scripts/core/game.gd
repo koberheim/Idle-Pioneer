@@ -111,6 +111,11 @@ func _process(delta: float) -> void:
 		return
 	_last_frame_unix = now
 
+	if catching_up:
+		# Live play resumes once the time away has been worked through.
+		_advance_catch_up(CATCH_UP_SLICE_USEC)
+		_last_frame_unix = now
+		return
 	var tick: float = Balance.v("tick_seconds")
 	_accum += minf(delta, SUSPEND_GAP_SECONDS)
 	var ev := SimEvents.new()
@@ -170,20 +175,52 @@ func _track_income(earned: float, delta: float) -> void:
 		_income_time = 0.0
 
 
+## Catching up on time away. Long catch-ups run in slices across frames so
+## the app stays responsive (the UI shows progress); short ones, and
+## headless runs, finish at once.
+signal catch_up_progress(fraction: float)
+var catching_up: bool = false
+var _catch: Dictionary = {}
+const CATCH_UP_SLICE_USEC := 8000
+const CATCH_UP_SYNC_SECONDS := 900.0
+
+
 func _catch_up(seconds: float) -> void:
-	if run == null or seconds < 1.0:
+	if run == null or seconds < 1.0 or catching_up:
 		return
 	var capped: float = minf(seconds, Balance.offline_cap_seconds(run, meta))
-	var ev := SimEvents.new()
+	_catch = {"seconds": seconds, "capped": capped, "remaining": capped, "ev": SimEvents.new()}
+	catching_up = true
+	if capped <= CATCH_UP_SYNC_SECONDS or DisplayServer.get_name() == "headless":
+		_advance_catch_up(-1)
+
+
+## Runs catch-up steps for up to `budget_usec` (all of it when negative).
+func _advance_catch_up(budget_usec: int) -> void:
+	var start: int = Time.get_ticks_usec()
 	var chunk: float = Balance.v("offline_step_seconds")
-	var remaining: float = capped
+	var ev: SimEvents = _catch["ev"]
 	# Colonies left to themselves work at a reduced pace.
 	run.sim_rate = Balance.v("offline_efficiency")
-	while remaining > 0.0:
-		var s: float = minf(chunk, remaining)
+	while float(_catch["remaining"]) > 0.0:
+		var s: float = minf(chunk, float(_catch["remaining"]))
 		Sim.step(run, meta, s, ev)
-		remaining -= s
+		_catch["remaining"] = float(_catch["remaining"]) - s
+		if budget_usec >= 0 and Time.get_ticks_usec() - start > budget_usec:
+			break
 	run.sim_rate = 1.0
+	var capped: float = _catch["capped"]
+	catch_up_progress.emit(1.0 - float(_catch["remaining"]) / maxf(capped, 0.001))
+	if float(_catch["remaining"]) <= 0.0:
+		_finish_catch_up()
+
+
+func _finish_catch_up() -> void:
+	catching_up = false
+	var seconds: float = _catch["seconds"]
+	var capped: float = _catch["capped"]
+	var ev: SimEvents = _catch["ev"]
+	_catch = {}
 	_record(ev)
 	meta.add_stat("offline_seconds", capped)
 	for id: String in ev.discovered:

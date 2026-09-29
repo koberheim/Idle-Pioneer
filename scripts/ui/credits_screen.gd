@@ -17,8 +17,8 @@ func _ready() -> void:
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.offset_left = 16
 	root.offset_right = -16
-	root.offset_top = 16
-	root.offset_bottom = -16
+	root.offset_top = 16 + UI.safe_insets(self).x
+	root.offset_bottom = -16 - UI.safe_insets(self).y
 	add_child(root)
 	var head := UI.hbox(10)
 	var title := UI.label("Credits & Licenses", UI.SIZE_TITLE, UI.GOLD, true)

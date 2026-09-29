@@ -59,8 +59,8 @@ func _ready() -> void:
 	var close := UI.button("Close", "button_gold", 64)
 	close.custom_minimum_size.x = 180
 	close.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
-	close.offset_top = -84
-	close.offset_bottom = -20
+	close.offset_top = -84 - UI.safe_insets(self).y
+	close.offset_bottom = -20 - UI.safe_insets(self).y
 	close.offset_left = -90
 	close.offset_right = 90
 	close.pressed.connect(func() -> void:
@@ -73,12 +73,13 @@ func _ready() -> void:
 
 
 func _layout() -> void:
-	var avail := size - Vector2(40, 140)
+	var inset: Vector2 = UI.safe_insets(self)
+	var avail := size - Vector2(40, 140 + inset.x + inset.y)
 	var aspect: float = float(WorldMap.W) / WorldMap.H
 	var w: float = minf(avail.x, avail.y * aspect)
 	var h: float = w / aspect
 	var frame: Control = get_child(1)
-	frame.position = Vector2((size.x - w) / 2.0 - 12, 20)
+	frame.position = Vector2((size.x - w) / 2.0 - 12, 20 + inset.x)
 	frame.size = Vector2(w + 24, h + 24)
 	_chart.custom_minimum_size = Vector2(w, h)
 	_ink.size = Vector2(w, h)

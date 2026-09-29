@@ -36,8 +36,27 @@ func _ready() -> void:
 		for id: String in ["kite_key", "franklin_stove", "armonica", "bifocals", "poor_richard", "tea_chest", "octant", "long_rifle", "mayflower_compact"]:
 			Game.meta.relics.append(id)
 		Game.save()
+	if scenario == "away":
+		# Pretend the player left three hours ago.
+		Game.meta.max_seen_unix = 0.0
+		Game.save()
+		var d: Dictionary = SaveIO.read(Game.save_path)
+		d["saved_unix"] = Time.get_unix_time_from_system() - 3.0 * 3600.0
+		d["meta"]["max_seen_unix"] = 0.0
+		var f := FileAccess.open(Game.save_path, FileAccess.WRITE)
+		f.store_string(JSON.stringify(d))
+		f.close()
+		for c: RunState.ColonyState in Game.run.colonies:
+			c.prod_level = 200
+	if OS.get_cmdline_user_args().has("large=1"):
+		Game.meta.large_ui = true
+		Game.save()
 	main = (load("res://scenes/Main.tscn") as PackedScene).instantiate()
 	add_child(main)
+	if scenario == "away":
+		await _frames(1)
+		var img0: Image = get_viewport().get_texture().get_image()
+		img0.save_png(out_path.replace(".png", "_early.png"))
 	await _frames(20)
 	match scenario:
 		"sheet":

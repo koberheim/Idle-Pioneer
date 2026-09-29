@@ -44,8 +44,8 @@ func _ready() -> void:
 	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for side: String in ["left", "right"]:
 		margin.add_theme_constant_override("margin_" + side, 28)
-	margin.add_theme_constant_override("margin_top", 60)
-	margin.add_theme_constant_override("margin_bottom", 40)
+	margin.add_theme_constant_override("margin_top", 60 + int(UI.safe_insets(self).x))
+	margin.add_theme_constant_override("margin_bottom", 40 + int(UI.safe_insets(self).y))
 	scroll.add_child(margin)
 	var v := UI.vbox(16)
 	margin.add_child(v)

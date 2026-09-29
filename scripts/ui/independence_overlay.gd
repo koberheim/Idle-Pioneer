@@ -36,6 +36,8 @@ func _ready() -> void:
 	add_child(dim)
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.offset_top = UI.safe_insets(self).x
+	center.offset_bottom = -UI.safe_insets(self).y
 	add_child(center)
 	var panel := PanelContainer.new()
 	panel.add_theme_stylebox_override("panel", UI.frame("panel", 14, 34))

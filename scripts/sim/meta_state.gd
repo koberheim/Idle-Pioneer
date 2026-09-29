@@ -34,6 +34,8 @@ var stats: Dictionary = {}
 var max_seen_unix: float = 0.0
 ## Lighter map rendering for low-end phones.
 var lite_map: bool = false
+## Interface size: text and buttons scaled up for readability.
+var large_ui: bool = false
 
 
 func governor(governor_id: int) -> Dictionary:
@@ -75,7 +77,7 @@ func to_dict() -> Dictionary:
 		"next_governor_id": next_governor_id, "favor_ready_unix": favor_ready_unix,
 		"relics": relics.duplicate(), "almanacs": almanacs, "best_colonies": best_colonies,
 		"record_relics_claimed": record_relics_claimed.duplicate(), "record_almanac_claimed": record_almanac_claimed,
-		"stats": stats.duplicate(), "max_seen_unix": max_seen_unix, "lite_map": lite_map,
+		"stats": stats.duplicate(), "max_seen_unix": max_seen_unix, "lite_map": lite_map, "large_ui": large_ui,
 	}
 
 
@@ -112,6 +114,7 @@ static func from_dict(d: Dictionary) -> MetaState:
 	m.record_almanac_claimed = int(d.get("record_almanac_claimed", 0))
 	m.max_seen_unix = float(d.get("max_seen_unix", 0.0))
 	m.lite_map = bool(d.get("lite_map", false))
+	m.large_ui = bool(d.get("large_ui", false))
 	for k: String in (d.get("stats", {}) as Dictionary).keys():
 		m.stats[k] = float(d["stats"][k])
 	return m
