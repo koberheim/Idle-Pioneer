@@ -797,3 +797,10 @@ func _plate(at: Vector2, text: String, bold: bool, fg: Color, bg: Color, icon_na
 	_labels.draw_string(_font, r.position + Vector2(8, fs + 2), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, fg)
 	if icon_name != "":
 		_labels.draw_texture_rect(UI.icon(icon_name), Rect2(r.position + Vector2(w - 30, 3), Vector2(22, 22)), false)
+
+
+## A drag or pinch in progress when the app loses focus would otherwise stick.
+func _notification(what: int) -> void:
+	if what in [NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_WM_WINDOW_FOCUS_OUT]:
+		_touches.clear()
+		_dragging = false

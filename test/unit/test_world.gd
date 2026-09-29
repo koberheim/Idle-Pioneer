@@ -83,3 +83,32 @@ func test_every_site_fits_its_terrain_across_many_maps() -> void:
 					missing.append("%s/%d lacks %s" % [style, seed_value, id])
 	assert_eq(bad.size(), 0, "sites on unsuitable terrain: %s" % str(bad.slice(0, 5)))
 	assert_eq(missing.size(), 0, "maps missing goods: %s" % str(missing.slice(0, 5)))
+
+
+func test_saved_world_reloads_identically() -> void:
+	for style: String in [WorldMap.STYLE_RANDOM, WorldMap.STYLE_NORTH_AMERICA]:
+		var w := WorldMap.build(style, 42)
+		var d: Dictionary = JSON.parse_string(JSON.stringify(w.to_saved()))
+		var back := WorldMap.from_saved(d)
+		assert_not_null(back)
+		assert_eq(back.terrain, w.terrain)
+		assert_eq(back.colony_order, w.colony_order)
+		assert_eq(back.sites.size(), w.sites.size())
+		for i in w.colony_order:
+			assert_eq(back.sites[i]["resource"], w.sites[i]["resource"])
+			assert_almost_eq(float(back.route(i)["length"]), float(w.route(i)["length"]), 0.001)
+
+
+func test_run_keeps_its_world_even_if_generation_changes() -> void:
+	var run := RunState.create("english", WorldMap.STYLE_RANDOM, 9)
+	run.found_next()
+	var d: Dictionary = JSON.parse_string(JSON.stringify(run.to_dict()))
+	# Pretend the generator now makes a different map for this seed.
+	d["map_seed"] = 12345
+	var back := RunState.from_dict(d)
+	assert_eq(back.world.terrain, run.world.terrain)
+	assert_eq(back.resource_of(back.colonies[1]), run.resource_of(run.colonies[1]))
+	# A save from before worlds were stored still loads by regenerating.
+	var legacy: Dictionary = JSON.parse_string(JSON.stringify(run.to_dict()))
+	legacy.erase("world")
+	assert_not_null(RunState.from_dict(legacy))

@@ -21,6 +21,8 @@ signal relic_found(relic_id: String, source: String)
 signal almanac_gained(count: int, source: String)
 signal almanac_read(seconds: float, ev: SimEvents)
 signal studied(study_id: String)
+## Saving started failing (false) or recovered (true).
+signal save_status_changed(ok: bool)
 
 var save_path: String = "user://save.json"
 const AUTOSAVE_SECONDS := 15.0
@@ -43,6 +45,10 @@ var _income_window: float = 0.0
 var _income_time: float = 0.0
 var _rng := RandomNumberGenerator.new()
 var _market_period: int = -1
+## Whether the last save reached the disk; while false, saving is retried.
+var save_ok: bool = true
+var _save_retry: float = 0.0
+const SAVE_RETRY_SECONDS := 5.0
 
 
 func _ready() -> void:
@@ -52,9 +58,17 @@ func _ready() -> void:
 
 ## Called once by the main scene. Returns true when a run is in progress
 ## (loaded from disk); false means the player must choose a nation first.
+## True when the save on disk comes from a newer version of the game: it is
+## left untouched (never loaded or overwritten) until the game is updated.
+var save_from_newer_version: bool = false
+
+
 func boot() -> bool:
 	var data: Dictionary = SaveIO.read(save_path)
 	if data.is_empty():
+		return false
+	if SaveIO.is_newer(data):
+		save_from_newer_version = true
 		return false
 	meta = MetaState.from_dict(data.get("meta", {}))
 	meta.add_stat("app_opens")
@@ -82,6 +96,12 @@ func start_run(nation_id: String, map_style: String = WorldMap.STYLE_RANDOM) -> 
 
 
 func _process(delta: float) -> void:
+	# A failed save is retried on its own clock, even between expeditions.
+	if not save_ok:
+		_save_retry += delta
+		if _save_retry >= SAVE_RETRY_SECONDS:
+			_save_retry = 0.0
+			save()
 	if not running or run == null:
 		return
 	var now: float = Time.get_unix_time_from_system()
@@ -185,14 +205,23 @@ func _notification(what: int) -> void:
 				_last_frame_unix = now
 
 
-func save() -> void:
+## Writes the game to disk. Returns false (and keeps retrying, and tells the
+## UI) if it couldn't; the last good save on disk is never damaged.
+func save() -> bool:
+	if save_from_newer_version:
+		return false
 	meta.max_seen_unix = maxf(meta.max_seen_unix, Time.get_unix_time_from_system())
 	var data: Dictionary = {
 		"meta": meta.to_dict(),
 		"run": run.to_dict() if run != null else {},
 		"saved_unix": Time.get_unix_time_from_system(),
 	}
-	SaveIO.write(save_path, data)
+	var ok: bool = SaveIO.write(save_path, data)
+	if ok != save_ok:
+		save_ok = ok
+		_save_retry = 0.0
+		save_status_changed.emit(ok)
+	return ok
 
 
 ## The whole save as a text code the player can copy somewhere safe.
@@ -210,9 +239,15 @@ func import_code(code: String) -> bool:
 		return false
 	var text: String = Marshalls.base64_to_utf8(code.substr(4))
 	var parsed: Variant = JSON.parse_string(text)
-	if not (parsed is Dictionary) or not (parsed as Dictionary).has("meta"):
+	if not SaveIO.valid(parsed) or SaveIO.is_newer(parsed):
 		return false
 	var data: Dictionary = parsed
+	# Rebuild it completely in memory first; only a save that reconstructs
+	# cleanly may replace the one on disk.
+	MetaState.from_dict(data["meta"])
+	var rd: Dictionary = data.get("run", {})
+	if not rd.is_empty() and RunState.from_dict(rd) == null:
+		return false
 	# Imported progress doesn't earn offline time for the gap before import.
 	data["saved_unix"] = Time.get_unix_time_from_system()
 	if not SaveIO.write(save_path, data):

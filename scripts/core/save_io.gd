@@ -100,7 +100,40 @@ static func valid(v: Variant) -> bool:
 	for c: Variant in r["colonies"]:
 		if not (c is Dictionary) or not (c as Dictionary).has("site"):
 			return false
+		var cd: Dictionary = c
+		for k: String in ["site", "tier", "colonists", "prod_level", "cargo_level", "speed_level", "charter", "stock", "cargo", "trip"]:
+			if cd.has(k) and not _is_number(cd[k]):
+				return false
+	for k: String in ["workshops", "warehouse", "hold", "crafted", "research", "governors"]:
+		if r.has(k) and not (r[k] is Dictionary):
+			return false
+	for w: Variant in (r.get("workshops", {}) as Dictionary).values():
+		if not (w is Dictionary):
+			return false
+		for k: String in ["colonists", "level", "progress"]:
+			if (w as Dictionary).has(k) and not _is_number(w[k]):
+				return false
+	for k: String in ["warehouse", "crafted", "research"]:
+		for n: Variant in (r.get(k, {}) as Dictionary).values():
+			if not _is_number(n):
+				return false
+	for k: String in ["fathers", "discovered"]:
+		if r.has(k) and not (r[k] is Array):
+			return false
+	for k: String in ["relics", "governors", "hints_seen"]:
+		if meta.has(k) and not (meta[k] is Array):
+			return false
+	for g: Variant in meta.get("governors", []):
+		if not (g is Dictionary):
+			return false
+	if meta.has("upgrades") and not (meta["upgrades"] is Dictionary):
+		return false
 	return true
+
+
+## A save written by a newer version of the game than this one.
+static func is_newer(d: Dictionary) -> bool:
+	return int(d.get("version", 1)) > VERSION
 
 
 static func _is_number(v: Variant) -> bool:

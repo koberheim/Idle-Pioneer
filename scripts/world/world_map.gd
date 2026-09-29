@@ -34,6 +34,7 @@ var _main_landmass: int = -1
 var _land_astar: AStarGrid2D
 var _sea_astar: AStarGrid2D
 var _route_cache: Dictionary = {}
+var _saved: Dictionary = {}
 
 
 static func build(p_style: String, p_seed: int) -> WorldMap:
@@ -47,6 +48,69 @@ static func build(p_style: String, p_seed: int) -> WorldMap:
 	else:
 		m._generate_random()
 	m._finish()
+	return m
+
+
+## The finished world as plain data, stored with each run so that a later
+## game update (new generator, content or engine) can never reshape an
+## expedition in progress. Only derived data (ocean, depth, pathfinding) is
+## rebuilt on load.
+func to_saved() -> Dictionary:
+	if not _saved.is_empty():
+		return _saved
+	var h := PackedByteArray()
+	h.resize(W * H)
+	for i in W * H:
+		h[i] = int(clampf(height[i], 0.0, 1.0) * 255.0)
+	var out_sites: Array = []
+	for s: Dictionary in sites:
+		out_sites.append({"x": s["x"], "y": s["y"], "terrain": s["terrain"], "resource": s["resource"],
+			"route": s["route"], "richness": s["richness"], "port": [s["port"].x, s["port"].y]})
+	_saved = {
+		"v": GENERATOR_VERSION, "w": W, "h": H, "style": style, "seed": seed_value,
+		"terrain": Marshalls.raw_to_base64(terrain.compress(FileAccess.COMPRESSION_DEFLATE)),
+		"height": Marshalls.raw_to_base64(h.compress(FileAccess.COMPRESSION_DEFLATE)),
+		"sites": out_sites, "capital": capital_site, "order": Array(colony_order),
+	}
+	return _saved
+
+
+## Rebuilds a world saved by to_saved(), or returns null if the data is
+## unusable (the caller then falls back to regenerating from the seed).
+static func from_saved(d: Dictionary) -> WorldMap:
+	if int(d.get("w", 0)) != W or int(d.get("h", 0)) != H:
+		return null
+	var m := WorldMap.new()
+	m.style = str(d.get("style", STYLE_RANDOM))
+	m.seed_value = int(d.get("seed", 0))
+	m.terrain = Marshalls.base64_to_raw(str(d.get("terrain", ""))).decompress(W * H, FileAccess.COMPRESSION_DEFLATE)
+	var h: PackedByteArray = Marshalls.base64_to_raw(str(d.get("height", ""))).decompress(W * H, FileAccess.COMPRESSION_DEFLATE)
+	if m.terrain.size() != W * H or h.size() != W * H:
+		return null
+	m.height.resize(W * H)
+	for i in W * H:
+		if m.terrain[i] >= Content.terrains.size():
+			return null
+		m.height[i] = float(h[i]) / 255.0
+	m._mark_ocean()
+	m._label_landmasses()
+	m._compute_depth()
+	m._build_astar()
+	for v: Variant in d.get("sites", []):
+		var s: Dictionary = v
+		var port: Array = s.get("port", [-1, -1])
+		if Content.resource(str(s.get("resource", ""))).is_empty():
+			return null
+		m.sites.append({"x": int(s["x"]), "y": int(s["y"]), "terrain": int(s["terrain"]), "resource": str(s["resource"]),
+			"route": str(s["route"]), "richness": float(s["richness"]), "port": Vector2i(int(port[0]), int(port[1]))})
+	m.capital_site = int(d.get("capital", 0))
+	for v: Variant in d.get("order", []):
+		if int(v) < 0 or int(v) >= m.sites.size():
+			return null
+		m.colony_order.append(int(v))
+	if m.sites.is_empty() or m.colony_order.is_empty() or m.capital_site >= m.sites.size():
+		return null
+	m._saved = d
 	return m
 
 

@@ -224,6 +224,23 @@ func test_market_change_splits_the_step() -> void:
 	assert_almost_eq(run.play_seconds, period + 20.0, 0.001)
 
 
+func test_goods_before_a_market_change_sell_at_the_old_price() -> void:
+	# The capital sells timber as it's cut: 10 s at the old market, 20 s at the new.
+	var period: float = Balance.v("market_period_seconds")
+	var run := _fresh_run()
+	run.play_seconds = period - 10.0
+	var c: RunState.ColonyState = run.colonies[0]
+	var rate: float = Balance.production_rate(run, meta, c)
+	var old_price: float = Balance.sell_price(run, meta, "timber")
+	run.play_seconds = period
+	var new_price: float = Balance.sell_price(run, meta, "timber")
+	run.play_seconds = period - 10.0
+	var ev := SimEvents.new()
+	Sim.step(run, meta, 30.0, ev)
+	var expected: float = rate * 10.0 * old_price + rate * 20.0 * new_price
+	assert_almost_eq(ev.gold_earned, expected, expected * 0.001)
+
+
 func test_offline_catch_up_runs_at_half_pace() -> void:
 	var run := _developed_run()
 	var c: RunState.ColonyState = run.colonies[0]

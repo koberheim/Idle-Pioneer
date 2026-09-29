@@ -292,6 +292,7 @@ func to_dict() -> Dictionary:
 		# The map is rebuilt from its seed, but what each settled site
 		# produces is kept so a generator change can't swap it.
 		"world_version": WorldMap.GENERATOR_VERSION,
+		"world": world.to_saved(),
 		"colony_order": Array(world.colony_order),
 		"site_data": _site_data(),
 	}
@@ -337,8 +338,14 @@ static func from_dict(d: Dictionary) -> RunState:
 	r.nation_id = str(d.get("nation_id", "english"))
 	r.map_style = str(d.get("map_style", WorldMap.STYLE_RANDOM))
 	r.map_seed = int(d.get("map_seed", 0))
-	r.world = WorldMap.build(r.map_style, r.map_seed)
-	r._restore_world(d)
+	# Saves carry their world; older saves regenerate it from the seed and pin
+	# what they can.
+	var saved_world: Variant = d.get("world")
+	if saved_world is Dictionary:
+		r.world = WorldMap.from_saved(saved_world)
+	if r.world == null:
+		r.world = WorldMap.build(r.map_style, r.map_seed)
+		r._restore_world(d)
 	r.started_unix = float(d.get("started_unix", Time.get_unix_time_from_system()))
 	r.play_seconds = float(d.get("play_seconds", 0.0))
 	r.gold = float(d.get("gold", 0.0))

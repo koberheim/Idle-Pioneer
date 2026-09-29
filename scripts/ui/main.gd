@@ -66,10 +66,18 @@ func _ready() -> void:
 		Sfx.play("father")
 		_toasts.push("You found %s of the Almanac! Read %s in the Ledger." % ["a page" if count == 1 else "%d pages" % count, "it" if count == 1 else "them"], "almanac", 4.0))
 	Game.almanac_read.connect(_on_almanac_read)
+	Game.save_status_changed.connect(func(ok: bool) -> void:
+		_save_banner.visible = not ok
+		if ok:
+			_toasts.push("Progress saved.", "scroll", 2.0))
 	get_tree().root.size_changed.connect(_layout_sheet)
 
 	if Game.boot():
 		_start_ui()
+	elif Game.save_from_newer_version:
+		var m := Modal.new("Please Update the Game")
+		m.add_text("Your saved colonies come from a newer version of Idle Pioneer. Update the game to continue; your progress is safe and has not been changed.", UI.SIZE_BODY, UI.INK_SOFT)
+		_overlay.add_child(m)
 	else:
 		_show_nation_select()
 
@@ -159,6 +167,21 @@ func _build() -> void:
 	_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_overlay)
+	# Shown while saving is failing (full storage, say); hidden once it recovers.
+	_save_banner = PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color("7a2418")
+	sb.set_content_margin_all(10)
+	_save_banner.add_theme_stylebox_override("panel", sb)
+	_save_banner.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	_save_banner.offset_top = 104 + _top_pad
+	_save_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sl := UI.label("Couldn't save your progress (is the device storage full?). Retrying...", UI.SIZE_SMALL, UI.LIGHT)
+	sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	sl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_save_banner.add_child(sl)
+	_save_banner.visible = not Game.save_ok
+	add_child(_save_banner)
 	_toasts = Toasts.new()
 	_toasts.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 	_toasts.offset_top = 118 + _top_pad
@@ -449,6 +472,7 @@ func _on_milestone(what: String, track: String, level: int) -> void:
 
 
 var _deferred: Array[Callable] = []
+var _save_banner: PanelContainer
 
 
 func _ceremony_open() -> bool:
@@ -689,13 +713,25 @@ func _show_credits() -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
-		for c: Node in _overlay.get_children():
+		# Close whatever is on top, newest first.
+		var kids: Array[Node] = _overlay.get_children()
+		kids.reverse()
+		for c: Node in kids:
+			if c.is_queued_for_deletion() or not (c as CanvasItem).visible:
+				continue
 			if c is Modal:
 				(c as Modal).close()
 				return
-		for c: Node in _overlay.get_children():
+			if c is IndependenceOverlay:
+				(c as IndependenceOverlay).back()
+				return
 			if c is ResearchScreen or c is ContinentalMap or c is CreditsScreen:
 				c.queue_free()
+				return
+			if c is NationSelect:
+				# Nothing beneath it: Back leaves the game.
+				Game.save()
+				get_tree().quit()
 				return
 		if _sheet != null and _sheet.visible:
 			_close_sheet()

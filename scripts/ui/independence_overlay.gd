@@ -104,6 +104,16 @@ func _ready() -> void:
 	tw.tween_property(_text, "visible_ratio", 1.0, 3.0)
 
 
+## Back button: before signing it's "Not yet"; after, it's "Begin a new
+## frontier"; during the ceremony itself it does nothing.
+func back() -> void:
+	if _done:
+		_on_sign()
+	elif _cancel_btn.visible:
+		cancelled.emit()
+		queue_free()
+
+
 func _on_sign() -> void:
 	if _done:
 		finished.emit()
@@ -129,7 +139,7 @@ func _on_sign() -> void:
 	tw.tween_callback(func() -> void:
 		Sfx.play("fanfare")
 		Sfx.set_music_context("independence")
-		_result.text = "Independence! +%d Liberty" % _liberty
+		_result.text = "Independence! +%d Liberty" % _liberty if Game.save_ok else "Independence! +%d Liberty (saving...)" % _liberty
 		_result.add_theme_color_override("font_color", UI.GREEN)
 		_done = true
 		_sign_btn.disabled = false

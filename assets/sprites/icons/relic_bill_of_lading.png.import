@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cx3w1bg6qikog"
-path="res://.godot/imported/harbor.png-9b382b31a1244e64be7a938c65449256.ctex"
+uid="uid://dgdsofnu3r00w"
+path="res://.godot/imported/relic_bill_of_lading.png-6fc179ee7a65920a57992826d790e229.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/art/backgrounds/harbor.png"
-dest_files=["res://.godot/imported/harbor.png-9b382b31a1244e64be7a938c65449256.ctex"]
+source_file="res://assets/sprites/icons/relic_bill_of_lading.png"
+dest_files=["res://.godot/imported/relic_bill_of_lading.png-6fc179ee7a65920a57992826d790e229.ctex"]
 
 [params]
 

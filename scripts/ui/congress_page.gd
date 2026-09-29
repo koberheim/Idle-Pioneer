@@ -64,7 +64,7 @@ func refresh() -> void:
 	var ready: bool = Balance.independence_ready(run)
 	_declare.disabled = not ready
 
-	var key: String = ",".join(run.fathers) + "|" + str(Game.meta.liberty > 0 or Game.meta.runs_completed > 0)
+	var key: String = "%d:%d|" % [run.map_seed, int(run.started_unix)] + ",".join(run.fathers) + "|" + str(Game.meta.liberty > 0 or Game.meta.runs_completed > 0)
 	if key != _structure:
 		_structure = key
 		_rebuild()

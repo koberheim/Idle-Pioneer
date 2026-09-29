@@ -279,3 +279,42 @@ func test_colony_records_pay_out_once_relics_unlock() -> void:
 	assert_eq(Game.meta.relics.size(), 1)
 	Game.claim_record_rewards()
 	assert_eq(Game.meta.relics.size(), 1, "paid only once")
+
+
+func test_failed_save_is_reported_and_retried() -> void:
+	var real: String = Game.save_path
+	var seen: Array = []
+	var cb := func(ok: bool) -> void: seen.append(ok)
+	Game.save_status_changed.connect(cb)
+	Game.save_path = "user://no_such_dir/deeper/save.json"
+	assert_false(Game.save())
+	assert_false(Game.save_ok)
+	Game.save_path = real
+	assert_true(Game.save())
+	assert_true(Game.save_ok)
+	Game.save_status_changed.disconnect(cb)
+	assert_eq(seen, [false, true])
+
+
+func test_newer_save_is_left_untouched() -> void:
+	Game.save()
+	var d: Dictionary = SaveIO.read(Game.save_path)
+	d["version"] = SaveIO.VERSION + 1
+	var f := FileAccess.open(Game.save_path, FileAccess.WRITE)
+	f.store_string(JSON.stringify(d))
+	f.close()
+	assert_false(Game.boot())
+	assert_true(Game.save_from_newer_version)
+	assert_false(Game.save())
+	Game.save_from_newer_version = false
+
+
+func test_import_rejects_broken_codes_and_keeps_the_current_save() -> void:
+	Game.save()
+	var before: String = FileAccess.get_file_as_string(Game.save_path)
+	var bad := {"meta": {"liberty": 1}, "run": {"map_seed": 3, "colonies": [{"site": "x"}]}}
+	assert_false(Game.import_code("IP1:" + Marshalls.utf8_to_base64(JSON.stringify(bad))))
+	assert_false(Game.import_code("IP1:not base64 at all"))
+	assert_eq(FileAccess.get_file_as_string(Game.save_path), before)
+	# A real code round-trips.
+	assert_true(Game.import_code(Game.export_code()))

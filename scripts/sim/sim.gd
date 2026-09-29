@@ -29,10 +29,12 @@ static func step(run: RunState, meta: MetaState, dt: float, ev: SimEvents) -> vo
 
 
 static func _step_all(run: RunState, meta: MetaState, dt: float, ev: SimEvents) -> void:
-	run.play_seconds += dt
 	for c: RunState.ColonyState in run.colonies:
 		_step_colony(run, meta, c, dt, ev)
 	_step_workshops(run, meta, dt, ev)
+	# The clock moves on only after this step's goods are sold, so a step that
+	# ends exactly at a market change is priced by the market it belonged to.
+	run.play_seconds += dt
 
 
 ## Workshops that want the same good share the stock in proportion to how

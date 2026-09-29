@@ -80,3 +80,10 @@ func _process(delta: float) -> void:
 		_repeat = 0.0
 		if _affordable:
 			_fire()
+
+
+## Leaving the app (home, lock, a call, a store sheet) lets go of a held
+## button, so nothing keeps buying while the player is away.
+func _notification(what: int) -> void:
+	if what in [NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_WM_WINDOW_FOCUS_OUT]:
+		_held = -1.0
