@@ -557,6 +557,19 @@ func _ensure_every_resource(rng: RandomNumberGenerator) -> void:
 	var counts: Dictionary = {}
 	for s: Dictionary in sites:
 		counts[s["resource"]] = int(counts.get(s["resource"], 0)) + 1
+	# A later good can borrow sites from an earlier one, so check again until
+	# every good has a site (two passes are almost always enough).
+	for pass_i in 4:
+		_ensure_pass(rng, counts)
+		var complete: bool = true
+		for id: String in Content.raw_resources():
+			if int(counts.get(id, 0)) < 1:
+				complete = false
+		if complete:
+			return
+
+
+func _ensure_pass(rng: RandomNumberGenerator, counts: Dictionary) -> void:
 	for id: String in Content.raw_resources():
 		var need: int = 2 - int(counts.get(id, 0))
 		if need <= 0:
@@ -589,10 +602,13 @@ func _ensure_every_resource(rng: RandomNumberGenerator) -> void:
 			sites[pick_site]["terrain"] = t_id
 			terrain[idx(int(sites[pick_site]["x"]), int(sites[pick_site]["y"]))] = t_id
 			candidates.append(pick_site)
-		for n in need:
-			if candidates.is_empty():
-				break
+		var taken: int = 0
+		while taken < need and not candidates.is_empty():
 			var pick: int = candidates.pop_at(rng.randi_range(0, candidates.size() - 1))
+			# Counts change as sites are taken: never take a good's last site.
+			if int(counts.get(sites[pick]["resource"], 0)) <= 1:
+				continue
+			taken += 1
 			counts[sites[pick]["resource"]] = int(counts[sites[pick]["resource"]]) - 1
 			sites[pick]["resource"] = id
 			counts[id] = int(counts.get(id, 0)) + 1

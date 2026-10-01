@@ -31,6 +31,23 @@ func test_iron_is_found_early() -> void:
 		assert_true(found, "seed %d" % s)
 
 
+# Seeds where filling one scarce good used to take a second good's last two
+# sites, leaving the map with no iron (so no muskets and no independence).
+func test_filling_scarce_goods_never_takes_another_goods_last_site() -> void:
+	for s in [1435022911, 190954398, 3276933758, 2738491745, 969595796]:
+		var m := WorldMap.build(WorldMap.STYLE_RANDOM, s)
+		var seen: Dictionary = {}
+		for i: int in m.colony_order:
+			seen[m.sites[i]["resource"]] = true
+		for r: String in Content.raw_resources():
+			assert_true(seen.has(r), "seed %d is missing %s" % [s, r])
+		var early: bool = false
+		for n in 4:
+			if m.sites[m.colony_order[n]]["resource"] == "iron_ore":
+				early = true
+		assert_true(early, "seed %d has no early iron" % s)
+
+
 func test_every_route_reaches_the_capital() -> void:
 	for style: String in [WorldMap.STYLE_RANDOM, WorldMap.STYLE_NORTH_AMERICA]:
 		var m := WorldMap.build(style, 9)
