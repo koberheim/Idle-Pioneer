@@ -28,8 +28,8 @@ func _ready() -> void:
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.offset_left = 14
 	root.offset_right = -14
-	root.offset_top = 14 + _safe_top()
-	root.offset_bottom = -14 - _safe_bottom()
+	root.offset_top = 14 + UI.safe_insets(self).x
+	root.offset_bottom = -14 - UI.safe_insets(self).y
 	add_child(root)
 
 	var head := UI.hbox(12)
@@ -82,22 +82,6 @@ func _ready() -> void:
 
 	if not Content.research_branches.is_empty():
 		_show_branch(str(Content.research_branches[0]["id"]))
-
-
-func _safe_top() -> float:
-	var r: Rect2i = DisplayServer.get_display_safe_area()
-	var s: Vector2i = DisplayServer.screen_get_size()
-	if s.y <= 0 or r.size.y <= 0:
-		return 0.0
-	return float(r.position.y) * get_viewport_rect().size.y / float(s.y)
-
-
-func _safe_bottom() -> float:
-	var r: Rect2i = DisplayServer.get_display_safe_area()
-	var s: Vector2i = DisplayServer.screen_get_size()
-	if s.y <= 0 or r.size.y <= 0:
-		return 0.0
-	return maxf(0.0, float(s.y - r.end.y)) * get_viewport_rect().size.y / float(s.y)
 
 
 func _process(delta: float) -> void:
@@ -162,7 +146,8 @@ func _study_card(def: Dictionary) -> Control:
 	card.add_child(v)
 	var row := UI.hbox(10)
 	v.add_child(row)
-	row.add_child(UI.icon_rect(UI.icon(str(def.get("icon", "star"))), 48))
+	var icon := UI.icon_rect(UI.icon(str(def.get("icon", "star"))), 48)
+	row.add_child(icon)
 	var tv := UI.vbox(1)
 	tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var title := UI.label("%s  (%d)" % [def["name"], int(def.get("year", 0))], UI.SIZE_BODY, UI.INK, true)
@@ -193,7 +178,7 @@ func _study_card(def: Dictionary) -> Control:
 	v.add_child(bottom)
 	var reason := UI.label("", UI.SIZE_SMALL, UI.INK_SOFT)
 	v.add_child(reason)
-	_nodes[id] = {"card": card, "button": button, "reason": reason, "costs": costs, "labels": {}, "cost_key": "", "title": title}
+	_nodes[id] = {"icon": icon, "card": card, "button": button, "reason": reason, "costs": costs, "labels": {}, "cost_key": "", "title": title}
 	return card
 
 
@@ -234,9 +219,10 @@ func _update_node(id: String) -> void:
 		button.text = "✓ Studied"
 		button.disabled = true
 		reason.visible = false
-		card.modulate = Color(1, 1, 1, 0.8)
+		(n["icon"] as Control).modulate = Color(1, 1, 1, 1)
 		return
-	card.modulate = Color(1, 1, 1, 1.0 if block == "" else 0.7)
+	# Locked studies dim their picture and button, never the text.
+	(n["icon"] as Control).modulate = Color(1, 1, 1, 1.0 if block == "" else 0.45)
 	costs.visible = true
 	var cost: Dictionary = Balance.study_cost(run, id)
 	var key: String = ",".join(PackedStringArray(cost.keys()))
@@ -255,7 +241,7 @@ func _update_node(id: String) -> void:
 			costs.add_child(item)
 	for k: String in cost.keys():
 		var need: float = float(cost[k])
-		var have: float = run.gold if k == "gold" else run.stock_of(k)
+		var have: float = run.gold if k == "gold" else Balance.spendable(run, k)
 		var l: Label = labels[k]
 		l.text = Format.num(need) if k == "gold" else "%s/%s" % [Format.num(have), Format.num(need)]
 		l.add_theme_color_override("font_color", UI.GREEN if have >= need else UI.RED)

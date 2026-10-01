@@ -36,7 +36,7 @@ func _init(icon_name: String, action: Callable) -> void:
 	_mile_bar.custom_minimum_size = Vector2(90, 12)
 	_mile_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_mile_box.add_child(_mile_bar)
-	_mile_label = UI.label("", 15, UI.INK_SOFT)
+	_mile_label = UI.label("", UI.SIZE_MIN, UI.INK_SOFT)
 	_mile_box.add_child(_mile_label)
 	text.add_child(_mile_box)
 	row.add_child(text)

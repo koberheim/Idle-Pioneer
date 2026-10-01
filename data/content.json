@@ -206,10 +206,10 @@
 		{"id": "entrepot", "name": "Entrepot", "route": "sea", "effect": "cargo", "value": 3.0, "desc": "Ships carry 3x cargo"}
 	],
 	"liberty_upgrades": [
-		{"id": "industry", "name": "Industry", "tagline": "The colonies grow productive", "desc": "Production x1.15 per level, compounding", "per_level": 0.15, "base_cost": 3, "growth": 1.3},
-		{"id": "navigation", "name": "Navigation", "tagline": "The sea lanes open", "desc": "Route speed and cargo x1.12 per level, compounding", "per_level": 0.12, "base_cost": 4, "growth": 1.3},
-		{"id": "settlement", "name": "Settlement", "tagline": "Word of the New World spreads", "desc": "-7% colony and colonist cost per level", "per_level": 0.07, "base_cost": 5, "growth": 1.33},
-		{"id": "commerce", "name": "Commerce", "tagline": "Trade houses open in Amsterdam", "desc": "Sale prices x1.10 per level, compounding", "per_level": 0.10, "base_cost": 4, "growth": 1.3},
-		{"id": "manufacture", "name": "Manufacture", "tagline": "Guilds share their secrets", "desc": "Workshop speed x1.15 per level, compounding", "per_level": 0.15, "base_cost": 4, "growth": 1.3}
+		{"id": "industry", "name": "Industry", "tagline": "The colonies grow productive", "desc": "Production x1.15 per level, compounding", "per_level": 0.15, "base_cost": 3, "growth": 1.35},
+		{"id": "navigation", "name": "Navigation", "tagline": "The sea lanes open", "desc": "Route speed and cargo x1.12 per level, compounding", "per_level": 0.12, "base_cost": 4, "growth": 1.35},
+		{"id": "settlement", "name": "Settlement", "tagline": "Word of the New World spreads", "desc": "-7% colony and colonist cost per level", "per_level": 0.07, "base_cost": 5, "growth": 1.38},
+		{"id": "commerce", "name": "Commerce", "tagline": "Trade houses open in Amsterdam", "desc": "Sale prices x1.10 per level, compounding", "per_level": 0.10, "base_cost": 4, "growth": 1.35},
+		{"id": "manufacture", "name": "Manufacture", "tagline": "Guilds share their secrets", "desc": "Workshop speed x1.15 per level, compounding", "per_level": 0.15, "base_cost": 4, "growth": 1.35}
 	]
 }

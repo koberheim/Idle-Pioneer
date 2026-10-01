@@ -75,7 +75,7 @@ func _init() -> void:
 	titles.add_child(_title)
 	titles.add_child(_subtitle)
 	header.add_child(titles)
-	var close := UI.button("✕", "button", 56)
+	var close := UI.button("✕", "button", 64)
 	close.custom_minimum_size.x = 56
 	close.pressed.connect(func() -> void:
 		Sfx.play("click")
@@ -102,7 +102,7 @@ func _init() -> void:
 	_stats.resized.connect(_stats.update_minimum_size)
 	_stats.custom_minimum_size.x = 10
 	_manage_box.add_child(_stats)
-	_good_flavor = UI.wrap_label("", 17, UI.LIGHT_SOFT)
+	_good_flavor = UI.wrap_label("", UI.SIZE_MIN, UI.LIGHT_SOFT)
 	_manage_box.add_child(_good_flavor)
 	var trip_row := UI.hbox(10)
 	_trip_label = UI.label("", UI.SIZE_SMALL, UI.LIGHT_SOFT)
@@ -201,8 +201,8 @@ func _init() -> void:
 
 
 func _small_button(text: String, action: Callable) -> Button:
-	var b := UI.button(text, "button", 60)
-	b.custom_minimum_size.x = 64
+	var b := UI.button(text, "button", 66)
+	b.custom_minimum_size.x = 72
 	b.add_theme_font_size_override("font_size", UI.SIZE_BIG)
 	b.pressed.connect(action)
 	return b
@@ -418,7 +418,7 @@ func _refresh_spec(c: RunState.ColonyState) -> void:
 		return
 	var head := UI.label("Specialization" + ("" if c.charter >= 1 else "  (after the first charter)"), UI.SIZE_BODY, UI.GOLD, true)
 	_spec_box.add_child(head)
-	_spec_box.add_child(UI.wrap_label("Choose one. It can't be changed this run.", UI.SIZE_SMALL, UI.LIGHT_SOFT))
+	_spec_box.add_child(UI.wrap_label("Choose one. It can't be changed this expedition.", UI.SIZE_SMALL, UI.LIGHT_SOFT))
 	for s: Dictionary in offered:
 		var id: String = str(s["id"])
 		_spec_box.add_child(_spec_card(s, "Choose" if c.charter >= 1 else "Locked", func() -> void:
@@ -444,7 +444,7 @@ func _spec_card(s: Dictionary, button_text: String, action: Variant) -> PanelCon
 		var tag := UI.label("★ " + button_text, UI.SIZE_SMALL, UI.GREEN)
 		row.add_child(tag)
 	else:
-		var b := UI.button(button_text, "button_gold" if button_text == "Choose" else "button", 56)
+		var b := UI.button(button_text, "button_gold" if button_text == "Choose" else "button", 64)
 		b.custom_minimum_size.x = 120
 		b.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
 		b.disabled = button_text != "Choose"
@@ -482,7 +482,7 @@ func _refresh_charter(c: RunState.ColonyState) -> void:
 			continue
 		var key: String = item.get_meta("res")
 		var need: float = float(cost.get(key, 0.0))
-		var have: float = Game.run.stock_of(key)
+		var have: float = Balance.spendable(Game.run, key)
 		var l: Label = item.get_node("Amount")
 		l.text = "%s / %s" % [Format.num(have), Format.num(need)]
 		l.add_theme_color_override("font_color", UI.GREEN if have >= need else UI.RED)

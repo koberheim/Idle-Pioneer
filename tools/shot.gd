@@ -226,6 +226,9 @@ func _dump_wide(n: Node, depth: int) -> void:
 func _check_clipping(n: Node) -> void:
 	if n is Label and (n as Label).is_visible_in_tree():
 		var l: Label = n
+		var vw: float = l.get_viewport_rect().size.x
+		if l.get_global_rect().end.x > vw + 1.0 and l.get_global_rect().position.x < vw:
+			print("OFFSCREEN '%s' ends at %.0f of %.0f" % [l.text.left(40), l.get_global_rect().end.x, vw])
 		var pr: Control = l.get_parent() as Control
 		var card: Node = l.get_parent()
 		while card != null and not (card is PanelContainer):

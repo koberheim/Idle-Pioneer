@@ -47,6 +47,7 @@ var _rng := RandomNumberGenerator.new()
 var _market_period: int = -1
 ## Whether the last save reached the disk; while false, saving is retried.
 var save_ok: bool = true
+var _pauses: Dictionary = {}
 var _save_retry: float = 0.0
 const SAVE_RETRY_SECONDS := 5.0
 
@@ -86,6 +87,7 @@ func boot() -> bool:
 
 
 func start_run(nation_id: String, map_style: String = WorldMap.STYLE_RANDOM) -> void:
+	_clear_catch_up()
 	run = RunState.create(nation_id, map_style, _rng.randi())
 	run.gold = Balance.v("start_gold")
 	running = true
@@ -105,11 +107,18 @@ func _process(delta: float) -> void:
 	if not running or run == null:
 		return
 	var now: float = Time.get_unix_time_from_system()
-	if _last_frame_unix > 0.0 and now - _last_frame_unix > SUSPEND_GAP_SECONDS:
-		_catch_up(now - _last_frame_unix)
+	# Paused (an ad on screen, the Declaration being signed): the world waits,
+	# and the paused time is neither simulated nor counted as time away.
+	if not _pauses.is_empty():
+		_last_frame_unix = now
+		return
+	var gap: float = _away_since(now)
+	if _last_frame_unix > 0.0 and gap > SUSPEND_GAP_SECONDS:
+		_catch_up(gap)
 		_last_frame_unix = now
 		return
 	_last_frame_unix = now
+	meta.max_seen_unix = maxf(meta.max_seen_unix, now)
 
 	if catching_up:
 		# Live play resumes once the time away has been worked through.
@@ -186,7 +195,14 @@ const CATCH_UP_SYNC_SECONDS := 900.0
 
 
 func _catch_up(seconds: float) -> void:
-	if run == null or seconds < 1.0 or catching_up:
+	if run == null or seconds < 1.0:
+		return
+	if catching_up:
+		# More time away while still catching up: add it, within the cap.
+		var extra: float = minf(seconds, maxf(Balance.offline_cap_seconds(run, meta) - float(_catch["capped"]), 0.0))
+		_catch["capped"] = float(_catch["capped"]) + extra
+		_catch["remaining"] = float(_catch["remaining"]) + extra
+		_catch["seconds"] = float(_catch["seconds"]) + seconds
 		return
 	var capped: float = minf(seconds, Balance.offline_cap_seconds(run, meta))
 	_catch = {"seconds": seconds, "capped": capped, "remaining": capped, "ev": SimEvents.new()}
@@ -238,8 +254,31 @@ func _notification(what: int) -> void:
 		NOTIFICATION_APPLICATION_RESUMED:
 			if running and _last_frame_unix > 0.0:
 				var now: float = Time.get_unix_time_from_system()
-				_catch_up(now - _last_frame_unix)
+				# Time spent in an ad (or the ceremony) isn't time away.
+				if not is_paused():
+					_catch_up(_away_since(now))
 				_last_frame_unix = now
+
+
+## Seconds since the game last ran, never counting time the clock has already
+## been seen to pass (winding the clock back and forth pays nothing).
+func _away_since(now: float) -> float:
+	return now - maxf(_last_frame_unix, meta.max_seen_unix)
+
+
+## Holds the simulation still for a reason ("ad", "ceremony"...) until
+## resume() with the same reason.
+func pause(reason: String) -> void:
+	_pauses[reason] = true
+
+
+func resume(reason: String) -> void:
+	_pauses.erase(reason)
+	_last_frame_unix = Time.get_unix_time_from_system()
+
+
+func is_paused() -> bool:
+	return not _pauses.is_empty()
 
 
 ## Writes the game to disk. Returns false (and keeps retrying, and tells the
@@ -248,10 +287,15 @@ func save() -> bool:
 	if save_from_newer_version:
 		return false
 	meta.max_seen_unix = maxf(meta.max_seen_unix, Time.get_unix_time_from_system())
+	var stamp: float = Time.get_unix_time_from_system()
+	if catching_up and not _catch.is_empty():
+		# Time away not yet worked through is still owed if the app closes now.
+		stamp -= float(_catch["remaining"])
+		meta.max_seen_unix = minf(meta.max_seen_unix, stamp)
 	var data: Dictionary = {
 		"meta": meta.to_dict(),
 		"run": run.to_dict() if run != null else {},
-		"saved_unix": Time.get_unix_time_from_system(),
+		"saved_unix": stamp,
 	}
 	var ok: bool = SaveIO.write(save_path, data)
 	if ok != save_ok:
@@ -291,10 +335,17 @@ func import_code(code: String) -> bool:
 		return false
 	running = false
 	run = null
+	_clear_catch_up()
 	return true
 
 
+func _clear_catch_up() -> void:
+	catching_up = false
+	_catch = {}
+
+
 func reset_all_progress() -> void:
+	_clear_catch_up()
 	SaveIO.delete(save_path)
 	var keep_music: bool = meta.music_on
 	var keep_sfx: bool = meta.sfx_on
@@ -519,7 +570,7 @@ func sell_all_stock() -> void:
 func father_affordable(father_id: String) -> bool:
 	var cost: Dictionary = Balance.father_cost(run, father_id)
 	for key: String in cost.keys():
-		var have: float = run.gold if key == "gold" else run.stock_of(key)
+		var have: float = run.gold if key == "gold" else Balance.spendable(run, key)
 		if have + 0.0001 < float(cost[key]):
 			return false
 	return true
@@ -559,8 +610,9 @@ func declare_independence() -> int:
 	var liberty: int = Balance.liberty_payout(run, meta)
 	var extra_relics: int = int(Balance.research_add(run, "extra_relic"))
 	meta.add_stat("liberty_earned", liberty)
-	meta.liberty += liberty
-	meta.lifetime_liberty += liberty
+	# Integers top out near 9.2e18; Liberty saturates rather than wrapping.
+	meta.liberty = int(minf(float(meta.liberty) + float(liberty), 9.0e18))
+	meta.lifetime_liberty = int(minf(float(meta.lifetime_liberty) + float(liberty), 9.0e18))
 	meta.runs_completed += 1
 	meta.best_run_gold = maxf(meta.best_run_gold, run.lifetime_gold)
 	if meta.fastest_run_seconds <= 0.0 or run.play_seconds < meta.fastest_run_seconds:
@@ -596,7 +648,7 @@ func charter_affordable(colony_id: String) -> bool:
 	if cost.is_empty():
 		return false
 	for key: String in cost.keys():
-		if run.stock_of(key) + 0.0001 < float(cost[key]):
+		if Balance.spendable(run, key) + 0.0001 < float(cost[key]):
 			return false
 	return true
 
@@ -666,7 +718,9 @@ func recall_governor(colony_id: String) -> void:
 
 ## Reward for tapping the treasure that drifts past on the map.
 func treasure_value() -> float:
-	var base: float = maxf(Balance.v("treasure_min_gold"), income_rate * Balance.v("treasure_income_seconds"))
+	# Based on steady income: Royal Favor's doubling doesn't double treasure.
+	var steady: float = income_rate / (Balance.v("favor_multiplier") if run.favor_seconds > 0.0 else 1.0)
+	var base: float = maxf(Balance.v("treasure_min_gold"), steady * Balance.v("treasure_income_seconds"))
 	return base * Balance.bonus(run, meta, "treasure") * Balance.research_mult(run, "treasure")
 
 
@@ -679,7 +733,9 @@ func collect_treasure() -> float:
 	meta.add_stat("treasures")
 	meta.add_stat("treasure_gold", amount)
 	treasure_collected.emit(amount)
-	if Balance.unlocked(meta, "relics") and _rng.randf() < Balance.v("relic_treasure_chance"):
+	# Once every relic is found, wrecks hold no more of them (and no free
+	# almanac pages in their place).
+	if Balance.unlocked(meta, "relics") and meta.relics.size() < Content.relics.size() and _rng.randf() < Balance.v("relic_treasure_chance"):
 		grant_relic("treasure")
 	elif Balance.unlocked(meta, "almanac") and _rng.randf() < Balance.v("almanac_treasure_chance"):
 		grant_almanac(1, "treasure")
@@ -708,7 +764,7 @@ func request_favor() -> bool:
 func study_affordable(id: String) -> bool:
 	var cost: Dictionary = Balance.study_cost(run, id)
 	for key: String in cost.keys():
-		var have: float = run.gold if key == "gold" else run.stock_of(key)
+		var have: float = run.gold if key == "gold" else Balance.spendable(run, key)
 		if have + 0.0001 < float(cost[key]):
 			return false
 	return true

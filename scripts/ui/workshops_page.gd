@@ -124,7 +124,7 @@ func _workshop_card(def: Dictionary) -> Control:
 	v.add_child(head)
 	var fl: String = Content.building_flavor(id)
 	if fl != "":
-		v.add_child(UI.wrap_label(fl, 17, UI.INK_SOFT))
+		v.add_child(UI.wrap_label(fl, UI.SIZE_MIN, UI.INK_SOFT))
 
 	var info := UI.label("", UI.SIZE_SMALL, UI.INK_SOFT)
 	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -185,7 +185,7 @@ func _workshop_card(def: Dictionary) -> Control:
 	sell_label.resized.connect(sell_label.update_minimum_size)
 	sell_label.custom_minimum_size.x = 10
 	sell_row.add_child(sell_label)
-	var toggle := UI.button("", "button", 52)
+	var toggle := UI.button("", "button", 64)
 	toggle.custom_minimum_size.x = 200
 	toggle.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
 	toggle.pressed.connect(func() -> void:
@@ -229,7 +229,7 @@ func _update_card(id: String) -> void:
 		status = "Waiting for %s." % " and ".join(missing)
 	else:
 		status = "Making %s %s/s." % [Format.rate(1.0 / secs), Content.resource_name(id).to_lower()]
-	info.text = "%s   ·   %s made this run" % [status, Format.num(float(run.crafted.get(id, 0)))]
+	info.text = "%s   ·   %s made this expedition" % [status, Format.num(float(run.crafted.get(id, 0)))]
 
 	var bar: ProgressBar = card.get_meta("bar")
 	bar.value = clampf(w.progress / secs, 0.0, 1.0) if secs < INF and missing.is_empty() and secs > 0.25 else (1.0 if w.colonists > 0 and missing.is_empty() else 0.0)

@@ -30,8 +30,12 @@ func _ready() -> void:
 	backend = _make_backend()
 	add_child(backend)
 	backend.purchase_result.connect(_on_purchase_result)
-	backend.rewarded_result.connect(func(p: String, ok: bool) -> void: rewarded_finished.emit(p, ok))
-	backend.interstitial_result.connect(func(p: String) -> void: interstitial_closed.emit(p))
+	backend.rewarded_result.connect(func(p: String, ok: bool) -> void:
+		_end_ad()
+		rewarded_finished.emit(p, ok))
+	backend.interstitial_result.connect(func(p: String) -> void:
+		_end_ad()
+		interstitial_closed.emit(p))
 	_ad_free = _load_entitlement()
 	backend.start()
 
@@ -96,6 +100,7 @@ func rewarded_ready() -> bool:
 ## Shows a rewarded ad; rewarded_finished follows. Ad-Free owners never need
 ## to call this: the reward is theirs without watching.
 func show_rewarded(placement: String) -> void:
+	_begin_ad()
 	backend.show_rewarded(placement)
 
 
@@ -104,8 +109,32 @@ func show_rewarded(placement: String) -> void:
 func show_interstitial(placement: String) -> bool:
 	if _ad_free or not backend.ads_allowed() or not backend.interstitial_ready():
 		return false
+	_begin_ad()
 	backend.show_interstitial(placement)
 	return true
+
+
+## While an ad is on screen the game waits: the simulation is paused (the
+## time neither counts nor is lost) and all game audio is silenced.
+var _ad_open: bool = false
+
+
+func _begin_ad() -> void:
+	if _ad_open:
+		return
+	_ad_open = true
+	Game.pause("ad")
+	if Sfx.has_method("pause_all"):
+		Sfx.pause_all()
+
+
+func _end_ad() -> void:
+	if not _ad_open:
+		return
+	_ad_open = false
+	Game.resume("ad")
+	if Sfx.has_method("resume_all"):
+		Sfx.resume_all()
 
 
 # --- Privacy ------------------------------------------------------------------------

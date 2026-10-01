@@ -27,16 +27,16 @@ func _build_header(box: VBoxContainer) -> void:
 	var hv := UI.vbox(2)
 	hv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hv.add_child(UI.label("Declaration of Independence", UI.SIZE_BIG, UI.INK, true))
-	hv.add_child(UI.wrap_label("When the colonies are rich and armed, declare independence. The run ends; you keep Liberty to spend on lasting reforms.", UI.SIZE_SMALL, UI.INK_SOFT))
+	hv.add_child(UI.wrap_label("When the colonies are rich and armed, declare independence. The expedition ends; you keep Liberty to spend on lasting reforms.", UI.SIZE_SMALL, UI.INK_SOFT))
 	head.add_child(hv)
 	v.add_child(head)
-	_gold_label = UI.label("", UI.SIZE_SMALL, UI.INK)
+	_gold_label = UI.wrap_label("", UI.SIZE_SMALL, UI.INK)
 	v.add_child(_gold_label)
 	_gold_bar = UI.bar("bar_fill")
 	v.add_child(_gold_bar)
-	_musket_label = UI.label("", UI.SIZE_SMALL, UI.INK)
+	_musket_label = UI.wrap_label("", UI.SIZE_SMALL, UI.INK)
 	v.add_child(_musket_label)
-	_liberty_label = UI.label("", UI.SIZE_BODY, UI.INK)
+	_liberty_label = UI.wrap_label("", UI.SIZE_BODY, UI.INK)
 	v.add_child(_liberty_label)
 	_declare = UI.button("Declare Independence", "button_gold", 80)
 	_declare.add_theme_font_override("font", UI.FONT_TITLE)
@@ -54,13 +54,15 @@ func refresh() -> void:
 		return
 	var gate: float = Balance.v("independence_gold")
 	_gold_bar.value = clampf(run.lifetime_gold / gate, 0.0, 1.0)
-	_gold_label.text = "Gold earned this run: %s / %s" % [Format.num(run.lifetime_gold), Format.num(gate)]
+	_gold_label.text = "Gold earned this expedition: %s / %s" % [Format.num(run.lifetime_gold), Format.num(gate)]
 	var muskets: int = int(run.stock_of("muskets"))
 	var need: int = int(Balance.v("independence_muskets"))
 	_musket_label.text = ("✔ " if muskets >= need else "✘ ") + "Arm the militia: %d musket%s kept in the warehouse (%d)" % [need, "" if need == 1 else "s", muskets]
 	_musket_label.add_theme_color_override("font_color", UI.GREEN if muskets >= need else UI.RED)
 	var payout: int = Balance.liberty_payout(run)
-	_liberty_label.text = "Liberty on declaring: %d" % payout if payout > 0 else "Liberty on declaring: none yet"
+	# Liberty grows with the square root of gold earned, so carrying on past
+	# the goal pays: say how much.
+	_liberty_label.text = ("Liberty on declaring: %s  (double your gold: about %s)" % [Format.num(payout), Format.num(floorf(payout * 1.414))]) if payout > 0 else "Liberty on declaring: none yet"
 	var ready: bool = Balance.independence_ready(run)
 	_declare.disabled = not ready
 
@@ -81,7 +83,7 @@ func _rebuild() -> void:
 	_upgrade_rows.clear()
 
 	list.add_child(section("Founding Fathers"))
-	list.add_child(UI.wrap_label("Great figures join your Congress for this run in exchange for gold and kept goods.", UI.SIZE_SMALL, UI.LIGHT_SOFT))
+	list.add_child(UI.wrap_label("Great figures join your Congress for this expedition in exchange for gold and kept goods.", UI.SIZE_SMALL, UI.LIGHT_SOFT))
 	# Everyone offered this run is shown, by tier, so any figure can be
 	# chosen (or skipped) regardless of the others.
 	var offered: Array[Dictionary] = Balance.fathers_offered(Game.run)
@@ -173,7 +175,7 @@ func _update_father(id: String) -> void:
 	var labels: Dictionary = card.get_meta("costs")
 	for key: String in labels.keys():
 		var need: float = float(Balance.father_cost(Game.run, id)[key])
-		var have: float = Game.run.gold if key == "gold" else Game.run.stock_of(key)
+		var have: float = Game.run.gold if key == "gold" else Balance.spendable(Game.run, key)
 		var l: Label = labels[key]
 		l.text = Format.num(need) if key == "gold" else "%s / %s" % [Format.num(have), Format.num(need)]
 		l.add_theme_color_override("font_color", UI.GREEN if have >= need else UI.RED)

@@ -3,7 +3,15 @@ extends GutTest
 ## stand-in backend.
 
 
+var _saved_path: String
+var _saved_meta: MetaState
+var _saved_run: RunState
+
+
 func before_each() -> void:
+	_saved_path = Game.save_path
+	_saved_meta = Game.meta
+	_saved_run = Game.run
 	Game.save_path = "user://test_platform_save.json"
 	Game.meta = MetaState.new()
 	Game.start_run("english")
@@ -11,6 +19,10 @@ func before_each() -> void:
 
 func after_each() -> void:
 	SaveIO.delete(Game.save_path)
+	Game.running = false
+	Game.save_path = _saved_path
+	Game.meta = _saved_meta
+	Game.run = _saved_run
 
 
 func test_consult_pays_once_per_cooldown() -> void:

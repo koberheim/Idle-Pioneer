@@ -155,6 +155,8 @@ func round_trip_seconds(run: RunState, meta: MetaState, c: RunState.ColonyState)
 	var speed: float = 1.0 + v("speed_per_level") * c.speed_level
 	speed *= milestone_mult(c.speed_level, v("milestone_speed_mult"))
 	speed *= research_mult(run, "speed", ["sea" if sea else "land"])
+	# Away from the game the wagons and ships keep half pace too.
+	speed *= run.sim_rate
 	speed *= liberty_mult(meta, "navigation")
 	speed *= governor_mult(run, meta, c, "speed")
 	speed *= spec_mult(c, "speed")
@@ -399,7 +401,7 @@ func governor_multiplier_for_rank(rank: int) -> float:
 
 
 func governor_commission_cost(meta: MetaState) -> int:
-	return int(ceil(v("governor_commission_base") * pow(v("governor_commission_growth"), meta.governors.size())))
+	return int(ceil(minf(v("governor_commission_base") * pow(v("governor_commission_growth"), meta.governors.size()), 9.0e18)))
 
 
 ## Liberty to promote a governor from `rank` to rank + 1, or -1 at max rank.
@@ -589,6 +591,11 @@ func independence_ready(run: RunState) -> bool:
 		and run.stock_of("muskets") + 0.0001 >= v("independence_muskets")
 
 
+## What may be spent of a good: everything except the militia's muskets.
+func spendable(run: RunState, resource_id: String) -> float:
+	return run.stock_of(resource_id) - militia_reserve(run, resource_id)
+
+
 ## Muskets set aside for the militia: never sold, needed to declare.
 func militia_reserve(run: RunState, resource_id: String) -> float:
 	if resource_id != "muskets":
@@ -631,8 +638,10 @@ func affordable_levels(base: float, growth: float, level: int, budget: float, li
 	var first: float = base * pow(growth, level)
 	if budget < first:
 		return 0
-	var n: int = int(floor(log(budget * (growth - 1.0) / first + 1.0) / log(growth)))
-	n = clampi(n, 0, limit)
+	# In logs, so huge budget-to-cost ratios can't overflow to INF.
+	var lr: float = log(budget) - log(first) + log(growth - 1.0)
+	var n_f: float = (lr if lr > 30.0 else log(exp(lr) + 1.0)) / log(growth)
+	var n: int = int(clampf(floor(n_f), 0.0, float(limit)))
 	while n > 0 and geometric_cost(base, growth, level, n) > budget:
 		n -= 1
 	return n

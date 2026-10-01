@@ -26,6 +26,9 @@ func _init(title: String) -> void:
 	panel = PanelContainer.new()
 	panel.add_theme_stylebox_override("panel", UI.frame("panel", 14, 26))
 	panel.custom_minimum_size.x = 620
+	# Never wider than the screen (Large text narrows the space).
+	resized.connect(func() -> void:
+		panel.custom_minimum_size.x = minf(620.0, maxf(size.x - 32.0, 280.0)))
 	center.add_child(panel)
 	var v := UI.vbox(14)
 	panel.add_child(v)

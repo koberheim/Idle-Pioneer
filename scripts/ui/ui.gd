@@ -8,15 +8,17 @@ const INK_SOFT := Color("6b5440")
 const LIGHT := Color("f5e9cc")
 const LIGHT_SOFT := Color("c9b48f")
 const GOLD := Color("f5c850")
-const GREEN := Color("3f7d32")
+const GREEN := Color("2f6626")
 const RED := Color("a8382c")
 const BLUE := Color("3b6db0")
 
 const FONT_BODY := preload("res://assets/fonts/LibreBaskerville-Regular.ttf")
 const FONT_TITLE := preload("res://assets/fonts/Almendra-Regular.ttf")
 
-const SIZE_SMALL := 20
-const SIZE_BODY := 23
+const SIZE_SMALL := 21
+const SIZE_BODY := 24
+## Nothing smaller than this anywhere (about 9-10 sp on a phone).
+const SIZE_MIN := 18
 const SIZE_BIG := 28
 const SIZE_TITLE := 34
 

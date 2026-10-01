@@ -3,7 +3,11 @@ class_name Format
 extends RefCounted
 
 ## Named suffixes up to decillions; beyond that, scientific notation.
-const SUFFIXES: Array[String] = ["", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc", "UDc", "DDc", "TDc", "QaDc", "QiDc", "SxDc", "SpDc", "OcDc", "NoDc", "Vg"]
+const SUFFIXES: Array[String] = ["", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"]
+
+## "standard" (K, M, B... then scientific past decillions) or "scientific"
+## (from a million up). Set from the player's setting.
+static var notation: String = "standard"
 
 
 ## 999 -> "999", 1234 -> "1.23K", 12345 -> "12.3K", 1.5e9 -> "1.50B".
@@ -14,13 +18,12 @@ static func num(value: float, small_decimals: int = 0) -> String:
 	var v: float = absf(value)
 	if is_inf(v):
 		return sign + "∞"
-	if v >= 1e66:
-		var e: int = int(floor(log(v) / log(10.0)))
-		return sign + "%.2fe%d" % [v / pow(10.0, e), e]
+	if v >= 1e36 or (notation == "scientific" and v >= 1e6):
+		return sign + sci(v)
 	if v < 1000.0:
 		if small_decimals > 0 and v < 100.0 and not is_equal_approx(v, roundf(v)):
 			return sign + (("%." + str(small_decimals) + "f") % v)
-		return sign + str(int(floor(v + 0.0001)))
+		return sign + str(int(floor(v)))
 	var mag: int = 0
 	while v >= 1000.0 and mag < SUFFIXES.size() - 1:
 		v /= 1000.0
@@ -33,6 +36,19 @@ static func num(value: float, small_decimals: int = 0) -> String:
 	else:
 		body = "%.2f" % (floor(v * 100.0) / 100.0)
 	return sign + body + SUFFIXES[mag]
+
+
+## 1.23e45 style, with the mantissa always in [1, 10).
+static func sci(v: float) -> String:
+	var e: int = int(floor(log(v) / log(10.0)))
+	var m: float = v / pow(10.0, e)
+	if m >= 9.995:
+		m /= 10.0
+		e += 1
+	elif m < 1.0:
+		m *= 10.0
+		e -= 1
+	return "%.2fe%d" % [floor(m * 100.0) / 100.0, e]
 
 
 static func rate(value: float) -> String:

@@ -15,24 +15,17 @@ var _style_buttons: Dictionary = {}
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	# A sample coast, rendered live, behind the menu.
-	var sample := WorldMap.build(WorldMap.STYLE_RANDOM, 1607)
-	var data := ImageTexture.create_from_image(MapView.build_data_image(sample, PackedByteArray()))
-	var mat := ShaderMaterial.new()
-	mat.shader = preload("res://assets/shaders/terrain.gdshader")
-	mat.set_shader_parameter("data_n", data)
-	mat.set_shader_parameter("data_l", data)
-	mat.set_shader_parameter("relief", ImageTexture.create_from_image(MapView.build_relief_image(sample)))
-	mat.set_shader_parameter("grid", Vector2(WorldMap.W, WorldMap.H))
+	# A painted dusk harbour (tools/gen_backdrop.py) behind the menu, covering
+	# the screen at its native art density, dimmed so the cards stay readable.
 	var bg := TextureRect.new()
-	bg.texture = data
-	bg.material = mat
+	bg.texture = UI.tex("res://assets/sprites/backdrop.png")
 	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	bg.stretch_mode = TextureRect.STRETCH_SCALE
+	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	bg.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
 	var dim := ColorRect.new()
-	dim.color = Color(0.06, 0.05, 0.08, 0.35)
+	dim.color = Color(0.06, 0.04, 0.08, 0.3)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(dim)
 
@@ -76,7 +69,7 @@ func _ready() -> void:
 	map_label.add_theme_constant_override("outline_size", 6)
 	v.add_child(map_label)
 	var styles := UI.hbox(12)
-	for spec: Array in [[WorldMap.STYLE_RANDOM, "Uncharted Coast", "A new land every time"], [WorldMap.STYLE_NORTH_AMERICA, "North America", "The coast as history knew it"]]:
+	for spec: Array in [[WorldMap.STYLE_RANDOM, "Uncharted Coast", "A new land every time"], [WorldMap.STYLE_NORTH_AMERICA, "North America", "History's own coast"]]:
 		var b := Button.new()
 		b.focus_mode = Control.FOCUS_NONE
 		b.custom_minimum_size = Vector2(0, 104)
@@ -166,7 +159,7 @@ func _reforms_panel() -> Control:
 		_reform_rows[id] = row
 		v.add_child(row)
 	v.add_child(UI.label("Governors", UI.SIZE_BIG, UI.INK, true))
-	_roster = GovernorRoster.new()
+	_roster = GovernorRoster.new(true)
 	v.add_child(_roster)
 	return card
 

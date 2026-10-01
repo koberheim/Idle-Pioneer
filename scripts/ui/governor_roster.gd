@@ -11,9 +11,10 @@ var _count: int = -1
 var _rows: Dictionary = {}
 
 
-func _init() -> void:
+## `on_paper`: placed on a parchment panel (dark text) rather than on wood.
+func _init(on_paper: bool = false) -> void:
 	add_theme_constant_override("separation", 10)
-	var intro := UI.wrap_label("Governors serve for life. Post one to a colony to multiply its production, cargo or route speed. They stay with you through every declaration of independence.", UI.SIZE_SMALL, UI.LIGHT_SOFT)
+	var intro := UI.wrap_label("Governors serve for life. Post one to a colony to multiply its production, cargo or route speed. They stay with you through every declaration of independence.", UI.SIZE_SMALL, UI.INK_SOFT if on_paper else UI.LIGHT_SOFT)
 	add_child(intro)
 	var row := UI.hbox(8)
 	for t: Dictionary in Content.governor_types:

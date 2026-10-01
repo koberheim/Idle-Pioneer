@@ -83,12 +83,12 @@
 	"treasure_min_seconds": 90.0,
 	"treasure_max_seconds": 240.0,
 	"treasure_lifetime_seconds": 25.0,
-	"treasure_income_seconds": 90.0,
+	"treasure_income_seconds": 45.0,
 	"treasure_min_gold": 40.0,
 
 	"independence_gold": 2500000000.0,
 	"independence_muskets": 1,
-	"liberty_base": 9.5,
+	"liberty_base": 15.0,
 	"settlement_floor": 0.01,
 
 	"fathers_offered_per_tier": 4

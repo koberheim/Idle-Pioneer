@@ -256,3 +256,17 @@ func test_first_musket_is_kept_for_the_militia() -> void:
 	Sim.receive(run, meta, "muskets", 3.0, ev)
 	assert_almost_eq(run.stock_of("muskets"), 1.0, 0.001)
 	assert_gt(ev.gold_earned, 0.0)
+
+
+func test_very_fast_routes_lose_nothing_in_long_steps() -> void:
+	var make := func() -> RunState:
+		var run := _fresh_run()
+		var c := run.found_next()
+		c.speed_level = 300
+		c.prod_level = 60
+		return run
+	var live: RunState = make.call()
+	var away: RunState = make.call()
+	_simulate(live, 600.0, 0.1)
+	_simulate(away, 600.0, 120.0)
+	assert_almost_eq(away.lifetime_gold, live.lifetime_gold, live.lifetime_gold * 0.03)

@@ -101,7 +101,7 @@ func _show_license(name: String, file: String) -> void:
 	body.text = text
 	body.scroll_active = true
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	body.add_theme_font_size_override("normal_font_size", 16)
+	body.add_theme_font_size_override("normal_font_size", UI.SIZE_MIN)
 	v.add_child(body)
 	add_child(m)
 

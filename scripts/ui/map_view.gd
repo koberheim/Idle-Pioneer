@@ -317,7 +317,8 @@ func _process(delta: float) -> void:
 	_gold_timer += delta
 	if _gold_timer >= 1.2 and _pending_gold > 0.0:
 		_gold_timer = 0.0
-		_spawn_floater(colony_world(Game.run.capital()) + Vector2(0, -40), "+" + Format.num(_pending_gold), UI.GOLD, "gold")
+		# Above the capital's name plate rather than on top of it.
+		_spawn_floater(colony_world(Game.run.capital()) + Vector2(0, -72), "+" + Format.num(_pending_gold), UI.GOLD, "gold")
 		_pending_gold = 0.0
 	var i: int = _floaters.size() - 1
 	while i >= 0:

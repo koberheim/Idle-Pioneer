@@ -174,6 +174,28 @@ def gold_coin(d, cx, cy, r):
     d.dot(cx - r * 0.5, cy - r * 0.5, CREAM, r * 0.08)
 
 
+def pennant_pts(x, y, s=1.0):
+    """A long swallow-tailed pennant flying right from the hoist at (x, y):
+    a period streamer, deliberately not any modern national flag."""
+    pts = [(0, 0), (7, -1.2), (14, 0.4), (21, 1.6), (27, 1.2),   # top edge, rippling
+           (21, 4.6),                                           # swallow-tail notch
+           (26.5, 7.6), (20, 7.2), (13, 6.6), (6, 7.4), (0, 8.5)]
+    return [(x + px * s, y + py * s) for px, py in pts]
+
+
+def pennant(d, x, y, s=1.0):
+    """Cream swallow-tail with a broad gold stripe along its length and a
+    gold band at the hoist."""
+    d.poly(pennant_pts(x, y, s), CREAM, light=0.15, dark=0.3)
+    stripe = [(0, 2.6), (7, 1.7), (14, 3.0), (20, 4.0), (20, 5.6), (14, 5.2), (7, 4.6), (0, 5.8)]
+    d.poly([(x + px * s, y + py * s) for px, py in stripe], GOLD, light=0.2, dark=0.2)
+    d.line([(x + px * s, y + py * s) for px, py in stripe[4:]], GOLD_D, 0.6 * s)
+    d.poly([(x, y), (x + 3 * s, y - 0.5 * s), (x + 3 * s, y + 8 * s), (x, y + 8.5 * s)], GOLD, light=0.2, dark=0.25)
+    # shade in the folds of the cloth
+    d.line([(x + 9 * s, y - 0.6 * s), (x + 8.4 * s, y + 6.8 * s)], mix(CREAM, PARCH_D, 0.7), 0.7 * s)
+    d.line([(x + 16.5 * s, y + 1.0 * s), (x + 16 * s, y + 6.2 * s)], mix(CREAM, PARCH_D, 0.7), 0.7 * s)
+
+
 def headland(d):
     shape = [(2, 88), (8, 72), (22, 60), (46, 53), (72, 53), (92, 60), (104, 72), (102, 86), (88, 98), (56, 104), (22, 101)]
     d.poly([(x, y + 5.5) for x, y in shape], FOAM, shade=False)
@@ -218,10 +240,7 @@ def fort(d, cx=53, cy=76):
     # flagpole and flag
     d.line([(cx, cy + 2), (cx, cy - 40)], WOOD_D, 1.5)
     d.dot(cx, cy - 41, GOLD, 1.2)
-    fl = [(cx + 0.7, cy - 40), (cx + 9, cy - 42), (cx + 19, cy - 39), (cx + 18, cy - 34), (cx + 20, cy - 29), (cx + 9, cy - 32), (cx + 0.7, cy - 30)]
-    d.poly(fl, RED, light=0.3, dark=0.3)
-    d.poly([(cx + 0.7, cy - 40), (cx + 8, cy - 41.7), (cx + 8, cy - 35.5), (cx + 0.7, cy - 35)], NAVY, shade=False)
-    d.dot(cx + 4.2, cy - 38.2, WHITE, 0.8)
+    pennant(d, cx + 0.7, cy - 41, 1.0)
 
 
 def ship(d, x, wl, s=1.0, sails=WHITE):
@@ -282,7 +301,7 @@ def draw_mono(d):
     d.erase_poly(star_pts(fx, fy + 1.6, ro * 0.72, ri * 0.72, ys=ys))
     d.erase_poly([(fx - ro - 2, fy + 4.2), (fx + ro + 2, fy + 4.2), (fx + ro + 2, fy + 5.4), (fx - ro - 2, fy + 5.4)])
     d.line([(fx, fy + 2), (fx, fy - 40)], W_, 2.0)
-    d.poly([(fx + 0.7, fy - 40), (fx + 9, fy - 42), (fx + 19, fy - 39), (fx + 18, fy - 34), (fx + 20, fy - 29), (fx + 9, fy - 32), (fx + 0.7, fy - 30)], W_, shade=False)
+    d.poly(pennant_pts(fx + 0.7, fy - 41, 1.0), W_, shade=False)
     # ship, cut out of whatever is behind it, with gaps between the sails
     x, wl, sc = 100, 110, 0.9
 
@@ -361,6 +380,83 @@ def pine(d, x, base, h, col):
         d.poly([(x - ww, y), (x, y - h * 0.45), (x + ww, y)], mul(col, 1 + 0.06 * k), light=0.2, dark=0.3)
 
 
+COIN = (436, 62, 28)        # feature graphic: the coin sun (x, y, r)
+BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]
+TITLE_FONT = os.path.join(ROOT, "assets", "fonts", "Almendra-Regular.ttf")
+
+
+def sun_glow(img, coin, horizon):
+    """Warm the sky and sea around the coin sun with an ordered-dither falloff,
+    and lay a broken column of light on the water below it, so the scene
+    reads as lit from that point like the painted in-game banner."""
+    img = img.copy()
+    px = img.load()
+    cx, cy, r = coin
+    w, h = img.size
+    warm = (255, 226, 150)
+    for y in range(h):
+        for x in range(w):
+            p = px[x, y]
+            if y < horizon:
+                d = math.hypot(x - cx, (y - cy) * 1.25)
+                t = max(0.0, 1.0 - d / 170.0) ** 1.8 * 0.55
+                # gentle darkening toward the top corners
+                t2 = max(0.0, 1.0 - y / 70.0) * 0.18 * (0.4 + 0.6 * abs(x - w / 2) / (w / 2))
+            else:
+                dx = abs(x - cx) / (8 + (y - horizon) * 0.55)
+                t = max(0.0, 1.0 - dx) ** 2 * 0.32 * (1.0 - (y - horizon) / (h - horizon) * 0.6)
+                t2 = (y - horizon) / (h - horizon) * 0.12
+            # snap to steps of 1/8 with a 4x4 dither so the glow bands like hand-placed pixels
+            q = math.floor(t * 8 + (BAYER[y % 4][x % 4] + 0.5) / 16) / 8
+            c = mix(p[:3], warm, q)
+            c = mix(c, (24, 20, 40), math.floor(t2 * 12 + (BAYER[(y + 2) % 4][x % 4] + 0.5) / 16) / 12)
+            px[x, y] = c + (p[3],)
+    return img
+
+
+def wordmark(img):
+    """'Idle Pioneer' in the game's title face, rendered at the art's native
+    resolution with hard edges: a gold ramp, a dark ink outline and a soft drop
+    shadow, set in the open sky above the fort."""
+    from PIL import ImageDraw, ImageFont, ImageFilter
+    w, h = img.size
+    text = "Idle Pioneer"
+    font = ImageFont.truetype(TITLE_FONT, 50)
+    l, t, r, b = font.getbbox(text)
+    tw, th = r - l, b - t
+    x0, y0 = 196 - tw // 2 - l, 22 - t
+    mask = Image.new("L", (w, h), 0)
+    ImageDraw.Draw(mask).text((x0, y0), text, font=font, fill=255)
+    mask = mask.point(lambda v: 255 if v >= 110 else 0)
+    # ink outline (2 px, rounded) and a drop shadow below it
+    ring = mask.filter(ImageFilter.MaxFilter(5))
+    shadow = ring.filter(ImageFilter.MaxFilter(3))
+    out = img.convert("RGBA")
+    sh = Image.new("RGBA", (w, h), (20, 14, 24, 0))
+    sh.putalpha(shadow.point(lambda v: 120 if v else 0))
+    out.alpha_composite(sh, (2, 3))
+    out.paste(Image.new("RGBA", (w, h), INK + (255,)), (0, 0), ring)
+    # banded gold ramp from a pale top to a deep base, with a highlight row
+    ramp = [(255, 246, 196), (252, 226, 132), (240, 196, 72), (218, 160, 52), (176, 120, 30)]
+    fill = Image.new("RGBA", (w, h))
+    fp = fill.load()
+    top, bot = y0 + t, y0 + b
+    for y in range(max(0, top), min(h, bot + 1)):
+        f = (y - top) / max(1, bot - top) * (len(ramp) - 1)
+        for x in range(w):
+            k = min(len(ramp) - 1, int(f + (BAYER[y % 4][x % 4] + 0.5) / 16 * 0.6 + 0.2))
+            fp[x, y] = ramp[k] + (255,)
+    out.paste(fill, (0, 0), mask)
+    # a 1 px darker inner edge on the lower right of each stroke for depth
+    m = mask.load()
+    op = out.load()
+    for y in range(h - 1):
+        for x in range(w - 1):
+            if m[x, y] and (not m[x + 1, y + 1]):
+                op[x, y] = mix(op[x, y][:3], GOLD_D, 0.55) + (255,)
+    return out.convert("RGB")
+
+
 def make_feature():
     W, H = 512, 250
     horizon = 142
@@ -369,7 +465,7 @@ def make_feature():
     d = X(bg)
     sky(d, 0, W, 0, horizon, bands=14)
     sea(d, 0, W, horizon, H, rnd, bands=8, glints=260)
-    for x, y, s in ((40, 30, 1.3), (180, 18, 1.0), (430, 34, 1.4), (330, 60, 0.8)):
+    for x, y, s in ((338, 24, 1.1), (6, 96, 0.9), (262, 92, 0.7), (486, 112, 0.8)):
         cloud(d, x, y, s)
     # far blue hills
     pts = [(0, horizon)] + [(x, horizon - 18 - 14 * math.sin(x / 60.0) - 6 * math.sin(x / 23.0)) for x in range(0, 200, 4)] + [(200, horizon)]
@@ -380,12 +476,12 @@ def make_feature():
         x = rnd.uniform(0, 196)
         top = horizon - 18 - 14 * math.sin(x / 60.0) - 6 * math.sin(x / 23.0)
         pine(d, x, rnd.uniform(top + 6, horizon + 2), rnd.uniform(7, 11), mix(HILL_FAR, PINE_D, 0.45))
-    bgi = bg.render(80, None)
+    bgi = sun_glow(bg.render(96, None), COIN, horizon)
 
     fg = Canvas(W, H, seed=9)
     d = X(fg)
     # coin sun over the sea
-    gold_coin(d, 300, 62, 28)
+    gold_coin(d, COIN[0], COIN[1], COIN[2])
     # the forested shore on the left with the fort, and a point on the right
     shore = [(0, 132), (40, 128), (90, 136), (150, 140), (210, 146), (262, 160), (282, 176), (262, 190), (200, 198), (120, 206), (60, 216), (0, 222)]
     d.poly([(x, y + 4) for x, y in shore], FOAM, shade=False)
@@ -440,12 +536,8 @@ def make_feature():
     d.poly([(cx - 4, fyb - 26), (cx, fyb - 38), (cx + 4, fyb - 26)], mix(ROOF, INK_SOFT, 0.3), light=0.3, dark=0.35)
     d.rect((cx - 2, fyb + 1, cx + 2, fyb + 8), WOOD_D, shade=False)
     # flag
-    d.line([(104, fyb + 4), (104, fyb - 40)], WOOD_D, 1.2)
-    fl = [(104.6, fyb - 40), (113, fyb - 42), (122, fyb - 39), (121, fyb - 34), (122.5, fyb - 30), (113, fyb - 32.5), (104.6, fyb - 31)]
-    d.poly(fl, RED, light=0.3, dark=0.3)
-    # canton in cream: a small navy patch gets merged into the pines by the palette snap
-    d.poly([(104.6, fyb - 40), (111, fyb - 41.3), (111, fyb - 35.6), (104.6, fyb - 35.3)], CREAM, shade=False)
-    d.line([(105, fyb - 37.8), (110.6, fyb - 38.2)], RED, 0.7)
+    d.line([(92, fyb + 4), (92, fyb - 40)], WOOD_D, 1.2)
+    pennant(d, 92.6, fyb - 40.5, 1.0)
     # corner blockhouses and the front wall with gate
     blockhouse(fx0 - 4, fyb + 2, 14, 12)
     blockhouse(fx1 + 4, fyb + 2, 14, 12)
@@ -472,7 +564,7 @@ def make_feature():
     d.line([(262, 204), (262, 194)], WOOD_D, 0.8)
     d.poly([(262.5, 194.5), (270, 202.5), (262.5, 202.5)], LINEN, light=0.2, dark=0.3)
     fgi = fg.render(128)
-    return flatten(bgi, fgi)
+    return wordmark(flatten(bgi, fgi))
 
 
 def main():

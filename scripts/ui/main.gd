@@ -71,7 +71,8 @@ func _ready() -> void:
 		if placement != "almanac":
 			return
 		if completed:
-			Game.consult_almanac()
+			if not Game.consult_almanac():
+				_toasts.push("The almanac was already consulted; try again when it's ready.", "almanac", 3.0)
 		else:
 			_toasts.push("The almanac closes unread. No reward this time.", "almanac", 3.0))
 	Platform.purchase_failed.connect(func(reason: String) -> void: _toasts.push(reason, "lock", 4.0))
@@ -86,6 +87,7 @@ func _ready() -> void:
 
 	var booted: bool = Game.boot()
 	apply_ui_scale()
+	Format.notation = Game.meta.notation
 	if booted:
 		_start_ui()
 	elif Game.save_from_newer_version:
@@ -96,7 +98,7 @@ func _ready() -> void:
 		_show_nation_select()
 
 
-const LARGE_UI_SCALE := 1.12
+const LARGE_UI_SCALE := 1.15
 
 
 ## Everything (text, buttons, icons) a little bigger for easier reading and
@@ -106,23 +108,11 @@ func apply_ui_scale() -> void:
 
 
 func _safe_bottom() -> float:
-	if not OS.has_feature("mobile"):
-		return 0.0
-	var safe: Rect2i = DisplayServer.get_display_safe_area()
-	var screen: Vector2i = DisplayServer.screen_get_size()
-	if screen.y <= 0 or safe.size.y <= 0:
-		return 0.0
-	return maxf(0.0, float(screen.y - safe.end.y)) * get_viewport_rect().size.y / float(screen.y)
+	return UI.safe_insets(self).y
 
 
 func _safe_top() -> float:
-	if not OS.has_feature("mobile"):
-		return 0.0
-	var safe: Rect2i = DisplayServer.get_display_safe_area()
-	var screen: Vector2i = DisplayServer.screen_get_size()
-	if screen.y <= 0:
-		return 0.0
-	return float(safe.position.y) * get_viewport_rect().size.y / float(screen.y)
+	return UI.safe_insets(self).x
 
 
 # --- Construction ---------------------------------------------------------------
@@ -216,7 +206,8 @@ func _build() -> void:
 	_tutorial.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 	_tutorial.offset_top = 120 + _top_pad
 	_tutorial.offset_left = 16
-	_tutorial.offset_right = -16
+	# Leaves the map's button column (zoom, chart, almanac) uncovered.
+	_tutorial.offset_right = -96
 	_tutorial.go.connect(_on_advisor_go)
 	_overlay.add_child(_tutorial)
 
@@ -226,7 +217,7 @@ func _build_top_bar() -> Control:
 	var sb := UI.frame("panel_dark", 14, 12)
 	sb.content_margin_top = 10.0 + _top_pad
 	bar.add_theme_stylebox_override("panel", sb)
-	var row := UI.hbox(10)
+	var row := UI.hbox(6)
 	bar.add_child(row)
 
 	row.add_child(UI.icon_rect(UI.icon("gold"), 52))
@@ -235,12 +226,13 @@ func _build_top_bar() -> Control:
 	_income_label = UI.label("", UI.SIZE_SMALL, UI.LIGHT_SOFT)
 	gv.add_child(_gold_label)
 	gv.add_child(_income_label)
-	gv.custom_minimum_size.x = 170
+	gv.custom_minimum_size.x = 150
 	row.add_child(gv)
 	row.add_child(UI.spacer())
 
 	_favor = UI.button("", "button_gold", 60)
-	_favor.custom_minimum_size.x = 132
+	_favor.custom_minimum_size.x = 104
+	_favor.tooltip_text = "Royal Favor: double production for a while"
 	_favor.icon = UI.icon("star")
 	_favor.expand_icon = true
 	_favor.texture_filter = UI.icon_filter(26)
@@ -690,7 +682,7 @@ func _refresh_favor() -> void:
 		_favor.text = Format.duration(Game.favor_ready_in())
 	else:
 		state = "ready"
-		_favor.text = "×2 Favor"
+		_favor.text = "×2"
 	if state == _favor_state:
 		return
 	_favor_state = state
@@ -750,6 +742,17 @@ func _show_settings() -> void:
 		apply_ui_scale()
 		sync_big.call())
 	m.body.add_child(big)
+	var nums := UI.button("", "button", 64)
+	var sync_nums := func() -> void:
+		nums.text = "Numbers: " + ("Scientific (1.23e15)" if Game.meta.notation == "scientific" else "Standard (1.23Qa)")
+	sync_nums.call()
+	nums.pressed.connect(func() -> void:
+		Game.meta.notation = "standard" if Game.meta.notation == "scientific" else "scientific"
+		Format.notation = Game.meta.notation
+		Sfx.play("click")
+		sync_nums.call()
+		_refresh())
+	m.body.add_child(nums)
 	var codes := UI.hbox(10)
 	var export_b := UI.button("Copy save code", "button", 56)
 	export_b.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
@@ -807,7 +810,7 @@ func _show_settings() -> void:
 		privacy.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
 		privacy.pressed.connect(func() -> void: Platform.show_privacy_options())
 		m.body.add_child(privacy)
-	var version := UI.label("Version %s" % str(ProjectSettings.get_setting("application/config/version", "dev")), 16, UI.INK_SOFT)
+	var version := UI.label("Version %s" % str(ProjectSettings.get_setting("application/config/version", "dev")), UI.SIZE_MIN, UI.INK_SOFT)
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	m.body.add_child(version)
 	var meta: MetaState = Game.meta
@@ -820,9 +823,16 @@ func _show_settings() -> void:
 	m.add_text(stats, UI.SIZE_SMALL, UI.INK_SOFT)
 	var reset := UI.button("Reset all progress", "button", 56)
 	reset.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
-	for s: String in ["normal", "hover"]:
-		reset.add_theme_stylebox_override(s, UI.frame("button_disabled", 14, 8))
-	for s: String in ["font_color", "font_hover_color"]:
+	# A quiet, clearly dangerous style: red text on parchment, red outline.
+	var rsb := StyleBoxFlat.new()
+	rsb.bg_color = Color("f1e3c2")
+	rsb.border_color = UI.RED
+	rsb.set_border_width_all(2)
+	rsb.set_corner_radius_all(4)
+	rsb.set_content_margin_all(8)
+	for s: String in ["normal", "hover", "pressed", "hover_pressed"]:
+		reset.add_theme_stylebox_override(s, rsb)
+	for s: String in ["font_color", "font_hover_color", "font_pressed_color"]:
 		reset.add_theme_color_override(s, UI.RED)
 	reset.pressed.connect(func() -> void:
 		m.close()
@@ -840,6 +850,22 @@ func _confirm_reset() -> void:
 		Game.reset_all_progress()
 		_show_nation_select())
 	_overlay.add_child(m)
+
+
+var _exit_armed_at: int = -100000
+
+
+## Back on the home screen asks once ("press Back again"), then saves and
+## leaves.
+func _back_to_exit() -> void:
+	var now: int = Time.get_ticks_msec()
+	if now - _exit_armed_at > 2500:
+		_exit_armed_at = now
+		_toasts.push("Press Back again to leave. Your colonies keep working.", "scroll", 2.5)
+		return
+	if Game.running:
+		Game.save()
+	get_tree().quit()
 
 
 func _confirm_import() -> void:
@@ -876,20 +902,18 @@ func _notification(what: int) -> void:
 			if c is ResearchScreen or c is ContinentalMap or c is CreditsScreen:
 				c.queue_free()
 				return
+			if c is Tutorial and (c as Tutorial).visible:
+				(c as Tutorial).visible = false
+				return
 			if c is NationSelect:
-				# Nothing beneath it: Back leaves the game.
-				Game.save()
-				get_tree().quit()
+				_back_to_exit()
 				return
 		if _sheet != null and _sheet.visible:
 			_close_sheet()
 		elif _tab != 0:
 			_select_tab(0)
 		else:
-			# Back on the home screen leaves the game, saving first.
-			if Game.running:
-				Game.save()
-			get_tree().quit()
+			_back_to_exit()
 
 
 # --- Refresh --------------------------------------------------------------------
@@ -917,7 +941,8 @@ func _refresh() -> void:
 	_gold_label.text = Format.num(run.gold)
 	_income_label.text = "+%s / sec" % Format.num(Game.income_rate, 1)
 	_liberty_label.text = Format.num(Game.meta.liberty)
-	_colonist_label.text = "%s/%s" % [Format.num(run.colonists_idle()), Format.num(run.colonists_owned)]
+	# Idle of total while it's short; just the idle count once numbers grow.
+	_colonist_label.text = "%s/%s" % [Format.num(run.colonists_idle()), Format.num(run.colonists_owned)] if run.colonists_owned < 1000 else Format.num(run.colonists_idle())
 	_refresh_favor()
 	if _map.consult_button != null:
 		_map.consult_button.modulate.a = 1.0 if Game.consult_ready_in() <= 0.0 else 0.45

@@ -74,7 +74,8 @@ static func _step_workshops(run: RunState, meta: MetaState, dt: float, ev: SimEv
 				claimed += float((run.claims.get((o[0] as RunState.WorkshopState).id, {}) as Dictionary).get(input_id, 0.0))
 				if j >= i:
 					total += float(o[1][input_id]) / float(o[2])
-			var stock: float = run.stock_of(input_id)
+			# The militia's muskets are never fed to a workshop.
+			var stock: float = Balance.spendable(run, input_id)
 			if claimed > stock + EPS:
 				# Stock was spent elsewhere (sold, paid to a Father): shrink claims.
 				_scale_claims(run, active, input_id, stock / claimed)
@@ -96,6 +97,13 @@ static func _step_workshops(run: RunState, meta: MetaState, dt: float, ev: SimEv
 			mine_claims = run.claims.get(w.id, {})
 			limit = minf(limit, floor(float(mine_claims.get(input_id, 0.0)) / per + EPS))
 		var made: int = _step_workshop(run, meta, w, inputs, e[2], int(maxf(limit, 0.0)), dt, ev)
+		if made == 0:
+			# Held up by one input: don't sit on more of the others than one
+			# item needs, so competing workshops can use them meanwhile.
+			var held: Dictionary = run.claims.get(w.id, {})
+			for input_id: String in inputs.keys():
+				held[input_id] = minf(float(held.get(input_id, 0.0)), float(inputs[input_id]))
+			run.claims[w.id] = held
 		if made > 0:
 			mine_claims = run.claims.get(w.id, {})
 			for input_id: String in inputs.keys():
@@ -159,6 +167,16 @@ static func _step_colony(run: RunState, meta: MetaState, c: RunState.ColonyState
 		guard += 1
 		# Many short voyages in one step (late game, offline catch-up): settle
 		# whole round trips in closed form instead of one at a time.
+		# Voyages quicker than it takes to make one unit: each leaves with one
+		# unit and the route simply carries the production as it comes.
+		if c.trip <= 0.0 and rate > 0.0 and rate * rt < 1.0 and cap >= 1.0 and remaining * rate >= 3.0:
+			var m: int = int(minf(floor(remaining * rate), 1.0e15)) - 1
+			run.shipments += m
+			ev.add_shipment(c.id, res, float(m), m)
+			ev.add(ev.delivered, res, float(m))
+			receive(run, meta, res, float(m), ev)
+			remaining -= float(m) / rate
+			continue
 		if c.trip <= 0.0 and c.stock >= 1.0 and remaining >= 3.0 * rt and rate * rt >= 1.0:
 			var n: int = int(minf(floor(remaining / rt), 1.0e12)) - 1
 			_batch_trips(run, meta, c, res, n, rate * rt, cap, ev)

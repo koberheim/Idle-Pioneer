@@ -7,14 +7,15 @@ const OPTIONS: Array[int] = [1, 10, 100, -1]
 var _buttons: Array[Button] = []
 
 
-func _init() -> void:
+## `on_paper`: placed on a parchment card (dark label) rather than on wood.
+func _init(on_paper: bool = false) -> void:
 	add_theme_constant_override("separation", 6)
 	alignment = BoxContainer.ALIGNMENT_END
-	var lbl := UI.label("Buy", UI.SIZE_SMALL, UI.LIGHT_SOFT)
+	var lbl := UI.label("Buy", UI.SIZE_SMALL, UI.INK_SOFT if on_paper else UI.LIGHT_SOFT)
 	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	add_child(lbl)
 	for amount: int in OPTIONS:
-		var b := UI.button("Max" if amount < 0 else "x%d" % amount, "button", 58)
+		var b := UI.button("Max" if amount < 0 else "×%d" % amount, "button", 58)
 		b.custom_minimum_size.x = 84
 		b.toggle_mode = true
 		b.add_theme_font_size_override("font_size", UI.SIZE_SMALL)

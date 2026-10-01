@@ -39,7 +39,7 @@ func _build_header(box: VBoxContainer) -> void:
 	hv.add_child(_docks_info)
 	head.add_child(hv)
 	dv.add_child(head)
-	var sel := BuyAmountSelector.new()
+	var sel := BuyAmountSelector.new(true)
 	dv.add_child(sel)
 	_recruit = BuyButton.new(func() -> bool: return Game.recruit_colonists())
 	_recruit.custom_minimum_size.y = 80
@@ -111,7 +111,7 @@ func _rebuild() -> void:
 		v.add_child(name_l)
 		v.add_child(info)
 		row.add_child(v)
-		var sell := UI.button("Sell", "button", 56)
+		var sell := UI.button("Sell", "button", 64)
 		sell.custom_minimum_size.x = 88
 		sell.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
 		var rid: String = id
@@ -120,7 +120,7 @@ func _rebuild() -> void:
 			Sfx.play("coin")
 			refresh())
 		row.add_child(sell)
-		var toggle := UI.button("", "button", 56)
+		var toggle := UI.button("", "button", 64)
 		toggle.custom_minimum_size.x = 150
 		toggle.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
 		toggle.pressed.connect(func() -> void:
@@ -149,6 +149,11 @@ func _update_row(id: String) -> void:
 			users.append(str(def["building"]))
 	var used: String = ("
 Used by: " + ", ".join(users)) if not users.is_empty() else ""
+	# Keeping a good nothing uses just piles it up instead of selling it.
+	if run.is_held(id) and users.is_empty() and stock > 0.0:
+		used = "
+Kept but no staffed workshop uses it: set it to Selling?"
+	info.add_theme_color_override("font_color", UI.RED if run.is_held(id) and users.is_empty() and stock > 0.0 else UI.INK_SOFT)
 	info.text = "%s each%s  ·  held: %s%s" % [Format.num(Balance.sell_price(run, Game.meta, id), 1), arrow, Format.num(stock), used]
 	info.add_theme_color_override("font_color", UI.GREEN if mm > 1.0 else (UI.RED if mm < 1.0 else UI.INK_SOFT))
 	(card.get_meta("sell") as Button).disabled = stock < 1.0
@@ -175,10 +180,21 @@ func _fill_market_row(row: HBoxContainer, title: String, ids: Array, color: Colo
 		c.queue_free()
 	var t := UI.label(title, UI.SIZE_SMALL, color)
 	t.custom_minimum_size.x = 130
+	t.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	row.add_child(t)
+	# Icons with the goods' names beneath, so nothing is a mystery silhouette.
+	var col := UI.vbox(2)
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var icons := UI.hbox(6)
+	var names: PackedStringArray = []
 	for id: Variant in ids:
 		var rid: String = str(id)
 		var known: bool = Game.run.discovered.has(rid)
 		var ic := UI.icon_rect(UI.icon(rid), 36)
 		ic.modulate = Color.WHITE if known else Color(0.15, 0.12, 0.1, 0.6)
-		row.add_child(ic)
+		ic.tooltip_text = Content.resource_name(rid)
+		icons.add_child(ic)
+		names.append(Content.resource_name(rid) + ("" if known else " (not yet found)"))
+	col.add_child(icons)
+	col.add_child(UI.wrap_label(", ".join(names), UI.SIZE_MIN, UI.INK_SOFT))
+	row.add_child(col)

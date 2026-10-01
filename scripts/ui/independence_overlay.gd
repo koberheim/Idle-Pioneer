@@ -27,6 +27,14 @@ var _liberty: int = 0
 var _done: bool = false
 
 
+func _enter_tree() -> void:
+	Game.pause("ceremony")
+
+
+func _exit_tree() -> void:
+	Game.resume("ceremony")
+
+
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -42,6 +50,8 @@ func _ready() -> void:
 	var panel := PanelContainer.new()
 	panel.add_theme_stylebox_override("panel", UI.frame("panel", 14, 34))
 	panel.custom_minimum_size = Vector2(650, 0)
+	resized.connect(func() -> void:
+		panel.custom_minimum_size.x = minf(650.0, maxf(size.x - 32.0, 280.0)))
 	center.add_child(panel)
 	var v := UI.vbox(16)
 	panel.add_child(v)
@@ -125,6 +135,13 @@ func _on_sign() -> void:
 	# save now, so closing the game during the ceremony can't undo it.
 	if commit.is_valid():
 		_liberty = int(commit.call())
+		if Game.run != null:
+			# Congress could not declare (the conditions no longer hold):
+			# nothing has changed, so stay in the expedition.
+			_result.text = "Congress cannot declare yet: the militia needs a musket and the gold must be earned."
+			_result.add_theme_color_override("font_color", UI.RED)
+			Sfx.play("deny")
+			return
 	signed.emit()
 	_sign_btn.disabled = true
 	_cancel_btn.visible = false
@@ -139,7 +156,6 @@ func _on_sign() -> void:
 		_seal_scale = f
 		_seal.queue_redraw(), 2.2, 1.0, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tw.tween_callback(func() -> void:
-		Sfx.play("fanfare")
 		Sfx.set_music_context("independence")
 		_result.text = "Independence! +%d Liberty" % _liberty if Game.save_ok else "Independence! +%d Liberty (saving...)" % _liberty
 		_result.add_theme_color_override("font_color", UI.GREEN)
