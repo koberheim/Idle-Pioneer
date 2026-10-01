@@ -52,6 +52,7 @@ func _ready() -> void:
 		var names: PackedStringArray = []
 		for id: String in m["up"]:
 			names.append(Content.resource_name(id))
+		Sfx.play("market")
 		_toasts.push("News from Europe: demand soars for %s." % ", ".join(names), "ship_icon", 4.0)
 		# Now and then, a line from the colonial papers.
 		if randf() < 0.5:
@@ -63,7 +64,7 @@ func _ready() -> void:
 	Game.almanac_gained.connect(func(count: int, source: String) -> void:
 		if source == "independence":
 			return
-		Sfx.play("father")
+		Sfx.play("discover")
 		_toasts.push("You found %s of the Almanac! Read %s in the Ledger." % ["a page" if count == 1 else "%d pages" % count, "it" if count == 1 else "them"], "almanac", 4.0))
 	Game.almanac_read.connect(_on_almanac_read)
 	Game.catch_up_progress.connect(_on_catch_up_progress)
@@ -75,9 +76,12 @@ func _ready() -> void:
 				_toasts.push("The almanac was already consulted; try again when it's ready.", "almanac", 3.0)
 		else:
 			_toasts.push("The almanac closes unread. No reward this time.", "almanac", 3.0))
-	Platform.purchase_failed.connect(func(reason: String) -> void: _toasts.push(reason, "lock", 4.0))
+	Platform.purchase_failed.connect(func(reason: String) -> void:
+		Sfx.play("deny")
+		_toasts.push(reason, "lock", 4.0))
 	Platform.ad_free_changed.connect(func(owned: bool) -> void:
 		if owned:
+			Sfx.play("purchase")
 			_toasts.push("Thank you! Ads are gone for good.", "star", 4.0))
 	Game.save_status_changed.connect(func(ok: bool) -> void:
 		_save_banner.visible = not ok
@@ -352,6 +356,7 @@ func _announce_unlocks() -> void:
 		m.body.add_child(row)
 	m.add_button("Onward", "button_gold")
 	_overlay.add_child(m)
+	Sfx.play("unlock")
 
 
 func _start_ui() -> void:
@@ -475,7 +480,7 @@ func _on_offline(seconds: float, ev: SimEvents) -> void:
 
 
 func _on_milestone(what: String, track: String, level: int) -> void:
-	Sfx.play("father")
+	Sfx.play("milestone")
 	var name: String
 	var effect: String
 	if track == "workshop":
@@ -530,10 +535,11 @@ func _on_relic(id: String, source: String) -> void:
 		m.add_text("Set complete: %s! %s." % [s["name"], s["desc"]], UI.SIZE_BODY, UI.GREEN)
 	m.add_button("Into the Ledger", "button_gold")
 	_overlay.add_child(m)
-	Sfx.play("father")
+	Sfx.play("relic")
 
 
 func _on_almanac_read(seconds: float, ev: SimEvents) -> void:
+	Sfx.play("consult")
 	var m := Modal.new("A Page of the Almanac")
 	m.add_text("You turn the page, and %s pass in the colonies." % Format.duration(seconds), UI.SIZE_BODY, UI.INK_SOFT)
 	m.add_line("gold", "+%s gold" % Format.num(ev.gold_earned))

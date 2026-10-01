@@ -32,7 +32,8 @@ func _build_header(box: VBoxContainer) -> void:
 	_almanac_button.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
 	_almanac_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_almanac_button.pressed.connect(func() -> void:
-		Sfx.play("coin" if Game.read_almanac() else "deny")
+		if not Game.read_almanac():
+			Sfx.play("deny")
 		refresh())
 	row.add_child(_almanac_button)
 	box.add_child(card)

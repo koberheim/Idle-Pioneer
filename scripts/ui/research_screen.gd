@@ -170,7 +170,7 @@ func _study_card(def: Dictionary) -> Control:
 	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	button.pressed.connect(func() -> void:
 		if Game.study(id):
-			Sfx.play("father")
+			Sfx.play("research")
 			_refresh()
 		else:
 			Sfx.play("deny"))

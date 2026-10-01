@@ -170,7 +170,7 @@ func _init() -> void:
 	_charter_button = BuyButton.new(func() -> bool:
 		var ok: bool = Game.charter_colony(colony_id)
 		if ok:
-			Sfx.play("father")
+			Sfx.play("charter")
 			refresh()
 		return ok)
 	_charter_button.custom_minimum_size = Vector2(150, 64)
@@ -423,7 +423,7 @@ func _refresh_spec(c: RunState.ColonyState) -> void:
 		var id: String = str(s["id"])
 		_spec_box.add_child(_spec_card(s, "Choose" if c.charter >= 1 else "Locked", func() -> void:
 			if Game.choose_specialization(colony_id, id):
-				Sfx.play("father")
+				Sfx.play("charter")
 				_spec_key = ""
 				refresh()
 			else:

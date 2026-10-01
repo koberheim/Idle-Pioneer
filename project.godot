@@ -21,6 +21,11 @@ boot_splash/bg_color=Color(0.086, 0.114, 0.2, 1)
 boot_splash/show_image=false
 config/icon="res://assets/sprites/app_icon.png"
 
+[audio]
+
+general/ios/session_category=0
+general/ios/mix_with_others=true
+
 [autoload]
 
 Content="*res://scripts/core/content.gd"
