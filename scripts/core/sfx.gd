@@ -1,35 +1,68 @@
-## Sound effects and music. Every sound has a synthesised fallback built at
-## startup, so the game works without any audio files; a .ogg/.wav/.mp3 at
-## assets/audio/sfx/<id>.* or assets/audio/music/<id>.* replaces the synthesised
-## version of that id. Music follows a context (see set_music_context) and
-## crossfades between tracks.
+## Sound effects and music. A file at assets/audio/sfx/<id>.(ogg|wav|mp3) or
+## assets/audio/music/<id>.* is used for that id; ids without a file fall back to
+## a small synthesised tone, so the game works without any audio files. See
+## assets/audio/README.md for the id list and the loudness each file should have.
+##
+## Music follows a context (set_music_context): it crossfades between contexts
+## and resumes each one where it left off. Playlist contexts (the "theme") play
+## <id>, <id>_2, <id>_3 ... shuffled, with a pause between tracks; the others
+## loop, and one-shots (independence) play once and hand back.
 extends Node
 
 const RATE := 22050
 const SFX_DIR := "res://assets/audio/sfx/"
 const MUSIC_DIR := "res://assets/audio/music/"
-const SFX_DB := -8.0
-## Recorded samples are normalised hotter than the synthesised tones.
-const FILE_SFX_DB := -5.0
-const MUSIC_DB := -14.0
+## Sound files are loudness-normalised per id in the file itself
+## (tools/music/sfx_tools.py), so they all play at this level.
+const SFX_DB := 0.0
+## Optional per-id fine trims in dB on top of SFX_DB, for quick listening
+## tweaks. Prefer re-normalising the file so the README targets stay true.
+const TRIM_DB: Dictionary = {}
+## Level of the synthesised fallback tones (only used for ids without a file).
+const SYNTH_DB := -8.0
+## Music files are normalised to -16 LUFS integrated, so in game they sit at
+## about -23 LUFS: under the UI sounds (-24 LUFS momentary peaks, which cut
+## through) and well under the rewards (-20) and ceremonies (-18).
+const MUSIC_DB := -7.0
 const FADE_SECONDS := 1.5
+## Fade used instead of a hard stop, so a cut-off never clicks.
+const QUICK_FADE := 0.05
+## Silence between playlist tracks, in seconds (min, max).
+const PLAYLIST_GAP := Vector2(20.0, 40.0)
+const PLAYLIST_MAX := 9
 ## Music contexts that play once and then return to the previous context.
 const ONE_SHOT_MUSIC: Array[String] = ["independence"]
+## Music contexts that are playlists of <id>, <id>_2 ... <id>_9.
+const PLAYLIST_MUSIC: Array[String] = ["theme"]
+## Played on their own players so a burst of UI sounds can't cut them off.
+const CEREMONIAL: Array[String] = ["liberty", "fanfare", "purchase"]
+## Played with a little random pitch so repeats don't sound mechanical.
+const VARIED_PITCH: Array[String] = ["click", "tab", "buy", "coin", "deny"]
 
 var _sfx: Dictionary = {}
 var _sfx_db: Dictionary = {}
 var _players: Array[AudioStreamPlayer] = []
 var _next: int = 0
+var _ceremony: Array[AudioStreamPlayer] = []
+var _last_play: Dictionary = {}
+var _warned: Dictionary = {}
+
+## Every music player alive: the current one and any still fading out.
 var _music_players: Array[AudioStreamPlayer] = []
 var _music: AudioStreamPlayer
 var _music_files: Dictionary = {}
 var _synth_theme: AudioStream
 var _context: String = "theme"
 var _return_context: String = "theme"
-var _fade: Tween
+## context -> {"stream": AudioStream, "pos": float}, where to pick up again.
+var _resume: Dictionary = {}
+## context -> remaining shuffled track ids; and the last id played per context.
+var _bag: Dictionary = {}
+var _last_track: Dictionary = {}
+var _gap: Timer
 var _started: bool = false
+var _paused: bool = false
 var _headless: bool = false
-var _last_play: Dictionary = {}
 var _music_task: int = -1
 
 
@@ -37,27 +70,26 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	for i in 8:
 		var p := AudioStreamPlayer.new()
-		p.volume_db = SFX_DB
 		add_child(p)
 		_players.append(p)
 	for i in 2:
-		var m := AudioStreamPlayer.new()
-		m.volume_db = MUSIC_DB
-		m.finished.connect(_on_music_finished.bind(m))
-		add_child(m)
-		_music_players.append(m)
-	_music = _music_players[0]
+		var c := AudioStreamPlayer.new()
+		add_child(c)
+		_ceremony.append(c)
+	_gap = Timer.new()
+	_gap.one_shot = true
+	_gap.timeout.connect(_on_gap_timeout)
+	add_child(_gap)
 	_headless = DisplayServer.get_name() == "headless"
 	if _headless:
 		return
-	_build_sfx()
+	_load_sfx()
 	if _music_file("theme") == null:
 		# Synthesising the theme takes long enough to stall a phone's first
 		# frame, so it's built off the main thread and starts when ready.
 		_music_task = WorkerThreadPool.add_task(func() -> void:
 			var stream: AudioStreamWAV = _build_music()
-			_set_music.call_deferred(stream))
-	_music.stream = _resolve_music(_context)
+			_set_synth_music.call_deferred(stream))
 
 
 func _exit_tree() -> void:
@@ -66,135 +98,308 @@ func _exit_tree() -> void:
 		_music_task = -1
 
 
-func _set_music(stream: AudioStream) -> void:
+func _set_synth_music(stream: AudioStream) -> void:
 	if _music_task >= 0:
 		WorkerThreadPool.wait_for_task_completion(_music_task)
 		_music_task = -1
 	_synth_theme = stream
-	if _music.stream == null:
-		_music.stream = _resolve_music(_context)
-		_music.volume_db = MUSIC_DB
-		if _started:
-			sync_music()
+	if _started and _music == null:
+		sync_music()
 
 
+# --- Sound effects ------------------------------------------------------------------
+
+## Plays a sound by id. Unknown ids, and every call while sound is off or
+## paused for an ad, are ignored.
 func play(id: String) -> void:
-	if not Game.meta.sfx_on or not _sfx.has(id):
+	if _paused or not Game.meta.sfx_on:
+		return
+	var stream: AudioStream = _sfx.get(id)
+	if stream == null:
+		if not _headless and OS.is_debug_build() and not _warned.has(id):
+			_warned[id] = true
+			push_warning("Sfx.play: unknown sound id '%s'" % id)
 		return
 	var now: int = Time.get_ticks_msec()
-	if now - int(_last_play.get(id, 0)) < 60:
+	if now - int(_last_play.get(id, -1000)) < 60:
 		return
 	_last_play[id] = now
-	var p: AudioStreamPlayer = _players[_next]
-	_next = (_next + 1) % _players.size()
-	p.stream = _sfx[id]
-	p.volume_db = SFX_DB + float(_sfx_db.get(id, 0.0))
-	p.pitch_scale = randf_range(0.97, 1.03) if id in ["click", "buy", "coin"] else 1.0
+	var p: AudioStreamPlayer
+	if id in CEREMONIAL:
+		p = _ceremony[0] if not _ceremony[0].playing else _ceremony[1]
+	else:
+		p = _players[_next]
+		_next = (_next + 1) % _players.size()
+	p.stream = stream
+	p.volume_db = float(_sfx_db[id])
+	p.pitch_scale = randf_range(0.97, 1.03) if id in VARIED_PITCH else 1.0
 	p.play()
 
+
+## True if `id` has a sound (a file or a synthesised fallback).
+func has_sound(id: String) -> bool:
+	return _sfx.has(id)
+
+
+## Silences everything while an ad plays: music pauses where it is, sound
+## effects stop, and play() is ignored until resume_all().
+func pause_all() -> void:
+	_paused = true
+	_gap.paused = true
+	for m: AudioStreamPlayer in _music_players:
+		m.stream_paused = true
+	for p: AudioStreamPlayer in _players + _ceremony:
+		p.stop()
+
+
+## Undoes pause_all(): music continues from where it was.
+func resume_all() -> void:
+	if not _paused:
+		return
+	_paused = false
+	_gap.paused = false
+	for m: AudioStreamPlayer in _music_players:
+		m.stream_paused = false
+	if _headless or not _started:
+		return
+	if not Game.meta.music_on:
+		_stop_music()
+	elif _music == null or String(_music.get_meta("context", "")) != _context:
+		# The context or the Music setting changed while paused.
+		if _music != null or _gap.is_stopped():
+			_switch_music()
+
+
+func is_paused() -> bool:
+	return _paused
+
+
+# --- Music --------------------------------------------------------------------------
 
 ## Starts or stops the music to match the Music setting.
 func sync_music() -> void:
 	_started = true
-	if _headless or _music.stream == null:
+	if _headless:
 		return
-	if Game.meta.music_on and not _music.playing:
-		_music.volume_db = MUSIC_DB
-		_music.play()
-	elif not Game.meta.music_on and _music.playing:
-		if _fade != null:
-			_fade.kill()
-		for m: AudioStreamPlayer in _music_players:
-			m.stop()
-		if _context in ONE_SHOT_MUSIC:
-			# Don't replay a one-shot from the top when music is switched back on.
-			_context = _return_context
-			_music.stream = _resolve_music(_context)
+	if not Game.meta.music_on:
+		_stop_music()
+		return
+	if _paused:
+		return
+	if _music == null and _gap.is_stopped():
+		_switch_music()
 
 
-## Switches the music to assets/audio/music/<id>.* with a crossfade, falling back
-## to the theme. One-shot contexts (ONE_SHOT_MUSIC) play once, then return to
-## whatever context was active before them.
+## Switches the music to the context `id` with a crossfade: assets/audio/music/
+## <id>.* (a playlist for PLAYLIST_MUSIC), falling back to the theme. A context
+## left earlier resumes where it was. One-shot contexts (ONE_SHOT_MUSIC) play
+## once, then return to whatever context was active before them.
 func set_music_context(id: String) -> void:
 	if _headless or id == _context:
 		return
 	if id in ONE_SHOT_MUSIC:
-		if _music_file(id) == null:
+		# A one-shot only makes sense heard; with music off it's skipped.
+		if _music_file(id) == null or not _started or not Game.meta.music_on:
 			return
 		if _context not in ONE_SHOT_MUSIC:
 			_return_context = _context
 	_context = id
-	var stream: AudioStream = _resolve_music(id)
-	if stream == null or stream == _music.stream:
-		return
-	if not _music.playing or not Game.meta.music_on:
-		if _fade != null:
-			_fade.kill()
-		for m: AudioStreamPlayer in _music_players:
-			m.stop()
-		_music.stream = stream
-		_music.volume_db = MUSIC_DB
-		if _started and Game.meta.music_on:
-			_music.volume_db = -80.0
-			_music.play()
-			_fade = create_tween()
-			_fade.tween_property(_music, "volume_db", MUSIC_DB, FADE_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-		return
-	# A one-shot (a fanfare) comes in at full volume; its opening matters.
-	_crossfade_to(stream, id in ONE_SHOT_MUSIC)
+	if _started and Game.meta.music_on and not _paused:
+		_switch_music()
 
 
 func music_context() -> String:
 	return _context
 
 
-func _crossfade_to(stream: AudioStream, instant_in: bool = false) -> void:
-	if _fade != null:
-		_fade.kill()
+## Crossfades from whatever is playing to the current context.
+func _switch_music() -> void:
+	_gap.stop()
 	var old: AudioStreamPlayer = _music
-	var nxt: AudioStreamPlayer = _music_players[1] if old == _music_players[0] else _music_players[0]
-	var old_gain: float = clampf(db_to_linear(old.volume_db - MUSIC_DB), 0.0, 1.0)
-	_music = nxt
-	nxt.stop()
-	nxt.stream = stream
-	nxt.volume_db = MUSIC_DB if instant_in else -80.0
-	nxt.play()
-	# Equal-power crossfade so the overall level doesn't dip mid-fade.
-	_fade = create_tween()
-	_fade.tween_method(func(f: float) -> void:
-		if not instant_in:
-			nxt.volume_db = MUSIC_DB + linear_to_db(maxf(sin(f * PI * 0.5), 0.0001))
-		old.volume_db = MUSIC_DB + linear_to_db(maxf(old_gain * cos(f * PI * 0.5), 0.0001)),
-		0.0, 1.0, FADE_SECONDS)
-	_fade.tween_callback(old.stop)
+	_music = null
+	if old != null:
+		_remember(old)
+		_fade_out(old, FADE_SECONDS)
+	var pick: Array = _pick(_context)
+	var stream: AudioStream = pick[0]
+	if stream == null:
+		return
+	# A one-shot (a fanfare) comes in at full volume; its opening matters. So
+	# does a playlist track starting from the top after silence.
+	var instant: bool = _context in ONE_SHOT_MUSIC or (old == null and float(pick[1]) == 0.0)
+	_music = _start_player(stream, float(pick[1]), instant)
 
 
-func _on_music_finished(player: AudioStreamPlayer) -> void:
-	if player == _music and _context in ONE_SHOT_MUSIC:
+## The stream to play for `context` and where to start it.
+func _pick(context: String) -> Array:
+	if _resume.has(context):
+		var r: Dictionary = _resume[context]
+		_resume.erase(context)
+		return [r["stream"], r["pos"]]
+	if context in PLAYLIST_MUSIC:
+		return [_next_track(context), 0.0]
+	return [_resolve_music(context), 0.0]
+
+
+func _remember(p: AudioStreamPlayer) -> void:
+	var context: String = p.get_meta("context", "")
+	if context == "" or context in ONE_SHOT_MUSIC or not p.playing:
+		return
+	_resume[context] = {"stream": p.stream, "pos": p.get_playback_position()}
+
+
+func _start_player(stream: AudioStream, pos: float, instant: bool) -> AudioStreamPlayer:
+	var p := AudioStreamPlayer.new()
+	p.set_meta("context", _context)
+	p.stream = stream
+	p.volume_db = MUSIC_DB if instant else -80.0
+	p.finished.connect(_on_music_finished.bind(p))
+	add_child(p)
+	_music_players.append(p)
+	p.play(pos)
+	if not instant:
+		# Equal-power fade so a crossfade doesn't dip in the middle.
+		_tween_gain(p, 0.0, 1.0, FADE_SECONDS, false)
+	return p
+
+
+## Fades `p` from its current level to silence, then frees it. Safe to call
+## on a player that's still fading in: it fades out from where it got to.
+func _fade_out(p: AudioStreamPlayer, seconds: float) -> void:
+	if not p.playing or p.stream_paused:
+		_free_player(p)
+		return
+	var g0: float = clampf(db_to_linear(p.volume_db - MUSIC_DB), 0.0, 1.0)
+	_tween_gain(p, g0, 0.0, seconds, true)
+
+
+func _tween_gain(p: AudioStreamPlayer, from: float, to: float, seconds: float, free_after: bool) -> void:
+	var old: Tween = (p.get_meta("tween") if p.has_meta("tween") else null)
+	if old != null:
+		old.kill()
+	var tw: Tween = create_tween()
+	p.set_meta("tween", tw)
+	var rising: bool = to > from
+	tw.tween_method(func(f: float) -> void:
+		var curve: float = sin(f * PI * 0.5) if rising else cos(f * PI * 0.5)
+		var g: float = to * curve if rising else from * curve
+		p.volume_db = MUSIC_DB + linear_to_db(maxf(g, 0.0001)),
+		0.0, 1.0, seconds)
+	if free_after:
+		tw.tween_callback(_on_faded_out.bind(p))
+
+
+func _on_faded_out(p: AudioStreamPlayer) -> void:
+	if is_instance_valid(p):
+		p.set_meta("tween", null)
+	_free_player(p)
+
+
+func _free_player(p: AudioStreamPlayer) -> void:
+	if not is_instance_valid(p):
+		return
+	var tw: Tween = (p.get_meta("tween") if p.has_meta("tween") else null)
+	if tw != null:
+		tw.kill()
+	_music_players.erase(p)
+	if p == _music:
+		_music = null
+	p.stop()
+	p.queue_free()
+
+
+## Stops all music (Music switched off), remembering where the context was.
+func _stop_music() -> void:
+	_gap.stop()
+	if _music != null:
+		_remember(_music)
+	for m: AudioStreamPlayer in _music_players.duplicate():
+		_fade_out(m, QUICK_FADE)
+	_music = null
+	if _context in ONE_SHOT_MUSIC:
+		# Don't replay a one-shot from the top when music is switched back on.
+		_context = _return_context
+
+
+func _on_music_finished(p: AudioStreamPlayer) -> void:
+	if p != _music:
+		_free_player(p)
+		return
+	if _context in ONE_SHOT_MUSIC:
 		set_music_context(_return_context)
+	elif _context in PLAYLIST_MUSIC:
+		_free_player(p)
+		_gap.start(randf_range(PLAYLIST_GAP.x, PLAYLIST_GAP.y))
+	else:
+		# Looping tracks don't finish; if a replacement file can't loop, restart it.
+		p.play()
+
+
+func _on_gap_timeout() -> void:
+	if _context in PLAYLIST_MUSIC and _music == null and _started and not _paused and Game.meta.music_on:
+		_switch_music()
+
+
+## Next track of a playlist context: a shuffled pass through all its tracks,
+## never the same track twice in a row.
+func _next_track(context: String) -> AudioStream:
+	var tracks: Array[String] = _playlist(context)
+	if tracks.is_empty():
+		return _resolve_music(context)
+	var bag: Array = _bag.get(context, [])
+	if bag.is_empty():
+		bag = tracks.duplicate()
+		bag.shuffle()
+		if bag.size() > 1 and bag[0] == _last_track.get(context, ""):
+			bag.push_back(bag.pop_front())
+	var id: String = bag.pop_front()
+	_bag[context] = bag
+	_last_track[context] = id
+	return _music_file(id)
+
+
+func _playlist(context: String) -> Array[String]:
+	var out: Array[String] = []
+	for i in range(1, PLAYLIST_MAX + 1):
+		var id: String = context if i == 1 else "%s_%d" % [context, i]
+		if _music_file(id) != null:
+			out.append(id)
+	return out
 
 
 func _music_file(id: String) -> AudioStream:
 	if not _music_files.has(id):
 		var s: AudioStream = _file_or(MUSIC_DIR, id, null)
-		var loop: bool = id not in ONE_SHOT_MUSIC
+		var loop: bool = id not in ONE_SHOT_MUSIC and _playlist_of(id) == ""
 		if s is AudioStreamOggVorbis:
 			(s as AudioStreamOggVorbis).loop = loop
 		elif s is AudioStreamMP3:
 			(s as AudioStreamMP3).loop = loop
-		elif s is AudioStreamWAV and loop:
+		elif s is AudioStreamWAV:
 			var w := s as AudioStreamWAV
-			if w.loop_mode == AudioStreamWAV.LOOP_DISABLED:
+			if loop and w.loop_mode == AudioStreamWAV.LOOP_DISABLED:
 				w.loop_mode = AudioStreamWAV.LOOP_FORWARD
 				w.loop_begin = 0
 				w.loop_end = int(w.get_length() * w.mix_rate)
+			elif not loop:
+				w.loop_mode = AudioStreamWAV.LOOP_DISABLED
 		_music_files[id] = s
 	return _music_files[id]
 
 
+## The playlist context a track id belongs to ("theme_3" -> "theme"), or "".
+func _playlist_of(id: String) -> String:
+	for context: String in PLAYLIST_MUSIC:
+		if id == context:
+			return context
+		if id.begins_with(context + "_") and id.substr(context.length() + 1).is_valid_int():
+			return context
+	return ""
+
+
 func _resolve_music(id: String) -> AudioStream:
 	var s: AudioStream = _music_file(id)
-	if s == null:
+	if s == null and id not in PLAYLIST_MUSIC:
 		s = _music_file("theme")
 	if s == null:
 		s = _synth_theme
@@ -211,24 +416,37 @@ func _file_or(dir: String, id: String, fallback: AudioStream) -> AudioStream:
 
 # --- Synthesis ----------------------------------------------------------------
 
-func _build_sfx() -> void:
-	var defs: Dictionary = {
-		"click": _tone([[1400.0, 0.025]], "square", 0.18),
-		"tab": _tone([[900.0, 0.03], [1350.0, 0.04]], "square", 0.16),
-		"buy": _tone([[1318.5, 0.05], [1975.5, 0.09]], "square", 0.22),
-		"coin": _tone([[1760.0, 0.04], [2637.0, 0.08]], "triangle", 0.3),
-		"deny": _tone([[180.0, 0.08], [140.0, 0.1]], "square", 0.2),
-		"ship": _bell(784.0, 0.9),
-		"found": _tone([[523.25, 0.1], [659.25, 0.1], [783.99, 0.1], [1046.5, 0.3]], "square", 0.22),
-		"father": _tone([[392.0, 0.12], [523.25, 0.12], [659.25, 0.12], [783.99, 0.35]], "triangle", 0.35),
-		"discover": _tone([[880.0, 0.06], [1108.7, 0.06], [1318.5, 0.14]], "triangle", 0.3),
-		"liberty": _bell(523.25, 2.2),
-		"fanfare": _tone([[392.0, 0.15], [392.0, 0.08], [523.25, 0.2], [659.25, 0.2], [783.99, 0.2], [659.25, 0.12], [783.99, 0.5]], "square", 0.22),
+## Loads every sound id: its file if there is one, otherwise a synthesised
+## fallback (only built for ids that have no file).
+func _load_sfx() -> void:
+	var synth: Dictionary = {
+		"click": func() -> AudioStream: return _tone([[1400.0, 0.025]], "square", 0.18),
+		"tab": func() -> AudioStream: return _tone([[900.0, 0.03], [1350.0, 0.04]], "square", 0.16),
+		"buy": func() -> AudioStream: return _tone([[1318.5, 0.05], [1975.5, 0.09]], "square", 0.22),
+		"coin": func() -> AudioStream: return _tone([[1760.0, 0.04], [2637.0, 0.08]], "triangle", 0.3),
+		"deny": func() -> AudioStream: return _tone([[180.0, 0.08], [140.0, 0.1]], "square", 0.2),
+		"market": func() -> AudioStream: return _bell(784.0, 0.9),
+		"found": func() -> AudioStream: return _tone([[523.25, 0.1], [659.25, 0.1], [783.99, 0.1], [1046.5, 0.3]], "square", 0.22),
+		"father": func() -> AudioStream: return _tone([[392.0, 0.12], [523.25, 0.12], [659.25, 0.12], [783.99, 0.35]], "triangle", 0.35),
+		"discover": func() -> AudioStream: return _tone([[880.0, 0.06], [1108.7, 0.06], [1318.5, 0.14]], "triangle", 0.3),
+		"milestone": func() -> AudioStream: return _tone([[1174.7, 0.06], [1480.0, 0.06], [1760.0, 0.06], [2349.3, 0.25]], "triangle", 0.28),
+		"relic": func() -> AudioStream: return _tone([[587.33, 0.05], [739.99, 0.05], [880.0, 0.05], [1174.7, 0.3]], "triangle", 0.3),
+		"research": func() -> AudioStream: return _tone([[587.33, 0.08], [880.0, 0.18]], "triangle", 0.28),
+		"charter": func() -> AudioStream: return _tone([[110.0, 0.05], [82.41, 0.12]], "square", 0.25),
+		"unlock": func() -> AudioStream: return _tone([[659.25, 0.06], [783.99, 0.06], [987.77, 0.06], [1318.5, 0.22]], "triangle", 0.3),
+		"consult": func() -> AudioStream: return _tone([[880.0, 0.05], [1174.7, 0.22]], "triangle", 0.25),
+		"liberty": func() -> AudioStream: return _bell(523.25, 2.2),
+		"fanfare": func() -> AudioStream: return _tone([[392.0, 0.15], [392.0, 0.08], [523.25, 0.2], [659.25, 0.2], [783.99, 0.2], [659.25, 0.12], [783.99, 0.5]], "square", 0.22),
+		"purchase": func() -> AudioStream: return _tone([[587.33, 0.1], [739.99, 0.1], [880.0, 0.1], [1174.7, 0.4]], "square", 0.2),
 	}
-	for id: String in defs.keys():
+	for id: String in synth.keys():
 		var file: AudioStream = _file_or(SFX_DIR, id, null)
-		_sfx[id] = file if file != null else defs[id]
-		_sfx_db[id] = FILE_SFX_DB if file != null else 0.0
+		if file != null:
+			_sfx[id] = file
+			_sfx_db[id] = SFX_DB + float(TRIM_DB.get(id, 0.0))
+		else:
+			_sfx[id] = (synth[id] as Callable).call()
+			_sfx_db[id] = SYNTH_DB + float(TRIM_DB.get(id, 0.0))
 
 
 func _wav(samples: PackedFloat32Array, loop: bool = false) -> AudioStreamWAV:

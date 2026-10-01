@@ -5,9 +5,18 @@ written out from the traditional tune and arranged here (harmony, instruments,
 form are original to this script). Nothing is sampled from recordings.
 
   theme         Yankee Doodle (trad., c. 1755-1775) + Soldier's Joy (trad. fiddle
-                reel, 18th c.) - recorder, fiddle, nylon guitar, soft hand drum.
+                reel, 18th c.) - recorder, fiddle, harpsichord, soft hand drum.
+  theme_2       Haste to the Wedding (jig, first printed 1767) - fiddle, recorder,
+                harpsichord, cello, hand drum.
+  theme_3       The White Cockade (Scottish march, 18th c.; fife tune of 1775) -
+                flute as fife, fiddle, harpsichord, cello, side drum.
+  theme_4       Lilliburlero (English, 1688, attrib. Henry Purcell) - harpsichord,
+                violin, recorder, strings, cello.
+                theme..theme_4 form the shuffled "theme" playlist; they end
+                rather than loop (the game puts silence between them).
   europe        Greensleeves (English, 16th c.) + Drunken Sailor (trad. sea song,
-                tune 18th c. or older) - accordion, fiddle, bass, soft drum.
+                tune 18th c. or older) - recorder, fiddle, harpsichord, cello,
+                soft drum.
   congress      Minuet in G (Christian Petzold, 1725) + Old Hundredth (Louis
                 Bourgeois, Genevan Psalter, 1551) - harpsichord and strings.
   independence  Yankee Doodle as a fife-and-drum march with a brass fanfare
@@ -20,7 +29,11 @@ Usage:
 
 Needs: mido, numpy, scipy (pip install mido numpy scipy), FluidSynth and ffmpeg
 (with libvorbis) on disk. Looping tracks wrap their reverb tail onto the start
-so the loop seam is seamless without a fade.
+so the loop seam is seamless without a fade. Every track is normalised to
+MUSIC_LUFS integrated loudness.
+
+Short stings (STINGS: fanfare, milestone, ...) are defined here too and are
+rendered into assets/audio/sfx by tools/music/sfx_tools.py.
 """
 
 from __future__ import annotations
@@ -35,9 +48,17 @@ import sys
 import mido
 import numpy as np
 from scipy.io import wavfile
+from scipy.signal import resample_poly
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import loudness  # noqa: E402
 
 TPB = 480
 SR = 44100
+# Every music file is normalised to this integrated loudness so tracks match
+# each other; the game plays them at Sfx.MUSIC_DB on top.
+MUSIC_LUFS = -16.0
+MUSIC_PEAK_DB = -1.5
 DRUMS = 9
 
 NOTE_PC = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
@@ -72,6 +93,84 @@ def parse(s: str) -> list[tuple[int | None, float]]:
 
 def length(notes) -> float:
 	return sum(d for _, d in notes)
+
+
+KEYS = {"D": {"F": 1, "C": 1}, "G": {"F": 1}, "C": {}, "Em": {"F": 1}, "A": {"F": 1, "C": 1, "G": 1}}
+
+
+def abc(s: str, key: str, unit: float = 0.5) -> list[tuple[int | None, float]]:
+	"""Reads the melody line of simple ABC notation (notes, z rests, ^ _ =
+	accidentals, , and ' octaves, lengths like 2 3 /2 3/2, broken rhythm > <,
+	(3 triplets; bar lines and repeat marks are ignored, so write repeats out).
+	`unit` is the length of one ABC unit note in quarter beats (L:1/8 -> 0.5).
+	C4 = 'C', C5 = 'c'."""
+	sig = KEYS[key]
+	out: list[list] = []
+	bar_acc: dict[tuple[str, int], int] = {}
+	broken = 0.0  # factor still owed to the next note by a > or <
+	trip = 0
+	i = 0
+	while i < len(s):
+		c = s[i]
+		if c in "|:!] \n":
+			if c == "|":
+				bar_acc = {}
+			i += 1
+			continue
+		if c == "(" and i + 1 < len(s) and s[i + 1].isdigit():
+			trip = int(s[i + 1])
+			i += 2
+			continue
+		if c in "><":
+			# a>b: a dotted, b halved; a<b the other way round.
+			first, second = (1.5, 0.5) if c == ">" else (0.5, 1.5)
+			out[-1][1] *= first
+			broken = second
+			i += 1
+			continue
+		acc = None
+		while c in "^_=":
+			acc = (acc or 0) + (1 if c == "^" else -1 if c == "_" else 0)
+			i += 1
+			c = s[i]
+		if c not in "ABCDEFGabcdefgz":
+			raise ValueError("abc: unexpected %r in %r" % (c, s))
+		i += 1
+		octave_shift = 0
+		while i < len(s) and s[i] in ",'":
+			octave_shift += -1 if s[i] == "," else 1
+			i += 1
+		num = ""
+		while i < len(s) and s[i].isdigit():
+			num += s[i]
+			i += 1
+		den = 1
+		if i < len(s) and s[i] == "/":
+			i += 1
+			d = ""
+			while i < len(s) and s[i].isdigit():
+				d += s[i]
+				i += 1
+			den = int(d) if d else 2
+		dur = unit * (int(num) if num else 1) / den
+		if trip:
+			dur *= 2.0 / 3.0
+			trip -= 1
+		if broken:
+			dur *= broken
+			broken = 0.0
+		if c == "z":
+			out.append([None, dur])
+			continue
+		letter = c.upper()
+		octave = 4 if c.isupper() else 5
+		octave += octave_shift
+		k = (letter, octave)
+		if acc is not None:
+			bar_acc[k] = acc
+		alter = bar_acc.get(k, sig.get(letter, 0))
+		out.append([NOTE_PC[letter] + alter + 12 * (octave + 1), dur])
+	return [(n, d) for n, d in out]
 
 
 # --- Chords ---------------------------------------------------------------------
@@ -312,7 +411,7 @@ def theme() -> tuple[Song, float, bool]:
 	REC, FID, GTR, FLU = 0, 1, 2, 3
 	s.channel(REC, 74, 96, 50, 60)   # recorder
 	s.channel(FID, 40, 92, 80, 60)   # violin (fiddle)
-	s.channel(GTR, 24, 100, 64, 45)  # nylon guitar
+	s.channel(GTR, 6, 92, 64, 45)    # harpsichord (continuo)
 	s.channel(FLU, 73, 84, 44, 60)   # flute
 	s.channel(DRUMS, 0, 84, 64, 30)
 
@@ -330,7 +429,7 @@ def theme() -> tuple[Song, float, bool]:
 			t += 2.0
 
 	t = 0.0
-	# Intro: guitar alone.
+	# Intro: harpsichord alone.
 	s.pattern(chord_spans("D:4 G:2 A:2", t), 2.0, guitar, GTR, 58)
 	t += 8
 	# Yankee Doodle: recorder, gently.
@@ -362,19 +461,25 @@ def theme() -> tuple[Song, float, bool]:
 	s.melody(SJ_A, t, REC, 60, 12)
 	s.melody(SJ_A, t, FID, 56)
 	t += 32
-	# Coda: settles back to the guitar vamp, ending on A to lead into the intro.
-	s.pattern(chord_spans("D:4 G:2 A:2", t), 2.0, guitar, GTR, 56)
-	s.melody("F#5:2 E5:2 D5:2 C#5:2", t, REC, 50)
+	# Coda: settles back to the harpsichord and closes on D (the theme is a
+	# playlist track now, followed by silence, so it ends rather than loops).
+	s.pattern(chord_spans("D:2 A:2", t), 2.0, guitar, GTR, 56)
+	s.melody("F#5:2 E5:1 C#5:1 D5:4", t, REC, 50)
+	for n in (38, 50, 57, 62, 66):
+		s.note(t + 4, 3.5, n, 54, GTR)
 	t += 8
-	return s, t, True
+	return s, t, False
 
 
 def europe() -> tuple[Song, float, bool]:
 	s = Song(96, 2)
-	ACC, FID, BAS = 0, 1, 2
-	s.channel(ACC, 21, 106, 52, 55)   # accordion
+	# Period band: harpsichord continuo with cello, recorder and fiddle leads
+	# (an earlier version used accordion and acoustic bass, both anachronistic).
+	ACC, FID, BAS, REC = 0, 1, 2, 3
+	s.channel(ACC, 6, 92, 52, 55)    # harpsichord (chords)
 	s.channel(FID, 40, 90, 78, 60)   # violin (fiddle)
-	s.channel(BAS, 32, 80, 64, 30)   # acoustic bass
+	s.channel(BAS, 42, 78, 64, 40)   # cello
+	s.channel(REC, 74, 96, 46, 60)   # recorder (lead where the accordion led)
 	s.channel(DRUMS, 0, 64, 64, 30)
 
 	six8_bass = [(0.0, "root", 1.3, 0, 40, 0, 0), (1.5, "fifth", 1.3, -8, 40, 0, 0)]
@@ -391,9 +496,9 @@ def europe() -> tuple[Song, float, bool]:
 		s.pattern(spans, 3.0, six8_acc, ACC, 46)
 		mel = GS_VERSE if verse else GS_CHORUS
 		if lead in ("acc", "both"):
-			s.melody(mel, t, ACC, 70)
+			s.melody(mel, t, REC, 70, 12)
 		if lead in ("fid", "both"):
-			s.melody(mel, t, FID, 70 if lead == "fid" else 60, 12 if lead == "both" else 0)
+			s.melody(mel, t, FID, 70 if lead == "fid" else 60)  # under the recorder in "both"
 		return t + 24
 
 	def ds(t: float, verse: bool, lead: str, drums: bool) -> float:
@@ -402,9 +507,9 @@ def europe() -> tuple[Song, float, bool]:
 		s.pattern(spans, 4.0, four_acc, ACC, 44)
 		mel = DS_VERSE if verse else DS_CHORUS
 		if lead in ("acc", "both"):
-			s.melody(mel, t, ACC, 70)
+			s.melody(mel, t, REC, 70, 12)
 		if lead in ("fid", "both"):
-			s.melody(mel, t, FID, 70 if lead == "fid" else 60, 12 if lead == "both" else 0)
+			s.melody(mel, t, FID, 70 if lead == "fid" else 60)  # under the recorder in "both"
 		if drums:
 			for b in range(8):
 				s.note(t + b * 4, 0.4, 45, 40, DRUMS)
@@ -416,7 +521,7 @@ def europe() -> tuple[Song, float, bool]:
 	# Intro bar of accompaniment; the melody's pickup falls on its last eighth.
 	s.pattern(chord_spans("Am:3", t), 3.0, six8_bass, BAS, 64)
 	s.pattern(chord_spans("Am:3", t), 3.0, six8_acc, ACC, 42)
-	s.melody("A4:.5", 2.5, ACC, 64)
+	s.melody("A4:.5", 2.5, REC, 64, 12)
 	t = 3.0
 	t = gs(t, True, "acc")
 	t = gs(t, False, "fid")
@@ -531,7 +636,298 @@ def independence() -> tuple[Song, float, bool]:
 	return s, t, False
 
 
-SONGS = {"theme": theme, "europe": europe, "congress": congress, "independence": independence}
+# --- Theme playlist: more period tunes ------------------------------------------
+# Written from the traditional tunes as commonly played (checked against
+# traditional session settings); arrangements are original to this script.
+
+# Haste to the Wedding (jig, England/Ireland, first printed 1767), D major, 6/8.
+HTW_A = "AFA Agf|ede fdB|AFA dAF|EFE EFG|AFA Agf|ede fdB|A2g faf|ded d3"
+HTW_B = "afa afa|bgb bgb|afa agf|ede efg|a3 f3|ede fdB|A2g faf|ded d3"
+HTW_A_CH = "D:3 A:1.5 Bm:1.5 D:3 A:3 D:3 A:1.5 Bm:1.5 A:1.5 D:1.5 D:3"
+HTW_B_CH = "D:3 G:3 D:3 A:3 D:3 A:1.5 Bm:1.5 A:1.5 D:1.5 D:3"
+
+# The White Cockade (Scottish march, 18th c.; a fife tune of the Revolutionary
+# War, played at Concord in 1775), G major, 4/4. Bars hold the pickup into the
+# next phrase; parts are entered after a one-beat pickup ("GA" or "Bc").
+WC_A = "B>GB>d c>BA>G|BGBd g2 GA|B>GB>d c>BA>G|FGAB A2 GA|B>GB>d c>BA>G|(3BGB (3ded g2 ga|bagf efge|d2 (3GAG G2"
+WC_B = "d2 B2 g2 Bc|dcde d2 Bc|d2 B2 g2 fg|a2 A2 A2 GA|B>GB>d c>BA>G|(3BGB (3ded g2 ga|bagf efge|d2 (3GAG G2"
+WC_A_CH = "G:2 D:2 G:4 G:2 D:2 D:4 G:2 D:2 G:4 G:2 Em:2 D:1 G:3"
+WC_B_CH = "G:4 D:2 G:2 G:4 D:4 G:2 D:2 G:4 G:2 Em:2 D:1 G:3"
+
+# Lilliburlero (English, 1688; the tune is attributed to Henry Purcell), G
+# major, here in its 6/8 form.
+LB_A = "GAG B2B|ABA c3|BdG c2B|AGF G2D|GAG B2B|ABA c3|BdG c2B|AGF G3"
+LB_B = "g2f g2d|de=f e2d|def gde|dcB A2d|edc Bcd|edc Bcd|egG c2B|AGF G3"
+LB_A_CH = "G:3 D:3 G:1.5 C:1.5 D:1.5 G:1.5 G:3 D:3 G:1.5 C:1.5 D:1.5 G:1.5"
+LB_B_CH = "G:3 Dm:1.5 C:1.5 D:1.5 G:1.5 G:1.5 D:1.5 C:1.5 G:1.5 C:1.5 G:1.5 Em:1.5 C:1.5 D:1.5 G:1.5"
+
+JIG_COMP = [(0.0, "root", 0.9, 0, 38, 0, 0), (1.0, "chord", 0.4, -12, 55, 67, 3),
+	(1.5, "fifth", 0.9, -8, 38, 0, 0), (2.5, "chord", 0.4, -14, 55, 67, 3)]
+JIG_CELLO = [(0.0, "root", 1.4, 0, 36, 0, 0), (1.5, "fifth", 1.4, -8, 36, 0, 0)]
+MARCH_COMP = [(0.0, "root", 0.9, 0, 38, 0, 0), (1.0, "chord", 0.45, -12, 55, 67, 3),
+	(2.0, "fifth", 0.9, -8, 38, 0, 0), (3.0, "chord", 0.45, -14, 55, 67, 3)]
+MARCH_CELLO = [(0.0, "root", 1.8, 0, 36, 0, 0), (2.0, "fifth", 1.8, -8, 36, 0, 0)]
+
+
+def _hand_drum(s: Song, t0: float, t1: float, bar: float, hits) -> None:
+	t = t0
+	while t < t1 - 1e-6:
+		for off, n, v in hits:
+			s.note(t + off, 0.25, n, v, DRUMS)
+		t += bar
+
+
+def theme_2() -> tuple[Song, float, bool]:
+	"""Haste to the Wedding: fiddle and recorder over harpsichord and cello."""
+	s = Song(120, 5)
+	FID, REC, HPS, CEL = 0, 1, 2, 3
+	s.channel(FID, 40, 92, 80, 60)   # violin (fiddle)
+	s.channel(REC, 74, 88, 48, 60)   # recorder
+	s.channel(HPS, 6, 90, 62, 45)    # harpsichord
+	s.channel(CEL, 42, 70, 70, 45)   # cello
+	s.channel(DRUMS, 0, 78, 64, 30)
+	jig_drum = [(0.0, 64, 30), (1.0, 63, 14), (1.5, 64, 20), (2.5, 63, 12)]
+
+	def part(t: float, which: str, lead: str, cello: bool, drum: bool) -> float:
+		mel, ch = (HTW_A, HTW_A_CH) if which == "A" else (HTW_B, HTW_B_CH)
+		spans = chord_spans(ch, t)
+		s.pattern(spans, 3.0, JIG_COMP, HPS, 60)
+		notes = abc(mel, "D")
+		if lead in ("fid", "both"):
+			s.melody(notes, t, FID, 72 if lead == "fid" else 64)
+		if lead in ("rec", "both"):
+			s.melody(notes, t, REC, 66 if lead == "rec" else 56, 12)
+		if cello:
+			s.pattern(spans, 3.0, JIG_CELLO, CEL, 50)
+		if drum:
+			_hand_drum(s, t, t + 24, 3.0, jig_drum)
+		return t + 24
+
+	t = 0.0
+	s.pattern(chord_spans("D:3 A:3", t), 3.0, JIG_COMP, HPS, 56)
+	t += 6
+	for which, lead, cello, drum in [("A", "fid", False, False), ("A", "fid", True, False),
+			("B", "rec", True, False), ("B", "both", True, True), ("A", "rec", True, True),
+			("A", "both", True, True), ("B", "fid", True, True), ("B", "both", True, True)]:
+		t = part(t, which, lead, cello, drum)
+	for n, ch, v in [(38, HPS, 60), (50, HPS, 54), (57, HPS, 50), (62, HPS, 50), (66, HPS, 48),
+			(74, FID, 62), (86, REC, 52), (38, CEL, 52)]:
+		s.note(t, 3.0, n, v, ch)
+	t += 3
+	return s, t, False
+
+
+def theme_3() -> tuple[Song, float, bool]:
+	"""The White Cockade: flute (fife) and fiddle march with harpsichord, cello
+	and a soft side drum."""
+	s = Song(100, 6)
+	FLU, FID, HPS, CEL = 0, 1, 2, 3
+	s.channel(FLU, 73, 86, 50, 55)   # flute, played like a fife
+	s.channel(FID, 40, 90, 78, 60)   # violin (fiddle)
+	s.channel(HPS, 6, 90, 62, 45)    # harpsichord
+	s.channel(CEL, 42, 70, 70, 45)   # cello
+	s.channel(DRUMS, 0, 70, 64, 30)
+	side_drum = [(0.0, 38, 30), (1.0, 38, 16), (1.5, 38, 12), (2.0, 38, 24), (3.0, 38, 16), (3.5, 38, 12)]
+
+	t = 0.0
+	s.pattern(chord_spans("G:4", t), 4.0, MARCH_COMP, HPS, 56)
+	parts = [("A", "fid", False, False), ("A", "both", True, False), ("B", "flu", True, True),
+		("B", "both", True, True), ("A", "fid", True, True), ("B", "both", True, True)]
+	t = 4.0
+	for which, lead, cello, drum in parts:
+		mel, ch = (WC_A, WC_A_CH) if which == "A" else (WC_B, WC_B_CH)
+		pickup = "GA" if which == "A" else "Bc"
+		notes = abc(pickup, "G") + abc(mel, "G")
+		spans = chord_spans(ch, t)
+		s.pattern(spans, 4.0, MARCH_COMP, HPS, 60)
+		if lead in ("fid", "both"):
+			s.melody(notes, t - 1, FID, 72 if lead == "fid" else 64)
+		if lead == "flu":
+			s.melody(notes, t - 1, FLU, 68)
+		if lead == "both":
+			s.melody(notes, t - 1, FLU, 54, 12)
+		if cello:
+			s.pattern(spans, 4.0, MARCH_CELLO, CEL, 50)
+		if drum:
+			_hand_drum(s, t, t + 32, 4.0, side_drum)
+		t += 32
+	for n, ch, v in [(43, HPS, 60), (55, HPS, 54), (59, HPS, 50), (62, HPS, 50), (67, HPS, 48),
+			(67, FID, 62), (79, FLU, 50), (43, CEL, 52)]:
+		s.note(t, 3.5, n, v, ch)
+	s.note(t, 0.3, 38, 34, DRUMS)
+	t += 4
+	return s, t, False
+
+
+def theme_4() -> tuple[Song, float, bool]:
+	"""Lilliburlero: harpsichord, violin and recorder with strings and cello."""
+	s = Song(108, 7)
+	HRH, HLH, STR, VLN, CEL, REC = 0, 1, 2, 3, 4, 5
+	s.channel(HRH, 6, 100, 58, 50)   # harpsichord, right hand
+	s.channel(HLH, 6, 84, 70, 50)    # harpsichord, left hand
+	s.channel(STR, 48, 62, 64, 70)   # string ensemble
+	s.channel(VLN, 40, 84, 46, 62)   # violin
+	s.channel(CEL, 42, 70, 84, 55)   # cello
+	s.channel(REC, 74, 84, 40, 60)   # recorder
+
+	def part(t: float, which: str, leads: tuple, full: bool) -> float:
+		mel, ch = (LB_A, LB_A_CH) if which == "A" else (LB_B, LB_B_CH)
+		spans = chord_spans(ch, t)
+		notes = abc(mel, "G")
+		s.pattern(spans, 3.0, JIG_COMP, HLH, 58)
+		if "hrh" in leads:
+			s.melody(notes, t, HRH, 70)
+		if "vln" in leads:
+			s.melody(notes, t, VLN, 66, legato=0.95)
+		if "rec" in leads:
+			s.melody(notes, t, REC, 60, 12)
+		if full:
+			s.pattern(spans, 3.0, JIG_CELLO, CEL, 50)
+			s.pad(spans, STR, 30, 55, 67)
+		return t + 24
+
+	t = 0.0
+	s.pattern(chord_spans("G:3", t), 3.0, JIG_COMP, HLH, 54)
+	t = 3.0
+	for which, leads, full in [("A", ("hrh",), False), ("A", ("vln", "hrh"), False), ("B", ("vln",), True),
+			("B", ("rec", "vln"), True), ("A", ("rec",), True), ("A", ("hrh", "vln"), True),
+			("B", ("hrh",), False), ("B", ("hrh", "vln", "rec"), True)]:
+		t = part(t, which, leads, full)
+	for n, ch, v in [(43, HLH, 58), (55, HLH, 52), (59, HLH, 50), (62, HLH, 50), (67, HRH, 62),
+			(67, VLN, 58), (79, REC, 48), (43, CEL, 52), (59, STR, 32), (62, STR, 32)]:
+		s.note(t, 3.0, n, v, ch)
+	t += 3
+	return s, t, False
+
+
+# --- Stings (short sound effects rendered like the music) ------------------------
+# Each returns (song, beats); tools/music/sfx_tools.py renders, trims and
+# loudness-normalises them into assets/audio/sfx.
+
+def _roll(s: Song, t: float, beats: float, v0: int, v1: int, note: int = 38, ch: int = DRUMS, rate: int = 8) -> None:
+	steps = int(beats * rate)
+	for i in range(steps):
+		s.note(t + i / rate, 1.0 / rate, note, int(v0 + (v1 - v0) * i / max(1, steps - 1)), ch)
+
+
+def sting_fanfare() -> tuple[Song, float]:
+	"""Royal Favor: two trumpets, horns, trombone, kettledrums and side drum."""
+	s = Song(120, 11)
+	TP1, TP2, HRN, TBN, TIM = 0, 1, 2, 3, 4
+	s.channel(TP1, 56, 104, 54, 40)  # trumpet
+	s.channel(TP2, 56, 92, 74, 40)   # trumpet 2
+	s.channel(HRN, 60, 88, 64, 50)   # horns
+	s.channel(TBN, 57, 84, 70, 45)   # trombone
+	s.channel(TIM, 47, 104, 64, 40)  # timpani
+	s.channel(DRUMS, 0, 92, 64, 30)
+	_roll(s, 0.0, 1.0, 26, 70)
+	s.melody("A4:.3333 A4:.3333 A4:.3334 D5:.5 F#5:.5 A5:2", 1.0, TP1, 92, legato=0.85, accent=False)
+	s.melody("F#4:.3333 F#4:.3333 F#4:.3334 A4:.5 D5:.5 F#5:2", 1.0, TP2, 80, legato=0.85, accent=False)
+	s.melody("r:1 D4:1 D4:2", 1.0, HRN, 80, accent=False)
+	s.melody("r:1 r:1 A3:2", 1.0, HRN, 74, accent=False)
+	s.melody("r:1 D3:1 D3:2", 1.0, TBN, 84, accent=False)
+	s.note(1.0, 0.4, 45, 84, TIM)
+	s.note(2.0, 0.4, 50, 92, TIM)
+	s.note(2.5, 0.3, 45, 76, TIM)
+	_roll(s, 3.0, 1.75, 50, 96, note=50, ch=TIM, rate=12)
+	s.note(1.0, 0.2, 38, 84, DRUMS)
+	s.note(2.0, 0.2, 38, 80, DRUMS)
+	s.note(2.5, 0.2, 38, 70, DRUMS)
+	_roll(s, 3.0, 1.75, 40, 84)
+	s.note(4.75, 0.3, 36, 100, DRUMS)
+	s.note(4.75, 0.3, 50, 110, TIM)
+	s.note(4.75, 0.2, 38, 100, DRUMS)
+	return s, 5.0
+
+
+def sting_milestone() -> tuple[Song, float]:
+	"""Short ascending chime: glockenspiel over a soft harp."""
+	s = Song(120, 12)
+	GLK, HRP = 0, 1
+	s.channel(GLK, 9, 96, 60, 55)
+	s.channel(HRP, 46, 80, 70, 55)
+	s.melody("D6:.25 F#6:.25 A6:.25 D7:1.5", 0.0, GLK, 84, legato=1.0, accent=False)
+	for n in (62, 66, 69):
+		s.note(0.75, 1.5, n, 58, HRP)
+	return s, 2.25
+
+
+def sting_relic() -> tuple[Song, float]:
+	"""Harp arpeggio that blooms into a chord, with a pizzicato button."""
+	s = Song(120, 13)
+	HRP, PIZ = 0, 1
+	s.channel(HRP, 46, 100, 58, 60)
+	s.channel(PIZ, 45, 84, 72, 55)
+	s.melody("D4:.125 F#4 A4 D5 F#5 A5 D6:2", 0.0, HRP, 80, legato=4.0, accent=False)
+	for n in (74, 78, 81):
+		s.note(0.875, 2.0, n, 66, HRP)
+	for n in (50, 57, 62, 66):
+		s.note(0.875, 0.5, n, 74, PIZ)
+	return s, 2.875
+
+
+def sting_unlock() -> tuple[Song, float]:
+	"""Flute run up to a held note over a pizzicato chord."""
+	s = Song(120, 14)
+	FLU, PIZ, HRP = 0, 1, 2
+	s.channel(FLU, 73, 100, 56, 55)
+	s.channel(PIZ, 45, 86, 74, 55)
+	s.channel(HRP, 46, 70, 64, 60)
+	s.melody("D5:.125 E5 F#5 G5 A5 D6:1.25", 0.0, FLU, 80, legato=1.0, accent=False)
+	for n in (50, 62, 66, 69):
+		s.note(0.625, 0.5, n, 76, PIZ)
+	for n in (74, 78, 81):
+		s.note(0.625, 1.25, n, 54, HRP)
+	return s, 1.875
+
+
+def sting_purchase() -> tuple[Song, float]:
+	"""Celebration: a peal of church bells over strings and kettledrums."""
+	s = Song(150, 15)
+	BEL, STR, TIM, HPS = 0, 1, 2, 3
+	s.channel(BEL, 14, 100, 64, 70)  # tubular bells
+	s.channel(STR, 48, 84, 64, 65)   # strings
+	s.channel(TIM, 47, 100, 64, 45)  # timpani
+	s.channel(HPS, 6, 80, 50, 50)    # harpsichord sparkle
+	s.melody("D6:.5 B5 A5 F#5 E5 D5:1.5", 0.0, BEL, 86, legato=3.0, accent=False)
+	s.melody("D5:.25 F#5 A5 D6 F#6:.5 D6:1.5", 0.0, HPS, 62, legato=1.5, accent=False)
+	for n in (50, 57, 62, 66, 69):
+		s.note(0.0, 4.0, n, 64, STR)
+	s.note(0.0, 0.5, 50, 96, TIM)
+	s.note(2.5, 0.5, 45, 84, TIM)
+	s.note(3.0, 0.5, 50, 100, TIM)
+	return s, 4.0
+
+
+def sting_consult_chime() -> tuple[Song, float]:
+	"""The soft chime laid over the page turn in consult.ogg."""
+	s = Song(120, 16)
+	s.channel(0, 9, 90, 64, 70)      # glockenspiel
+	s.melody("A5:.5 D6:1.5", 0.0, 0, 62, legato=1.5, accent=False)
+	return s, 2.0
+
+
+def sting_research_chime() -> tuple[Song, float]:
+	"""A quiet harpsichord figure laid over the page in research.ogg."""
+	s = Song(132, 17)
+	s.channel(0, 6, 96, 64, 55)      # harpsichord
+	s.melody("D5:.25 F#5 A5 D6:1", 0.0, 0, 70, legato=1.2, accent=False)
+	return s, 1.75
+
+
+STINGS = {
+	"fanfare": sting_fanfare,
+	"milestone": sting_milestone,
+	"relic": sting_relic,
+	"unlock": sting_unlock,
+	"purchase": sting_purchase,
+	"consult_chime": sting_consult_chime,
+	"research_chime": sting_research_chime,
+}
+
+
+SONGS = {"theme": theme, "theme_2": theme_2, "theme_3": theme_3, "theme_4": theme_4,
+	"europe": europe, "congress": congress, "independence": independence}
 
 
 # --- Rendering ------------------------------------------------------------------
@@ -575,9 +971,11 @@ def finish(wav_in: str, wav_out: str, beats: float, bpm: float, loop: bool) -> d
 		out = x[:end].copy()
 		f = min(int(0.6 * SR), len(out))
 		out[-f:] *= np.linspace(1, 0, f)[:, None]
-	rms = float(np.sqrt(np.mean(out ** 2)))
+	# Loudness-normalise to MUSIC_LUFS integrated (see assets/audio/README.md),
+	# never letting the peak above MUSIC_PEAK_DB.
+	lufs = loudness.integrated(resample_poly(out, 160, 147, axis=0))
 	peak = float(np.abs(out).max())
-	gain = min(10 ** (-19 / 20) / rms, 10 ** (-3 / 20) / peak)
+	gain = min(10 ** ((MUSIC_LUFS - lufs) / 20), 10 ** (MUSIC_PEAK_DB / 20) / peak)
 	out *= gain
 	wavfile.write(wav_out, SR, (np.clip(out, -1, 1) * 32767).astype(np.int16))
 	# Stats.
@@ -594,6 +992,7 @@ def finish(wav_in: str, wav_out: str, beats: float, bpm: float, loop: bool) -> d
 		"seconds": len(out) / SR,
 		"peak_db": db(float(np.abs(out).max())),
 		"rms_db": db(float(np.sqrt(np.mean(out ** 2)))),
+		"lufs": lufs + db(gain),
 		"longest_silence_s": best * 0.1,
 		"seam_jump": float(np.abs(out[-1] - out[0]).max()) if loop else None,
 		"seam_rms_db": (db(float(np.sqrt(np.mean(out[-half:] ** 2)))), db(float(np.sqrt(np.mean(out[:half] ** 2))))) if loop else None,
