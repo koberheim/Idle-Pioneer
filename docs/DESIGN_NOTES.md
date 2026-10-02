@@ -38,15 +38,32 @@ lives in `data/balance.json` or `data/content.json`.
 9. **Congress**: 16 Founding Fathers are offered each run (4 per tier) out of
    38, for gold plus kept goods.
 10. **Independence** at 2.5B gold earned and a Musket kept in the warehouse (the first one crafted is always set aside for the militia) pays Liberty
-    (`9.5 × sqrt(earned / 2.5B)`, boosted by some Fathers and Sweden).
+    (`15 × (earned / 2.5B)^0.3`, boosted by some Fathers and Sweden).
 11. **Liberty** buys compounding **Reforms** (Industry, Navigation,
-    Settlement, Commerce, Manufacture — ×1.12–1.15 per level, costs ×1.3 per level)
+    Settlement, Commerce, Manufacture — ×1.10–1.15 per level, costs ×1.35 per level, Settlement ×1.38)
     and **Governors**, a permanent roster posted to colonies.
 
 Smaller systems: **Colony Charters** (Township → Free City, paid in crafted
 goods, +50% production and cargo each), **drifting treasure** to tap, and
-**Royal Favor** (×2 production for 15 minutes every 2 hours, free — there is no
-monetization).
+**Royal Favor** (×2 production for 15 minutes every 2 hours, always free and
+never tied to ads).
+
+## Pacing
+
+Checked with the reset-loop bot (`tools/campaign/campaign_bot.gd`), which
+plays whole careers across expeditions on several map seeds. Founding costs
+grow ×(7 + 0.03n) per colony against ×3.3 colony value, and Liberty pays
+`(earned / goal)^0.3`. Together these keep the last colonies from becoming a
+luck-based wall while Reforms can't run away. Measured on 3 seeds:
+
+| | Colony 10 | Colony 15 | Colony 20 | Colony 25 |
+|---|---|---|---|---|
+| Nonstop play (active hours) | 2.3–2.6 h | 8.5–8.8 h | 20–22 h | 116–193 h |
+| 1 h on / 7 h off (days) | 0.3–0.7 | 2 | 4–6 | 18–26 |
+
+First independence takes about 2.5 hours of active play. Earlier tunings
+(step 0.12 and a square-root payout) reached 24 colonies in under a day of
+play and then walled at 25 for days to months depending on the seed.
 
 ## Rules the simulation keeps
 
