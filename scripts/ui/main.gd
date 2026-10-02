@@ -296,6 +296,9 @@ func _build_nav() -> Control:
 	return bar
 
 
+var _congress_ready: bool = false
+
+
 func _style_tabs() -> void:
 	for i in _tab_buttons.size():
 		var b: Button = _tab_buttons[i]
@@ -304,6 +307,9 @@ func _style_tabs() -> void:
 		for s: String in ["normal", "hover", "pressed", "hover_pressed"]:
 			b.add_theme_stylebox_override(s, UI.frame(style, 14, 6))
 		var col: Color = UI.INK if on else UI.LIGHT_SOFT
+		# Congress glows gold while independence can be declared.
+		if i == 3 and _congress_ready and not on:
+			col = UI.GOLD
 		for s: String in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color"]:
 			b.add_theme_color_override(s, col)
 
@@ -958,5 +964,7 @@ func _refresh() -> void:
 		_sheet.refresh()
 	# Flag tabs that have something to act on.
 	var ready: bool = Balance.independence_ready(run)
-	_tab_buttons[3].text = TAB_NAMES[3] + (" !" if ready else "")
+	if ready != _congress_ready:
+		_congress_ready = ready
+		_style_tabs()
 	_tab_buttons[4].visible = Balance.unlocked(Game.meta, "ledger")
