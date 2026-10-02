@@ -114,8 +114,8 @@ func test_independence_ceremony_ends_the_run() -> void:
 	overlay.call("_on_sign")
 	await wait_process_frames(2)
 	assert_null(Game.run)
-	# Swedish bonus: liberty_base * sqrt(9) * 1.15
-	var expected: int = int(floor(Balance.v("liberty_base") * 3.0 * 1.15))
+	# Swedish bonus: liberty_base * 9^exponent * 1.15
+	var expected: int = int(floor(Balance.v("liberty_base") * pow(9.0, Balance.v("liberty_exponent")) * 1.15))
 	assert_eq(Game.meta.liberty, expected)
 	var saved: Dictionary = SaveIO.read(Game.save_path)
 	assert_true((saved.get("run", {}) as Dictionary).is_empty())
@@ -123,6 +123,52 @@ func test_independence_ceremony_ends_the_run() -> void:
 	overlay.emit_signal("finished")
 	await wait_process_frames(2)
 	assert_not_null(main.get("_nation_select"))
+
+
+func test_player_signs_the_declaration_and_the_ledger_keeps_it() -> void:
+	Game.run = RunState.create("dutch", WorldMap.STYLE_NORTH_AMERICA, 4)
+	Game.run.lifetime_gold = Balance.v("independence_gold") * 4.0
+	Game.run.warehouse["muskets"] = 1.0
+	Game.running = true
+	Game.save()
+	await _boot()
+	main.call("_show_independence")
+	await wait_process_frames(2)
+	var overlay: IndependenceOverlay = null
+	for c: Node in (main.get("_overlay") as Node).get_children():
+		if c is IndependenceOverlay:
+			overlay = c
+	assert_not_null(overlay)
+	var pad: Control = overlay.get("_signature")
+	# A short stroke drawn with the finger (touch arrives as mouse events).
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = Vector2(60, 100)
+	overlay.call("_on_pad_input", press)
+	for i in 10:
+		var m := InputEventMouseMotion.new()
+		m.position = Vector2(70 + i * 12, 100 + (i % 2) * 15)
+		overlay.call("_on_pad_input", m)
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	overlay.call("_on_pad_input", release)
+	assert_gt(pad.size.x, 0.0)
+	overlay.call("_on_sign")
+	await wait_process_frames(2)
+	assert_null(Game.run)
+	assert_eq(Game.meta.signatures.size(), 1)
+	var sig: Dictionary = Game.meta.signatures[0]
+	assert_eq(sig["nation"], "dutch")
+	assert_eq((sig["strokes"] as Array).size(), 1)
+	assert_eq(((sig["strokes"] as Array)[0] as Array).size(), 22)
+	# Drawing after signing does nothing.
+	overlay.call("_on_pad_input", press)
+	assert_eq((overlay.get("_ink") as Array).size(), 1)
+	# It survives a save round trip.
+	var saved: Dictionary = SaveIO.read(Game.save_path)
+	assert_eq((saved["meta"]["signatures"] as Array).size(), 1)
 
 
 func test_congress_shows_every_offered_figure() -> void:

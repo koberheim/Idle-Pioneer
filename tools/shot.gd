@@ -340,6 +340,11 @@ func _stage_store() -> void:
 			await _frames(5)
 			main.call("_show_independence")
 			await _frames(int(_arg("wait", "200")))
+			if _arg("hand", "0") == "1":
+				for o: Node in main.get("_overlay").get_children():
+					if o is IndependenceOverlay:
+						_hand_sign(o)
+				await _frames(5)
 			if _arg("sign", "1") == "1":
 				# The quill touches the page: signature, seal and the Liberty earned.
 				for o: Node in main.get("_overlay").get_children():
@@ -357,6 +362,14 @@ func _stage_store() -> void:
 				rs.call("_show_branch", br)
 				await _frames(5)
 		"store_ledger":
+			for k in int(_arg("sigs", "0")):
+				var flat: Array = []
+				for i in 120:
+					var t: float = float(i) / 119.0
+					var a: float = t * TAU * (5.0 + k)
+					flat.append(roundi(80 + t * 760 + sin(a) * 30))
+					flat.append(roundi(600 - (0.5 - 0.5 * cos(a)) * 300 * (1.0 - t * 0.4)))
+				Game.meta.add_signature({"n": k + 1, "nation": "english", "liberty": 40 * (k + 1), "aspect": 4.0, "strokes": [flat, [100, 820, 500, 760, 880, 800]]})
 			main.call("_select_tab", 4)
 			await _frames(10)
 			var lp: Page = main.get("_pages")[4]
@@ -365,6 +378,47 @@ func _stage_store() -> void:
 			pass
 	await _frames(int(_arg("settle", "0")))
 
+
+
+## Signs the Declaration the way a finger would: a looping cursive hand and
+## an underline flourish, fed through the overlay's own input handler.
+func _hand_sign(o: IndependenceOverlay) -> void:
+	var pad: Control = o.get("_signature")
+	var w: float = pad.size.x
+	var base := Vector2(60, 108)
+	var strokes: Array = []
+	# Capital loop, then a run of joined loops shrinking to the right.
+	var s1 := PackedVector2Array()
+	for i in 90:
+		var t: float = float(i) / 89.0
+		var a: float = t * TAU * 1.3
+		s1.append(base + Vector2(t * 40.0 + sin(a) * 16.0, -40.0 * sin(t * PI) - cos(a) * 14.0 + 10.0))
+	strokes.append(s1)
+	var s2 := PackedVector2Array()
+	for i in 160:
+		var t: float = float(i) / 159.0
+		var a: float = t * TAU * 6.0
+		var amp: float = 16.0 * (1.0 - t * 0.45)
+		s2.append(base + Vector2(54.0 + t * w * 0.42 + sin(a) * 7.0, -amp * (0.5 - 0.5 * cos(a)) + t * 4.0))
+	strokes.append(s2)
+	var s3 := PackedVector2Array()
+	for i in 50:
+		var t: float = float(i) / 49.0
+		s3.append(base + Vector2(10.0 + t * w * 0.5, 16.0 - sin(t * PI) * 8.0 + t * 2.0))
+	strokes.append(s3)
+	for s: PackedVector2Array in strokes:
+		var press := InputEventMouseButton.new()
+		press.button_index = MOUSE_BUTTON_LEFT
+		press.pressed = true
+		press.position = s[0]
+		o.call("_on_pad_input", press)
+		for p: Vector2 in s:
+			var m := InputEventMouseMotion.new()
+			m.position = p
+			o.call("_on_pad_input", m)
+		var up := InputEventMouseButton.new()
+		up.button_index = MOUSE_BUTTON_LEFT
+		o.call("_on_pad_input", up)
 
 
 func _frames(n: int) -> void:

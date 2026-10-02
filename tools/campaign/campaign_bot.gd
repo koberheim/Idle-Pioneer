@@ -31,7 +31,7 @@
 ##   What-ifs (in memory only, data files untouched):
 ##   bal.<key>=v             override a balance.json number, e.g. bal.liberty_base=10
 ##   reform.<id|*>.<field>=v override a reform field, e.g. reform.*.growth=1.6
-##   liberty_exp=0.5         exponent in the Liberty payout (simulates a code change)
+##   liberty_exp=v           same as bal.liberty_exponent=v
 ## Output lines: "COL" (new colony record), "EXP" (one per declaration),
 ## "MILESTONE", and a final "SUMMARY". Every number comes from data/*.json via
 ## Balance/Content, so the bot follows whatever retune is in the data files.
@@ -62,7 +62,6 @@ var charter_max: int = 2
 var verbose: bool = false
 ## Exponent on (gold earned / gate) in the Liberty payout; 0.5 is the game's
 ## sqrt. Other values simulate a code change to Balance.liberty_payout.
-var liberty_exp: float = 0.5
 
 # Campaign clocks (seconds).
 var wall: float = 0.0
@@ -124,7 +123,7 @@ func _ready() -> void:
 			"ads": use_ads = kv[1] != "0"
 			"charter_max": charter_max = int(kv[1])
 			"verbose": verbose = kv[1] == "1"
-			"liberty_exp": liberty_exp = float(kv[1])
+			"liberty_exp": Balance.k["liberty_exponent"] = float(kv[1])
 			_:
 				# What-if overrides, in memory only (the data files are untouched):
 				#   bal.<balance.json key>=value
@@ -142,9 +141,9 @@ func _ready() -> void:
 		max_wall = max_days * 86400.0
 	rng.seed = hash(["campaign", seed_value])
 	meta = MetaState.new()
-	print("CAMPAIGN pattern=%s seed=%d on=%.1f off=%.1f policy=%s frac=%.2f run_max=%.1f treasure=%.2f ads=%s liberty_base=%s growth=%s" % [
+	print("CAMPAIGN pattern=%s seed=%d on=%.1f off=%.1f policy=%s frac=%.2f run_max=%.1f treasure=%.2f ads=%s liberty_base=%s liberty_exp=%s growth=%s" % [
 		pattern, seed_value, on_hours, off_hours, policy, frac, run_max, treasure_catch, str(use_ads),
-		str(Balance.v("liberty_base")), str(Content.liberty_upgrade("industry")["growth"])])
+		str(Balance.v("liberty_base")), str(Balance.v("liberty_exponent")), str(Content.liberty_upgrade("industry")["growth"])])
 	print("EXP  #  | exp act h | exp wall h | cum act h | cum wall d | cols | gate@h | liberty | reforms | govs | relics | studies | fathers | skips pages")
 	_start_expedition()
 	if pattern == "casual":
@@ -319,7 +318,7 @@ func _read_pages() -> void:
 
 ## Liberty_payout without the gate or the rounding, so its rate is smooth.
 func _raw_liberty() -> float:
-	return Balance.v("liberty_base") * pow(run.lifetime_gold / Balance.v("independence_gold"), liberty_exp) \
+	return Balance.v("liberty_base") * pow(run.lifetime_gold / Balance.v("independence_gold"), Balance.v("liberty_exponent")) \
 		* Balance.nation_bonus(run, "liberty") * Balance.bonus(run, meta, "liberty") * Balance.research_mult(run, "liberty")
 
 
@@ -359,8 +358,6 @@ func _should_declare() -> bool:
 
 func _declare() -> void:
 	var liberty: int = Balance.liberty_payout(run, meta)
-	if liberty_exp != 0.5:
-		liberty = int(floor(minf(_raw_liberty(), 9.0e18)))
 	var extra_relics: int = int(Balance.research_add(run, "extra_relic"))
 	meta.liberty += liberty
 	meta.lifetime_liberty += liberty

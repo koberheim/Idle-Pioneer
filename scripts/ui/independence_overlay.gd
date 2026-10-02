@@ -1,5 +1,6 @@
-## The emotional peak of a run: the Declaration is read, signed with a quill,
-## and sealed - then the run ends and Liberty is paid out.
+## The emotional peak of a run: the Declaration is read, signed by the
+## player's own hand (or with a flourish of the quill if they just press
+## Sign), and sealed - then the run ends and Liberty is paid out.
 class_name IndependenceOverlay
 extends Control
 
@@ -25,6 +26,16 @@ var _stroke: float = 0.0
 var _seal_scale: float = 0.0
 var _liberty: int = 0
 var _done: bool = false
+var _nation_id: String = ""
+# The player's own signature, in pad pixels; one PackedVector2Array per stroke.
+var _ink: Array[PackedVector2Array] = []
+var _ink_points: int = 0
+var _drawing: bool = false
+var _signing: bool = false
+var _hint: Label
+var _clear_btn: Button
+
+const LINE_Y := 120.0
 
 
 func _enter_tree() -> void:
@@ -64,6 +75,7 @@ func _ready() -> void:
 	v.add_child(t)
 
 	var run: RunState = Game.run
+	_nation_id = run.nation_id
 	var n: Dictionary = Content.nation(run.nation_id)
 	var first: String = Content.colony_name(run.nation_id, 0)
 	var last_idx: int = maxi(run.founded_count() - 1, 0)
@@ -84,14 +96,38 @@ func _ready() -> void:
 	v.add_child(keep)
 
 	var sig_row := Control.new()
-	sig_row.custom_minimum_size = Vector2(0, 120)
+	sig_row.custom_minimum_size = Vector2(0, 150)
 	v.add_child(sig_row)
 	_signature = Control.new()
 	_signature.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_signature.mouse_filter = Control.MOUSE_FILTER_STOP
+	_signature.mouse_default_cursor_shape = Control.CURSOR_CROSS
 	_signature.draw.connect(_draw_signature)
+	_signature.gui_input.connect(_on_pad_input)
 	sig_row.add_child(_signature)
+	_hint = UI.label("Sign here", UI.SIZE_SMALL, UI.INK_SOFT)
+	_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hint.position = Vector2(48, LINE_Y - 34)
+	sig_row.add_child(_hint)
+	_clear_btn = UI.button("Clear", "button", 56)
+	_clear_btn.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
+	_clear_btn.custom_minimum_size.x = 110
+	_clear_btn.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	_clear_btn.offset_left = -110
+	_clear_btn.offset_top = 8
+	_clear_btn.offset_bottom = 64
+	_clear_btn.visible = false
+	_clear_btn.pressed.connect(func() -> void:
+		Sfx.play("click")
+		_ink.clear()
+		_ink_points = 0
+		_clear_btn.visible = false
+		_hint.visible = true
+		_signature.queue_redraw())
+	sig_row.add_child(_clear_btn)
 	_seal = Control.new()
 	_seal.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_seal.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_seal.draw.connect(_draw_seal)
 	sig_row.add_child(_seal)
 
@@ -142,15 +178,25 @@ func _on_sign() -> void:
 			_result.add_theme_color_override("font_color", UI.RED)
 			Sfx.play("deny")
 			return
+	_signing = true
+	_drawing = false
+	if not _ink.is_empty():
+		Game.record_signature(_normalized_ink(), _signature.size.x / maxf(_signature.size.y, 1.0), _nation_id, _liberty)
 	signed.emit()
 	_sign_btn.disabled = true
 	_cancel_btn.visible = false
+	_clear_btn.visible = false
+	_hint.visible = false
 	_text.visible_ratio = 1.0
 	Sfx.play("click")
 	var tw := create_tween()
-	tw.tween_method(func(f: float) -> void:
-		_stroke = f
-		_signature.queue_redraw(), 0.0, 1.0, 1.6)
+	if _ink.is_empty():
+		# No hand of their own: the quill signs with a flourish.
+		tw.tween_method(func(f: float) -> void:
+			_stroke = f
+			_signature.queue_redraw(), 0.0, 1.0, 1.6)
+	else:
+		tw.tween_interval(0.25)
 	tw.tween_callback(func() -> void: Sfx.play("liberty"))
 	tw.tween_method(func(f: float) -> void:
 		_seal_scale = f
@@ -164,10 +210,62 @@ func _on_sign() -> void:
 		_sign_btn.text = "Begin a new frontier")
 
 
+## Signing with a finger (touch arrives as emulated mouse input) or a mouse.
+func _on_pad_input(event: InputEvent) -> void:
+	if _signing:
+		return
+	var r := Rect2(Vector2.ZERO, _signature.size)
+	if event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+		var mb: InputEventMouseButton = event
+		_drawing = mb.pressed and _ink_points < MetaState.SIGNATURE_POINTS
+		if _drawing:
+			_ink.append(PackedVector2Array([_clamp_to(r, mb.position)]))
+			_ink_points += 1
+			_hint.visible = false
+			_clear_btn.visible = true
+			_signature.queue_redraw()
+		_signature.accept_event()
+	elif event is InputEventMouseMotion and _drawing:
+		var p: Vector2 = _clamp_to(r, (event as InputEventMouseMotion).position)
+		var stroke: PackedVector2Array = _ink[-1]
+		if stroke[-1].distance_to(p) < 3.0:
+			return
+		if _ink_points >= MetaState.SIGNATURE_POINTS:
+			_drawing = false
+			return
+		stroke.append(p)
+		_ink[-1] = stroke
+		_ink_points += 1
+		_signature.queue_redraw()
+		_signature.accept_event()
+
+
+func _clamp_to(r: Rect2, p: Vector2) -> Vector2:
+	return Vector2(clampf(p.x, 0.0, r.size.x), clampf(p.y, 0.0, r.size.y))
+
+
+## The signature in 0..1000 pad units, as MetaState keeps it.
+func _normalized_ink() -> Array:
+	var out: Array = []
+	var s: Vector2 = Vector2(maxf(_signature.size.x, 1.0), maxf(_signature.size.y, 1.0))
+	for stroke: PackedVector2Array in _ink:
+		var flat: Array = []
+		for p: Vector2 in stroke:
+			flat.append(roundi(p.x / s.x * SignatureView.SCALE))
+			flat.append(roundi(p.y / s.y * SignatureView.SCALE))
+		out.append(flat)
+	return out
+
+
 func _draw_signature() -> void:
 	var w: float = _signature.size.x
-	var base_y: float = 84.0
-	_signature.draw_line(Vector2(40, base_y + 12), Vector2(w * 0.62, base_y + 12), Color(0.35, 0.25, 0.18), 2.0)
+	var base_y: float = LINE_Y - 12.0
+	_signature.draw_line(Vector2(40, base_y + 12), Vector2(w * 0.7, base_y + 12), Color(0.35, 0.25, 0.18), 2.0)
+	for stroke: PackedVector2Array in _ink:
+		if stroke.size() == 1:
+			_signature.draw_circle(stroke[0], 1.6, SignatureView.INK)
+		else:
+			_signature.draw_polyline(stroke, SignatureView.INK, 3.0, true)
 	if _stroke <= 0.0:
 		return
 	var pts := PackedVector2Array()
@@ -184,7 +282,7 @@ func _draw_signature() -> void:
 func _draw_seal() -> void:
 	if _seal_scale <= 0.0:
 		return
-	var c := Vector2(_seal.size.x * 0.8, 60.0)
+	var c := Vector2(_seal.size.x * 0.84, 72.0)
 	var r: float = 44.0 * _seal_scale
 	_seal.draw_circle(c, r * 1.08, Color(0.45, 0.08, 0.06))
 	_seal.draw_circle(c, r, Color(0.7, 0.14, 0.1))

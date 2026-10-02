@@ -42,6 +42,12 @@ var notation: String = "standard"
 var ad_skip_ready_unix: float = 0.0
 ## When the last between-expeditions ad was shown.
 var last_interstitial_unix: float = 0.0
+## The player's signatures on past Declarations, kept as keepsakes:
+## {n: declaration number, nation, liberty, aspect, strokes: [[x, y, ...]]}.
+var signatures: Array[Dictionary] = []
+
+const SIGNATURES_KEPT := 6
+const SIGNATURE_POINTS := 400
 
 
 func governor(governor_id: int) -> Dictionary:
@@ -84,6 +90,7 @@ func to_dict() -> Dictionary:
 		"relics": relics.duplicate(), "almanacs": almanacs, "best_colonies": best_colonies,
 		"record_relics_claimed": record_relics_claimed.duplicate(), "record_almanac_claimed": record_almanac_claimed,
 		"stats": stats.duplicate(), "max_seen_unix": max_seen_unix, "lite_map": lite_map, "large_ui": large_ui, "notation": notation, "ad_skip_ready_unix": ad_skip_ready_unix, "last_interstitial_unix": last_interstitial_unix,
+		"signatures": signatures.duplicate(true),
 	}
 
 
@@ -126,4 +133,43 @@ static func from_dict(d: Dictionary) -> MetaState:
 	m.last_interstitial_unix = float(d.get("last_interstitial_unix", 0.0))
 	for k: String in (d.get("stats", {}) as Dictionary).keys():
 		m.stats[k] = float(d["stats"][k])
+	for v: Variant in d.get("signatures", []):
+		if v is Dictionary:
+			var sig: Dictionary = clean_signature(v)
+			if not sig.is_empty():
+				m.signatures.append(sig)
 	return m
+
+
+## A signature as it may be stored: coordinates clamped to the pad, at most
+## SIGNATURE_POINTS points. Empty if nothing usable is left.
+static func clean_signature(d: Dictionary) -> Dictionary:
+	var strokes: Array = []
+	var budget: int = SIGNATURE_POINTS
+	for s: Variant in d.get("strokes", []):
+		if not s is Array or budget <= 0:
+			continue
+		var flat: Array = []
+		var raw: Array = s
+		for i in range(0, raw.size() - 1, 2):
+			if budget <= 0:
+				break
+			flat.append(clampi(int(raw[i]), 0, 1000))
+			flat.append(clampi(int(raw[i + 1]), 0, 1000))
+			budget -= 1
+		if not flat.is_empty():
+			strokes.append(flat)
+	if strokes.is_empty():
+		return {}
+	return {"n": int(d.get("n", 0)), "nation": str(d.get("nation", "")), "liberty": int(d.get("liberty", 0)),
+		"aspect": clampf(float(d.get("aspect", 4.0)), 1.0, 10.0), "strokes": strokes}
+
+
+## Keeps a new signature: the very first one ever, and the latest few.
+func add_signature(sig: Dictionary) -> void:
+	sig = clean_signature(sig)
+	if sig.is_empty():
+		return
+	signatures.append(sig)
+	while signatures.size() > SIGNATURES_KEPT:
+		signatures.remove_at(1)

@@ -606,7 +606,7 @@ func militia_reserve(run: RunState, resource_id: String) -> float:
 func liberty_payout(run: RunState, meta: MetaState = null) -> int:
 	if run.lifetime_gold < v("independence_gold"):
 		return 0
-	var raw: float = v("liberty_base") * sqrt(run.lifetime_gold / v("independence_gold"))
+	var raw: float = v("liberty_base") * pow(run.lifetime_gold / v("independence_gold"), v("liberty_exponent"))
 	raw *= nation_bonus(run, "liberty") * bonus(run, _meta_or_game(meta), "liberty") * research_mult(run, "liberty")
 	return int(floor(minf(raw, 9.0e18)))
 

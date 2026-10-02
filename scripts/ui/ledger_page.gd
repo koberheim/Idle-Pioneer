@@ -12,6 +12,9 @@ var _relic_buttons: Dictionary = {}  # relic id -> Button
 var _set_labels: Dictionary = {}  # set id -> Label
 var _stat_values: Array = []  # [Label, Callable]
 var _relic_key: String = ""
+var _sig_head: Control
+var _sig_box: VBoxContainer
+var _sig_key: String = ""
 
 
 func _build_header(box: VBoxContainer) -> void:
@@ -42,6 +45,7 @@ func _build_header(box: VBoxContainer) -> void:
 func _ready() -> void:
 	super._ready()
 	_build_relics()
+	_build_signatures()
 	_build_stats()
 	refresh()
 
@@ -125,6 +129,39 @@ func _show_relic(id: String) -> void:
 	m.add_text(str(r["desc"]), UI.SIZE_BODY, UI.GREEN)
 	m.add_button("Close", "button_gold")
 	modal_requested.emit(m)
+
+
+# --- Signatures ---------------------------------------------------------------------
+
+func _build_signatures() -> void:
+	_sig_head = section("Your Signatures")
+	list.add_child(_sig_head)
+	_sig_box = UI.vbox(10)
+	list.add_child(_sig_box)
+
+
+func _refresh_signatures() -> void:
+	var sigs: Array[Dictionary] = Game.meta.signatures
+	var key: String = "%d:%d" % [sigs.size(), int(sigs[-1]["n"]) if not sigs.is_empty() else 0]
+	if key == _sig_key:
+		return
+	_sig_key = key
+	_sig_head.visible = not sigs.is_empty()
+	for c: Node in _sig_box.get_children():
+		c.queue_free()
+	# Newest first; the very first Declaration is always kept at the end.
+	for i in range(sigs.size() - 1, -1, -1):
+		var sig: Dictionary = sigs[i]
+		var card := UI.card("card")
+		var v := UI.vbox(2)
+		card.add_child(v)
+		var nation: String = str(Content.nation(str(sig["nation"])).get("name", ""))
+		var cap: String = "Declaration %d%s  ·  +%s Liberty" % [int(sig["n"]), ("  ·  " + nation) if nation != "" else "", Format.num(float(sig["liberty"]))]
+		v.add_child(UI.wrap_label(cap, UI.SIZE_SMALL, UI.INK_SOFT))
+		var view := SignatureView.new(sig["strokes"], float(sig["aspect"]))
+		view.custom_minimum_size = Vector2(0, 110)
+		v.add_child(view)
+		_sig_box.add_child(card)
 
 
 # --- Statistics ---------------------------------------------------------------------
@@ -233,6 +270,7 @@ func refresh() -> void:
 		Format.duration(Balance.v("almanac_seconds"))]
 	_almanac_button.disabled = pages <= 0 or run == null
 	_refresh_relics()
+	_refresh_signatures()
 	for entry: Array in _stat_values:
 		var l: Label = entry[0]
 		var t: String = "-"

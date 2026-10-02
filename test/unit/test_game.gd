@@ -130,7 +130,7 @@ func test_declaring_independence_wipes_run_and_keeps_meta() -> void:
 	Game.run.warehouse["muskets"] = 1.0
 	Game.meta.upgrades["industry"] = 2
 	var paid: int = Game.declare_independence()
-	assert_eq(paid, int(floor(Balance.v("liberty_base") * 2.0)))
+	assert_eq(paid, int(floor(Balance.v("liberty_base") * pow(4.0, Balance.v("liberty_exponent")))))
 	assert_null(Game.run)
 	assert_eq(Game.meta.liberty, paid)
 	assert_eq(Game.meta.runs_completed, 1)
@@ -318,3 +318,23 @@ func test_import_rejects_broken_codes_and_keeps_the_current_save() -> void:
 	assert_eq(FileAccess.get_file_as_string(Game.save_path), before)
 	# A real code round-trips.
 	assert_true(Game.import_code(Game.export_code()))
+
+
+func test_signatures_keep_the_first_and_the_latest_and_are_cleaned() -> void:
+	var m := MetaState.new()
+	for i in 10:
+		m.add_signature({"n": i + 1, "nation": "english", "liberty": 5, "aspect": 4.0, "strokes": [[10, 20, 30, 40]]})
+	assert_eq(m.signatures.size(), MetaState.SIGNATURES_KEPT)
+	assert_eq(int(m.signatures[0]["n"]), 1, "the first Declaration is kept")
+	assert_eq(int(m.signatures[-1]["n"]), 10)
+	# Junk from an edited save code is clamped, capped or dropped.
+	var long: Array = []
+	for i in 1000:
+		long.append(5000)
+	var d: Dictionary = m.to_dict()
+	d["signatures"] = [{"strokes": [long]}, {"strokes": "nope"}, "nope", {"strokes": []}]
+	var m2 := MetaState.from_dict(JSON.parse_string(JSON.stringify(d)))
+	assert_eq(m2.signatures.size(), 1)
+	var flat: Array = m2.signatures[0]["strokes"][0]
+	assert_eq(flat.size(), MetaState.SIGNATURE_POINTS * 2)
+	assert_eq(int(flat[0]), 1000)

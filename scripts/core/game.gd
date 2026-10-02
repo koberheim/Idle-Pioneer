@@ -826,6 +826,12 @@ func grant_relic(source: String) -> String:
 	return id
 
 
+## Keeps the player's own signature from the Declaration just signed.
+func record_signature(strokes: Array, aspect: float, nation_id: String, liberty: int) -> void:
+	meta.add_signature({"n": meta.runs_completed, "nation": nation_id, "liberty": liberty, "aspect": aspect, "strokes": strokes})
+	save()
+
+
 func grant_almanac(count: int, source: String) -> void:
 	if count <= 0:
 		return

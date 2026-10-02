@@ -60,9 +60,9 @@ func refresh() -> void:
 	_musket_label.text = ("✔ " if muskets >= need else "✘ ") + "Arm the militia: %d musket%s kept in the warehouse (%d)" % [need, "" if need == 1 else "s", muskets]
 	_musket_label.add_theme_color_override("font_color", UI.GREEN if muskets >= need else UI.RED)
 	var payout: int = Balance.liberty_payout(run)
-	# Liberty grows with the square root of gold earned, so carrying on past
+	# Liberty grows with gold earned (a power below 1), so carrying on past
 	# the goal pays: say how much.
-	_liberty_label.text = ("Liberty on declaring: %s  (double your gold: about %s)" % [Format.num(payout), Format.num(floorf(payout * 1.414))]) if payout > 0 else "Liberty on declaring: none yet"
+	_liberty_label.text = ("Liberty on declaring: %s  (double your gold: about %s)" % [Format.num(payout), Format.num(floorf(payout * pow(2.0, Balance.v("liberty_exponent"))))]) if payout > 0 else "Liberty on declaring: none yet"
 	var ready: bool = Balance.independence_ready(run)
 	_declare.disabled = not ready
 

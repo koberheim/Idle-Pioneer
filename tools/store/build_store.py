@@ -60,7 +60,7 @@ SHOTS = [
      "Sell to the markets of Europe as demand rises and falls, or keep goods to craft."),
     ("05_congress", "store_congress", [], "Convene a Continental Congress",
      "Invite Franklin, Washington, Abigail Adams and dozens more, each with a bonus."),
-    ("06_declaration", "store_declare", [], "Declare Independence!",
+    ("06_declaration", "store_declare", ["hand=1"], "Declare Independence!",
      "Start a new expedition and spend your Liberty on permanent Reforms."),
     ("07_society", "store_research", [], "Join the Philosophical Society",
      "102 studies across six branches, each rooted in real colonial history."),

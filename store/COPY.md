@@ -22,7 +22,7 @@ Character counts are exact and include spaces. Trademarked game names (other gam
 | **Recommended** | `Found colonies, ship goods to Europe, craft fine wares and declare independence.` | 80 |
 | Alternative | `Found colonies, trade with Europe, declare independence. An idle colonial sim.` | 78 |
 
-### Full description: 4000 characters max (this one is 2668)
+### Full description: 4000 characters max (this one is 2721)
 
 ```text
 Idle Pioneer is an idle trading game set in the colonial New World, from the first settlements of 1607 to the Declaration of 1776. Found colonies along an untamed coast, ship their goods home by wagon and by sea, craft them into finer wares, and when the colonies are rich and armed, declare independence.
@@ -40,7 +40,7 @@ BUILD A COLONIAL ECONOMY
 
 CONGRESS AND INDEPENDENCE
 • Invite 38 Founding Fathers to Congress: Benjamin Franklin, George Washington, Abigail Adams, Phillis Wheatley, Haym Salomon and many more, each with a bonus of their own.
-• When the colonies are rich and the militia is armed, sign the Declaration of Independence.
+• When the colonies are rich and the militia is armed, sign the Declaration of Independence with your own hand. The Ledger keeps every signature.
 • Earn Liberty and spend it on five permanent Reforms, then begin a new expedition, stronger than before.
 
 A WORLD FULL OF HISTORY
@@ -64,7 +64,7 @@ FAIR, LIGHT ADS
 The New World is waiting. Raise the flag, load the wagons and make history.
 ```
 
-The description doesn't state the price on purpose. Play shows the local price of the in-app product on the listing, and a fixed "$4.99" would be wrong outside the US. To state it anyway, change the sentence to "A one-time Ad-Free purchase (US$4.99) removes every ad…" (2678 characters).
+The description doesn't state the price on purpose. Play shows the local price of the in-app product on the listing, and a fixed "$4.99" would be wrong outside the US. To state it anyway, change the sentence to "A one-time Ad-Free purchase (US$4.99) removes every ad…" (2731 characters).
 
 ### Category and tags
 
@@ -145,7 +145,7 @@ The keywords leave out words already in the name or subtitle (idle, pioneer, col
 
 ### Description: 4000 characters max
 
-Use the Google Play full description above unchanged (**2668** characters). It contains nothing specific to Play. On iOS the purchase is restored with the in-game **Restore purchases** button, which Apple requires and the Settings screen has.
+Use the Google Play full description above unchanged (**2721** characters). It contains nothing specific to Play. On iOS the purchase is restored with the in-game **Restore purchases** button, which Apple requires and the Settings screen has.
 
 ### What's New (version 1.0): 4000 characters max (this one is 315)
 
