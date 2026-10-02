@@ -5,6 +5,7 @@ extends Node
 var scenario: String = "map"
 var map_style: String = WorldMap.STYLE_RANDOM
 var out_path: String = "user://shot.png"
+var save_name: String = "shot_save"
 var main: Control
 
 
@@ -16,12 +17,26 @@ func _ready() -> void:
 			out_path = arg.substr(4)
 		elif arg.begins_with("map="):
 			map_style = arg.substr(4)
-	Game.save_path = "user://shot_save.json"
+		elif arg.begins_with("save="):
+			save_name = arg.substr(5).validate_filename()
+			if save_name == "" or save_name.begins_with("save"):
+				save_name = "shot_save"
+		elif arg.begins_with("winsize="):
+			# Store screenshots: an exact pixel size, even taller than the desktop
+			# (a borderless window isn't clamped to the screen like a framed one).
+			var wh: PackedStringArray = arg.substr(8).split("x")
+			get_window().borderless = true
+			get_window().position = Vector2i.ZERO
+			get_window().size = Vector2i(int(wh[0]), int(wh[1]))
+	# Never the player's save.json: a scratch file, nameable so parallel runs don't collide.
+	Game.save_path = "user://%s.json" % save_name
 	SaveIO.delete(Game.save_path)
 	Game.meta = MetaState.new()
 	Game.meta.music_on = false
 	Game.meta.sfx_on = false
-	if scenario == "fresh":
+	if scenario.begins_with("store_"):
+		_seed_store()
+	elif scenario == "fresh":
 		Game.start_run("french", map_style)
 	elif scenario != "nation" and scenario != "reforms":
 		_seed_state()
@@ -58,6 +73,8 @@ func _ready() -> void:
 		var img0: Image = get_viewport().get_texture().get_image()
 		img0.save_png(out_path.replace(".png", "_early.png"))
 	await _frames(20)
+	if scenario.begins_with("store_"):
+		await _stage_store()
 	match scenario:
 		"sheet":
 			main.call("_open_colony", "c1")
@@ -162,11 +179,192 @@ func _ready() -> void:
 			print("frame ", i, " sheet ", sheet.position, " ", sheet.size)
 			if i == 0:
 				_dump_wide(main, 0)
+	if scenario.begins_with("store_"):
+		# No floating "+gold" numbers drifting over the town names: hold the
+		# world still (no new shipments) and clear the ones in flight.
+		Game.pause("shot")
+		await _frames(1)
+		var mvf: MapView = main.get("_map")
+		(mvf.get("_floaters") as Array).clear()
+		mvf.set("_pending_gold", 0.0)
+		(mvf.get("_labels") as Control).queue_redraw()
+		(mvf.get("_dynamic") as Node2D).queue_redraw()
+		await _frames(3)
 	var img: Image = get_viewport().get_texture().get_image()
 	img.save_png(out_path)
 	print("saved ", out_path, " ", img.get_size())
 	SaveIO.delete(Game.save_path)
 	get_tree().quit()
+
+
+# --- Store screenshots (tools/store/build_store.py) --------------------------
+# A plausible late-game expedition: the 5th, a dozen colonies, most workshops
+# running, Congress half full, a few studies and relics. Rich but readable.
+
+func _arg(key: String, fallback: String) -> String:
+	for a: String in OS.get_cmdline_user_args():
+		if a.begins_with(key + "="):
+			return a.substr(key.length() + 1)
+	return fallback
+
+
+func _seed_store() -> void:
+	var meta: MetaState = Game.meta
+	meta.tips_on = false
+	meta.runs_completed = 4
+	meta.lifetime_liberty = 214
+	meta.liberty = 23
+	meta.best_run_gold = 5.6e9
+	meta.upgrades = {"industry": 6, "navigation": 3, "settlement": 5, "commerce": 5, "manufacture": 4}
+	for f: String in ["ledger", "relics", "almanac", "specializations", "research"]:
+		meta.hints_seen.append("unlock_" + f)
+	meta.almanacs = 2
+	meta.best_colonies = 16
+	meta.record_relics_claimed = [5, 10, 15]
+	meta.record_almanac_claimed = 16
+	for id: String in ["kite_key", "franklin_stove", "armonica", "bifocals", "poor_richard",
+			"tea_chest", "common_sense", "revere_lantern", "orrery", "chronometer",
+			"mayflower_compact", "bay_psalm", "pine_tree_shilling", "long_rifle",
+			"conestoga_wheel", "octant", "bill_of_lading", "try_pot"]:
+		meta.relics.append(id)
+	meta.stats = {"gold_earned": 1.83e10, "shipments": 41250, "land_colonies": 38, "sea_colonies": 21,
+		"father_franklin": 3, "father_washington": 2, "fathers_joined": 41, "studies": 37,
+		"delivered_furs": 88000, "seconds_played": 151200, "land_leagues": 412000,
+		"sea_leagues": 167000, "app_opens": 64, "upgrades_bought": 9800, "specializations": 9}
+	var names: Array = ["John Winthrop", "Samuel de Champlain", "Eliza Lucas", "Peter Minuit", "Johan Printz"]
+	var types: Array = ["prod", "cargo", "speed", "prod", "cargo"]
+	var ranks: Array = [4, 3, 3, 2, 1]
+	for i in names.size():
+		meta.governors.append({"id": i + 1, "name": names[i], "type": types[i], "rank": ranks[i]})
+	meta.next_governor_id = names.size() + 1
+	meta.favor_ready_unix = 0.0
+	meta.ad_skip_ready_unix = 0.0
+
+	Game.run = RunState.create(_arg("nation", "english"), map_style, int(_arg("seed", "7")))
+	var run: RunState = Game.run
+	var count: int = int(_arg("colonies", "11"))
+	for i in count - 1:
+		run.found_next()
+	for c: RunState.ColonyState in run.colonies:
+		var t: int = c.tier
+		var lv: float = float(_arg("lv", "1.0"))
+		c.prod_level = maxi(10, int((52 - t * 3) * lv))
+		c.cargo_level = maxi(6, int((34 - t * 2) * lv))
+		c.speed_level = maxi(2, int((10 - t / 2) * lv))
+		c.colonists = 3 - t % 3
+		if t >= 1 and t <= 5:
+			c.charter = 3 if t <= 2 else (2 if t <= 4 else 1)
+			c.spec = str(Balance.specs_offered(run, c)[t % 2]["id"])
+	run.colonists_owned = 64
+	for i in mini(4, run.colonies.size() - 1):
+		run.governors["c%d" % (i + 1)] = i + 1
+	# Work the colonies until their goods are known, then open the workshops
+	# those goods allow, and repeat (crafted goods unlock further recipes).
+	var ev := SimEvents.new()
+	for c: RunState.ColonyState in run.colonies:
+		var rid: String = run.resource_of(c)
+		if not run.discovered.has(rid):
+			run.discovered.append(rid)
+	var built: int = 0
+	for pass_i in 4:
+		for def: Dictionary in Content.recipes:
+			var w: RunState.WorkshopState = run.workshop(def["id"])
+			if w.built or built >= 16 or not Game.workshop_unlocked(def["id"]):
+				continue
+			w.built = true
+			w.level = maxi(5, int((34 - built * 2) * float(_arg("lv", "1.0"))))
+			w.colonists = 2 + built % 3
+			built += 1
+			if not run.discovered.has(def["id"]):
+				run.discovered.append(def["id"])
+	for id: String in run.discovered:
+		run.warehouse[id] = run.stock_of(id) + 900.0
+	run.warehouse["muskets"] = 14.0
+	run.hold["timber"] = true
+	run.hold["pig_iron"] = true
+	# Congress: the first tiers seated, a few still to invite.
+	var offered: Array[Dictionary] = Balance.fathers_offered(run)
+	var seated: int = 0
+	for f: Dictionary in offered:
+		if int(f.get("tier", 1)) <= 2 and seated < 7:
+			run.fathers.append(str(f["id"]))
+			seated += 1
+	# The Philosophical Society: early studies in every branch.
+	var studied: int = 0
+	for pass_i in 3:
+		for d: Dictionary in Content.research:
+			if studied >= 16 or int(d.get("tier", 1)) > 2:
+				continue
+			var id: String = str(d["id"])
+			if Balance.study_block(run, meta, id) == "":
+				run.research[id] = 1
+				studied += 1
+	run.research_version += 1
+	for i in 240:
+		Sim.step(run, meta, 1.0, ev)
+	run.gold = 2.47e9
+	run.lifetime_gold = 1.86e10
+	run.play_seconds = 2.0 * 3600.0 + 41.0 * 60.0
+	run.colonies[1].stock = 0.0
+	if OS.get_cmdline_user_args().has("verbose=1"):
+		for c: RunState.ColonyState in run.colonies:
+			print("%s %s rate=%.0f trip=%.1fs thr=%.0f" % [c.id, run.resource_of(c), Balance.production_rate(run, meta, c), Balance.round_trip_seconds(run, meta, c), Balance.route_throughput(run, meta, c)])
+	Game.running = true
+	Game.save()
+
+
+func _stage_store() -> void:
+	match scenario:
+		"store_map":
+			var mv: MapView = main.get("_map")
+			mv.zoom_by(float(_arg("zoom", "1.0")))
+		"store_sheet":
+			main.call("_open_colony", _arg("colony", "c1"))
+		"store_spec":
+			main.call("_open_colony", _arg("colony", "c1"))
+			await _frames(10)
+			var sheet: Control = main.get("_sheet")
+			var sc: ScrollContainer = sheet.get("_scroll")
+			sc.scroll_vertical = int(_arg("scroll", "2000"))
+		"store_workshops":
+			main.call("_select_tab", 1)
+		"store_europe":
+			main.call("_select_tab", 2)
+		"store_congress":
+			main.call("_select_tab", 3)
+			await _frames(10)
+			var p: Page = main.get("_pages")[3]
+			p.scroll.scroll_vertical = int(_arg("scroll", "0"))
+		"store_declare":
+			main.call("_select_tab", 3)
+			await _frames(5)
+			main.call("_show_independence")
+			await _frames(int(_arg("wait", "200")))
+			if _arg("sign", "1") == "1":
+				# The quill touches the page: signature, seal and the Liberty earned.
+				for o: Node in main.get("_overlay").get_children():
+					if o is IndependenceOverlay:
+						o.call("_on_sign")
+				await _frames(170)
+		"store_research":
+			main.call("_select_tab", 1)
+			await _frames(5)
+			var rs := ResearchScreen.new()
+			main.get("_overlay").add_child(rs)
+			await _frames(10)
+			var br: String = _arg("branch", "")
+			if br != "":
+				rs.call("_show_branch", br)
+				await _frames(5)
+		"store_ledger":
+			main.call("_select_tab", 4)
+			await _frames(10)
+			var lp: Page = main.get("_pages")[4]
+			lp.scroll.scroll_vertical = int(_arg("scroll", "0"))
+		"store_nation":
+			pass
+	await _frames(int(_arg("settle", "0")))
+
 
 
 func _frames(n: int) -> void:

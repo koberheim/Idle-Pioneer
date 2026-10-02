@@ -107,7 +107,8 @@ func _rebuild() -> void:
 		var v := UI.vbox(0)
 		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var name_l := UI.label(Content.resource_name(id), UI.SIZE_BODY, UI.INK)
-		var info := UI.label("", UI.SIZE_SMALL, UI.INK_SOFT)
+		# Wraps: a good used by many workshops would otherwise widen the page past the screen.
+		var info := UI.wrap_label("", UI.SIZE_SMALL, UI.INK_SOFT)
 		v.add_child(name_l)
 		v.add_child(info)
 		row.add_child(v)
