@@ -89,6 +89,7 @@
 	"independence_gold": 2500000000.0,
 	"independence_muskets": 1,
 	"liberty_base": 15.0,
+	"liberty_exponent": 0.5,
 	"settlement_floor": 0.01,
 
 	"fathers_offered_per_tier": 4
