@@ -377,7 +377,7 @@ func _open_governor_picker() -> void:
 		b.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
 		b.pressed.connect(func() -> void:
 			Game.post_governor(colony_id, gid)
-			Sfx.play("buy")
+			Sfx.play("governor")
 			m.close()
 			refresh())
 		m.body.add_child(b)

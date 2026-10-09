@@ -24,64 +24,22 @@ harpsichord, cello, strings, natural-style brass, kettledrums, hand and side
 drums. (`theme` and `europe` were re-rendered without the nylon guitar,
 accordion and acoustic bass of the first version.)
 
-## Sound effects (`sfx/`)
+## Sound effects (`sfx/`) and ambience (`ambience/`)
 
-Built by `tools/music/sfx_tools.py build`: trimmed (under 2 ms before the
-onset, with a 1.5 ms fade-in), faded out and loudness-normalised per id (see
-`README.md`).
+Generated with ElevenLabs on 9 Oct 2026 with the Sound Effects model
+(`eleven_text_to_sound_v2`), on a paid Creator plan, which grants commercial
+use of the output. Each file is a pick from 3–5 candidates, then trimmed and
+loudness-normalised by `tools/music/sfx_tools.py` (ambience: gain and a light
+peak limiter only, so the loop is untouched). The prompt for every id is in
+`tools/music/eleven_manifest.json`; request ids and dates are logged by
+`tools/music/eleven.py` in `tools/music/out/log.jsonl` (kept locally, not in
+the repo).
 
-### From Kenney (www.kenney.nl), CC0 1.0
+Files: every id in `sfx/` (including the `_2`/`_3` variants) and
+`ambience/amb_newworld.ogg`, `amb_europe.ogg`, `amb_congress.ogg`.
 
-Public domain (http://creativecommons.org/publicdomain/zero/1.0/). Credit is
-not required but given gladly.
-
-| file | Kenney pack | source sample(s) | pack URL |
-|---|---|---|---|
-| `click.ogg` | Impact Sounds | `impactWood_light_002.ogg` | https://kenney.nl/assets/impact-sounds |
-| `tab.ogg` | RPG Audio | `bookFlip3.ogg` | https://kenney.nl/assets/rpg-audio |
-| `buy.ogg` | RPG Audio | `handleCoins2.ogg` | https://kenney.nl/assets/rpg-audio |
-| `coin.ogg` | RPG Audio | `handleCoins.ogg` | https://kenney.nl/assets/rpg-audio |
-| `deny.ogg` | Interface Sounds | `error_006.ogg` | https://kenney.nl/assets/interface-sounds |
-| `found.ogg` | Music Jingles | `jingles_PIZZI10.ogg` | https://kenney.nl/assets/music-jingles |
-| `discover.ogg` | Music Jingles | `jingles_PIZZI04.ogg` | https://kenney.nl/assets/music-jingles |
-| `father.ogg` | Impact Sounds | `impactBell_heavy_000.ogg` | https://kenney.nl/assets/impact-sounds |
-| `market.ogg` | Impact Sounds | `impactBell_heavy_003.ogg`, struck twice | https://kenney.nl/assets/impact-sounds |
-| `charter.ogg` | Impact Sounds; RPG Audio | `impactWood_heavy_002.ogg` + `dropLeather.ogg` | https://kenney.nl/assets/impact-sounds, https://kenney.nl/assets/rpg-audio |
-| `research.ogg` | RPG Audio (+ rendered) | `bookFlip1.ogg` + an original harpsichord figure (see below) | https://kenney.nl/assets/rpg-audio |
-| `consult.ogg` | RPG Audio (+ rendered) | `bookOpen.ogg` + `bookFlip2.ogg` + an original glockenspiel chime (see below) | https://kenney.nl/assets/rpg-audio |
-
-Also downloaded and reviewed, but no sample used: Kenney "UI Audio"
-(https://kenney.nl/assets/ui-audio) and "Casino Audio"
-(https://kenney.nl/assets/casino-audio), both CC0.
-
-### Rendered stings (original)
-
-Short original phrases written for this game in `tools/music/compose.py`
-(`STINGS`) and rendered with FluidSynth and the GeneralUser GS SoundFont, like
-the music. No existing tune is quoted.
-
-| file | what |
-|---|---|
-| `fanfare.ogg` | trumpets, horns, trombone, kettledrums and side drum, about 3 s |
-| `milestone.ogg` | ascending glockenspiel chime over a harp chord |
-| `relic.ogg` | harp arpeggio blooming into a chord, pizzicato strings |
-| `unlock.ogg` | flute run over pizzicato strings and harp |
-| `purchase.ogg` | church-bell peal over strings, harpsichord and kettledrums |
-| (in `research.ogg`) | harpsichord figure |
-| (in `consult.ogg`) | two-note glockenspiel chime |
-
-### Generated with ElevenLabs
-
-Made with the ElevenLabs Sound Effects model (`eleven_text_to_sound_v2`) on a
-paid Creator plan, which grants commercial use of the output. Prompts are in
-`tools/music/eleven_manifest.json`; generation details (date, request id) are
-logged by `tools/music/eleven.py` in `tools/music/out/log.jsonl`.
-
-| file | generated | what |
-|---|---|---|
-| `sfx/liberty.ogg` | 9 Oct 2026 | a great bronze bell, single strike, open air |
-| `sfx/quill.ogg` | 9 Oct 2026 | a quill stroke on parchment |
-| `ambience/amb_newworld.ogg` | 9 Oct 2026 | coastal wilderness loop: waves, gulls, songbirds, distant axe |
+The previous set (Kenney CC0 samples and FluidSynth-rendered stings, built by
+`sfx_tools.py build`) is no longer shipped.
 
 ## Tools (not shipped, not in the repo)
 

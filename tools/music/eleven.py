@@ -179,6 +179,8 @@ def cmd_promote(a) -> int:
 			src = os.path.join(OUT, i, "%s_%s.mp3" % (i, name))
 			dest_id = i if k == 0 else "%s_%d" % (i, k + 1)
 			cmd = [sys.executable, tools, "--ffmpeg", a.ffmpeg, "normalize", src, "--id", dest_id]
+			if "max_limit" in it:
+				cmd += ["--max-limit", str(it["max_limit"])]
 			if it["kind"] in ("music", "amb"):
 				cmd.append("--music" if it["kind"] == "music" else "--ambience")
 			subprocess.run(cmd, check=True)

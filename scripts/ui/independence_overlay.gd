@@ -202,6 +202,7 @@ func _on_sign() -> void:
 		_seal_scale = f
 		_seal.queue_redraw(), 2.2, 1.0, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tw.tween_callback(func() -> void:
+		Sfx.play("salute")
 		Sfx.set_music_context("independence")
 		_result.text = "Independence! +%d Liberty" % _liberty if Game.save_ok else "Independence! +%d Liberty (saving...)" % _liberty
 		_result.add_theme_color_override("font_color", UI.GREEN)

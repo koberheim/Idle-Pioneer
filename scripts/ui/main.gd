@@ -44,7 +44,7 @@ func _ready() -> void:
 	Game.father_joined.connect(func(id: String) -> void:
 		_toasts.push("%s joins the Continental Congress!" % Content.father(id)["name"], "quill", 3.5))
 	Game.workshop_built.connect(func(id: String) -> void:
-		Sfx.play("found")
+		Sfx.play("workshop")
 		_toasts.push("%s built. Assign colonists to begin." % Content.recipe(id)["building"], "hammer"))
 	Game.shipment_arrived.connect(_on_shipment)
 	Game.market_changed.connect(func() -> void:
@@ -64,7 +64,7 @@ func _ready() -> void:
 	Game.almanac_gained.connect(func(count: int, source: String) -> void:
 		if source == "independence":
 			return
-		Sfx.play("discover")
+		Sfx.play("page")
 		_toasts.push("You found %s of the Almanac! Read %s in the Ledger." % ["a page" if count == 1 else "%d pages" % count, "it" if count == 1 else "them"], "almanac", 4.0))
 	Game.almanac_read.connect(_on_almanac_read)
 	Game.catch_up_progress.connect(_on_catch_up_progress)
@@ -141,7 +141,7 @@ func _build() -> void:
 	_map.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_map.colony_tapped.connect(_open_colony)
 	_map.treasure_tapped.connect(func(_at: Vector2) -> void:
-		Sfx.play("coin")
+		Sfx.play("treasure")
 		_toasts.push("Salvaged a drifting cargo from a wrecked merchantman!", "chest", 2.5))
 	_map.next_site_tapped.connect(_open_next_site)
 	_map.overview_requested.connect(_show_overview)
@@ -387,7 +387,7 @@ func _select_tab(i: int) -> void:
 func _open_colony(id: String) -> void:
 	if _tab != 0:
 		_select_tab(0)
-	Sfx.play("click")
+	Sfx.play("click" if _sheet.visible else "sheet_up")
 	_sheet.show_colony(id)
 	_sheet.visible = true
 	_map.set_highlight(id)
@@ -398,7 +398,7 @@ func _open_colony(id: String) -> void:
 func _open_next_site() -> void:
 	if _tab != 0:
 		_select_tab(0)
-	Sfx.play("click")
+	Sfx.play("click" if _sheet.visible else "sheet_up")
 	_sheet.show_next_site()
 	_sheet.visible = true
 	_map.set_highlight("")
@@ -418,6 +418,7 @@ func _close_sheet() -> void:
 	if _sheet == null or not _sheet.visible:
 		return
 	_map.set_highlight("")
+	Sfx.play("sheet_down")
 	_animate_sheet(0.0)
 
 
@@ -482,7 +483,7 @@ func _on_offline(seconds: float, ev: SimEvents) -> void:
 		m.add_line("hammer", "%s goods crafted" % Format.num(crafted))
 	m.add_button("Splendid", "button_gold")
 	_overlay.add_child(m)
-	Sfx.play("coin")
+	Sfx.play("welcome")
 
 
 func _on_milestone(what: String, track: String, level: int) -> void:

@@ -72,6 +72,12 @@ TARGETS = {
 	"salute": CEREMONY,
 }
 DEFAULT_TARGET = REWARD
+
+
+def target_of(i: str) -> float:
+	"""The loudness target for an id; variants (coin_2, coin_3 ...) share their id's."""
+	base, _, n = i.rpartition("_")
+	return TARGETS.get(i, TARGETS.get(base, DEFAULT_TARGET) if n.isdigit() else DEFAULT_TARGET)
 MUSIC_LUFS = -16.0  # integrated; must match compose.MUSIC_LUFS
 AMBIENCE_LUFS = -26.0  # integrated; ambience beds sit about 10 LU under the music
 PEAK_CEILING = -1.0  # dBTP
@@ -145,7 +151,7 @@ def limit(x: np.ndarray, ceiling_db: float) -> np.ndarray:
 	return x * (out if x.ndim == 1 else out[:, None])
 
 
-def normalise_sfx(x: np.ndarray, target: float) -> tuple[np.ndarray, float, bool]:
+def normalise_sfx(x: np.ndarray, target: float, max_limit_db: float = MAX_LIMIT_DB) -> tuple[np.ndarray, float, bool]:
 	"""Gain to `target` momentary max. Peaks above the true-peak ceiling are
 	limited by up to MAX_LIMIT_DB; beyond that the target is given up on."""
 	limited = False
@@ -155,9 +161,9 @@ def normalise_sfx(x: np.ndarray, target: float) -> tuple[np.ndarray, float, bool
 		gain = target - loudness.momentary_max(_stereo(y))
 		tp = loudness.true_peak_db(_stereo(y)) + gain
 		over = tp - PEAK_CEILING
-		if over > MAX_LIMIT_DB:
-			gain -= over - MAX_LIMIT_DB
-			over = MAX_LIMIT_DB
+		if over > max_limit_db:
+			gain -= over - max_limit_db
+			over = max_limit_db
 			limited = True
 		y = y * 10 ** (gain / 20)
 		total += gain
@@ -191,7 +197,7 @@ def cmd_measure(a) -> int:
 		i = os.path.splitext(os.path.basename(f))[0]
 		x = loudness.load(f, a.ffmpeg)
 		m = loudness.momentary_max(x)
-		t = TARGETS.get(i, DEFAULT_TARGET)
+		t = target_of(i)
 		print("%-12s %7.1f %7.1f %+7.1f %6.1f %7.2f %5.1fms" % (i, m, t, m - t, loudness.true_peak_db(x),
 			len(x) / SR, lead_ms(x)))
 	for title, d in (("Music (integrated; in game add Sfx.MUSIC_DB)", MUSIC_DIR),
@@ -239,14 +245,14 @@ def cmd_normalize(a) -> int:
 			write_ogg(y, out, a.ffmpeg, 3)
 			print("%s: %.1f -> %.1f LUFS integrated -> %s" % (i, lufs, lufs + gain, out))
 			continue
-		target = TARGETS.get(i, DEFAULT_TARGET)
-		if i not in TARGETS:
+		target = target_of(i)
+		if target_of(i) == DEFAULT_TARGET and i not in TARGETS and i.rpartition("_")[0] not in TARGETS:
 			print("note: '%s' is not a known id; using the reward level %.0f LUFS" % (i, target))
 		y = x[:, 0] if mono else x
 		if not a.keep_silence:
 			y = trim(y, max_s=10.0, end_db=-60.0, fade_out_s=0.01)
 		before = loudness.momentary_max(_stereo(y))
-		y, gain, limited = normalise_sfx(y, target)
+		y, gain, limited = normalise_sfx(y, target, a.max_limit)
 		out = os.path.join(SFX_DIR, i + ".ogg")
 		write_ogg(y, out, a.ffmpeg)
 		after = loudness.momentary_max(loudness.load(out, a.ffmpeg))
@@ -331,6 +337,8 @@ def main() -> int:
 	n.add_argument("--id", default="", help="sound id to write (default: the file name)")
 	n.add_argument("--music", action="store_true", help="normalise as music (integrated loudness)")
 	n.add_argument("--ambience", action="store_true", help="normalise a seamless ambience loop (gain only)")
+	n.add_argument("--max-limit", type=float, default=MAX_LIMIT_DB,
+		help="dB of peak limiting allowed to reach the target (default %.0f; more for one sharp transient)" % MAX_LIMIT_DB)
 	n.add_argument("--keep-silence", action="store_true", help="don't trim leading/trailing silence")
 	b = sub.add_parser("build")
 	b.add_argument("--kenney", required=True, help="folder holding the unzipped kenney_* packs")

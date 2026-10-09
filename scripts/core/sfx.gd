@@ -1,6 +1,7 @@
 ## Sound effects and music. A file at assets/audio/sfx/<id>.(ogg|wav|mp3) or
 ## assets/audio/music/<id>.* is used for that id; ids without a file fall back to
-## a small synthesised tone, so the game works without any audio files. See
+## a small synthesised tone, so the game works without any audio files. Extra
+## takes <id>_2 ... <id>_9 are variants: play() picks one, never twice in a row. See
 ## assets/audio/README.md for the id list and the loudness each file should have.
 ##
 ## Music follows a context (set_music_context): it crossfades between contexts
@@ -43,11 +44,13 @@ const ONE_SHOT_MUSIC: Array[String] = ["independence"]
 ## Music contexts that are playlists of <id>, <id>_2 ... <id>_9.
 const PLAYLIST_MUSIC: Array[String] = ["theme"]
 ## Played on their own players so a burst of UI sounds can't cut them off.
-const CEREMONIAL: Array[String] = ["liberty", "fanfare", "purchase"]
+const CEREMONIAL: Array[String] = ["liberty", "fanfare", "purchase", "salute"]
 ## Played with a little random pitch so repeats don't sound mechanical.
 const VARIED_PITCH: Array[String] = ["click", "tab", "buy", "coin", "deny", "quill"]
 
+## id -> Array of streams (the file and its variants, or the synth fallback).
 var _sfx: Dictionary = {}
+var _last_variant: Dictionary = {}
 var _sfx_db: Dictionary = {}
 var _players: Array[AudioStreamPlayer] = []
 var _next: int = 0
@@ -124,8 +127,8 @@ func _set_synth_music(stream: AudioStream) -> void:
 func play(id: String) -> void:
 	if _paused or not Game.meta.sfx_on:
 		return
-	var stream: AudioStream = _sfx.get(id)
-	if stream == null:
+	var takes: Array = _sfx.get(id, [])
+	if takes.is_empty():
 		if not _headless and OS.is_debug_build() and not _warned.has(id):
 			_warned[id] = true
 			push_warning("Sfx.play: unknown sound id '%s'" % id)
@@ -134,6 +137,11 @@ func play(id: String) -> void:
 	if now - int(_last_play.get(id, -1000)) < 60:
 		return
 	_last_play[id] = now
+	var k: int = randi() % takes.size()
+	if takes.size() > 1 and k == int(_last_variant.get(id, -1)):
+		k = (k + 1) % takes.size()
+	_last_variant[id] = k
+	var stream: AudioStream = takes[k]
 	var p: AudioStreamPlayer
 	if id in CEREMONIAL:
 		p = _ceremony[0] if not _ceremony[0].playing else _ceremony[1]
@@ -496,14 +504,27 @@ func _load_sfx() -> void:
 		"liberty": func() -> AudioStream: return _bell(523.25, 2.2),
 		"fanfare": func() -> AudioStream: return _tone([[392.0, 0.15], [392.0, 0.08], [523.25, 0.2], [659.25, 0.2], [783.99, 0.2], [659.25, 0.12], [783.99, 0.5]], "square", 0.22),
 		"purchase": func() -> AudioStream: return _tone([[587.33, 0.1], [739.99, 0.1], [880.0, 0.1], [1174.7, 0.4]], "square", 0.2),
+		"treasure": func() -> AudioStream: return _tone([[1760.0, 0.04], [2093.0, 0.04], [2637.0, 0.12]], "triangle", 0.3),
+		"page": func() -> AudioStream: return _tone([[1318.5, 0.05], [1760.0, 0.12]], "triangle", 0.25),
+		"workshop": func() -> AudioStream: return _tone([[220.0, 0.08], [196.0, 0.1]], "square", 0.2),
+		"sheet_up": func() -> AudioStream: return _tone([[700.0, 0.03], [900.0, 0.03]], "triangle", 0.12),
+		"sheet_down": func() -> AudioStream: return _tone([[900.0, 0.03], [700.0, 0.03]], "triangle", 0.12),
+		"governor": func() -> AudioStream: return _tone([[392.0, 0.1], [587.33, 0.25]], "triangle", 0.3),
+		"salute": func() -> AudioStream: return _tone([[65.0, 0.4], [65.0, 0.4], [65.0, 0.6]], "square", 0.25),
+		"welcome": func() -> AudioStream: return _tone([[523.25, 0.08], [659.25, 0.08], [783.99, 0.2]], "triangle", 0.28),
 	}
 	for id: String in synth.keys():
-		var file: AudioStream = _file_or(SFX_DIR, id, null)
-		if file != null:
-			_sfx[id] = file
+		var takes: Array = []
+		for i in range(1, 10):
+			var file: AudioStream = _file_or(SFX_DIR, id if i == 1 else "%s_%d" % [id, i], null)
+			if file == null:
+				break
+			takes.append(file)
+		if not takes.is_empty():
+			_sfx[id] = takes
 			_sfx_db[id] = SFX_DB + float(TRIM_DB.get(id, 0.0))
 		else:
-			_sfx[id] = (synth[id] as Callable).call()
+			_sfx[id] = [(synth[id] as Callable).call()]
 			_sfx_db[id] = SYNTH_DB + float(TRIM_DB.get(id, 0.0))
 
 
