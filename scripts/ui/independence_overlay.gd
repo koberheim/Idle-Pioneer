@@ -219,6 +219,7 @@ func _on_pad_input(event: InputEvent) -> void:
 		var mb: InputEventMouseButton = event
 		_drawing = mb.pressed and _ink_points < MetaState.SIGNATURE_POINTS
 		if _drawing:
+			Sfx.play("quill")
 			_ink.append(PackedVector2Array([_clamp_to(r, mb.position)]))
 			_ink_points += 1
 			_hint.visible = false

@@ -46,6 +46,7 @@ for a mono file (drop the `pan=...,` part for stereo); for music read the
 | rewards | **-20 LUFS** | momentary max |
 | ceremonies | **-18 LUFS** | momentary max |
 | music (every track) | **-16 LUFS** | integrated |
+| ambience beds | **-26 LUFS** | integrated |
 
 In game, music plays at `Sfx.MUSIC_DB` (-7 dB), i.e. around -23 LUFS, under
 the rewards and ceremonies and level with the UI clicks (whose transients cut
@@ -79,7 +80,8 @@ synthesised fallback in `sfx.gd`, used only when no file exists.
 | `charter` | reward -20 | a charter sealed | wax-seal thud (wood + leather) |
 | `unlock` | reward -20 | "New in the Colonies" | rendered flute run + pizzicato |
 | `consult` | reward -20 | Consult the Almanac (rewarded ad) | book opened, page turned, soft chime |
-| `liberty` | ceremony -18 | the seal is pressed on the Declaration | Kenney heavy bell |
+| `liberty` | ceremony -18 | the seal is pressed on the Declaration | ElevenLabs: great bronze bell, 5 s |
+| `quill` | UI -24 | each stroke when signing the Declaration (pitch varies) | ElevenLabs: quill on parchment |
 | `fanfare` | ceremony -18 | Royal Favor | rendered trumpets, horns, kettledrums, side drum (3 s) |
 | `purchase` | ceremony -18 | thank-you after buying Ad-Free | rendered bell peal over strings |
 
@@ -102,6 +104,31 @@ To add a theme track, add `theme_5.ogg` (and so on, up to `theme_9`): it joins
 the playlist automatically. Playlist tracks should end, not loop. Looping
 tracks should be seamless at the loop point (loops are set in code, not in the
 import settings).
+
+## Ambience ids
+
+Looping beds under the music, in `assets/audio/ambience/<id>.ogg`. They keep
+playing through the silences between playlist tracks, crossfade with the
+music context, start at a random point, follow the **Music** toggle and pause
+for ads. A context without a file just has no bed. Played at
+`Sfx.AMBIENCE_DB` (-8 dB), about 10 LU under the music. Files must loop
+seamlessly; normalise with `--ambience`, which only changes gain (plus a
+light peak limiter) so the loop point isn't moved.
+
+| id | context |
+|---|---|
+| `amb_newworld` | `theme` (New World map, Workshops, Ledger) |
+| `amb_europe` | `europe` |
+| `amb_congress` | `congress` |
+
+A one-shot context (`independence`) keeps whichever bed was playing.
+
+## Generating with ElevenLabs
+
+`tools/music/eleven.py` generates candidates from the prompts in
+`tools/music/eleven_manifest.json` (needs `ELEVENLABS_API_KEY`), writes a
+loudness-matched listening page (`tools/music/out/audition.html`) and promotes
+the picks through `sfx_tools.py`. The plan is `docs/AUDIO_PLAN.md`.
 
 `Sfx.pause_all()` / `Sfx.resume_all()` silence everything while an ad plays
 (music pauses where it is and continues afterwards). The Music and Sound

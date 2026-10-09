@@ -6,12 +6,15 @@
 ## Music follows a context (set_music_context): it crossfades between contexts
 ## and resumes each one where it left off. Playlist contexts (the "theme") play
 ## <id>, <id>_2, <id>_3 ... shuffled, with a pause between tracks; the others
-## loop, and one-shots (independence) play once and hand back.
+## loop, and one-shots (independence) play once and hand back. Under the music,
+## an ambience bed (assets/audio/ambience/<id>.*) loops per context and keeps
+## going through the gaps between playlist tracks; it follows the Music setting.
 extends Node
 
 const RATE := 22050
 const SFX_DIR := "res://assets/audio/sfx/"
 const MUSIC_DIR := "res://assets/audio/music/"
+const AMBIENCE_DIR := "res://assets/audio/ambience/"
 ## Sound files are loudness-normalised per id in the file itself
 ## (tools/music/sfx_tools.py), so they all play at this level.
 const SFX_DB := 0.0
@@ -24,6 +27,11 @@ const SYNTH_DB := -8.0
 ## about -23 LUFS: under the UI sounds (-24 LUFS momentary peaks, which cut
 ## through) and well under the rewards (-20) and ceremonies (-18).
 const MUSIC_DB := -7.0
+## Ambience files are normalised to -26 LUFS integrated, so in game they sit at
+## about -34 LUFS, roughly 10 LU under the music.
+const AMBIENCE_DB := -8.0
+## Ambience bed per music context; a one-shot context keeps whatever bed is on.
+const AMBIENCE: Dictionary = {"theme": "amb_newworld", "europe": "amb_europe", "congress": "amb_congress"}
 const FADE_SECONDS := 1.5
 ## Fade used instead of a hard stop, so a cut-off never clicks.
 const QUICK_FADE := 0.05
@@ -37,7 +45,7 @@ const PLAYLIST_MUSIC: Array[String] = ["theme"]
 ## Played on their own players so a burst of UI sounds can't cut them off.
 const CEREMONIAL: Array[String] = ["liberty", "fanfare", "purchase"]
 ## Played with a little random pitch so repeats don't sound mechanical.
-const VARIED_PITCH: Array[String] = ["click", "tab", "buy", "coin", "deny"]
+const VARIED_PITCH: Array[String] = ["click", "tab", "buy", "coin", "deny", "quill"]
 
 var _sfx: Dictionary = {}
 var _sfx_db: Dictionary = {}
@@ -64,6 +72,8 @@ var _started: bool = false
 var _paused: bool = false
 var _headless: bool = false
 var _music_task: int = -1
+var _amb: AudioStreamPlayer
+var _amb_id: String = ""
 
 
 func _ready() -> void:
@@ -148,6 +158,8 @@ func pause_all() -> void:
 	_gap.paused = true
 	for m: AudioStreamPlayer in _music_players:
 		m.stream_paused = true
+	if _amb != null:
+		_amb.stream_paused = true
 	for p: AudioStreamPlayer in _players + _ceremony:
 		p.stop()
 
@@ -160,8 +172,11 @@ func resume_all() -> void:
 	_gap.paused = false
 	for m: AudioStreamPlayer in _music_players:
 		m.stream_paused = false
+	if _amb != null:
+		_amb.stream_paused = false
 	if _headless or not _started:
 		return
+	_sync_ambience()
 	if not Game.meta.music_on:
 		_stop_music()
 	elif _music == null or String(_music.get_meta("context", "")) != _context:
@@ -181,6 +196,7 @@ func sync_music() -> void:
 	_started = true
 	if _headless:
 		return
+	_sync_ambience()
 	if not Game.meta.music_on:
 		_stop_music()
 		return
@@ -206,6 +222,7 @@ func set_music_context(id: String) -> void:
 	_context = id
 	if _started and Game.meta.music_on and not _paused:
 		_switch_music()
+		_sync_ambience()
 
 
 func music_context() -> String:
@@ -252,6 +269,7 @@ func _start_player(stream: AudioStream, pos: float, instant: bool) -> AudioStrea
 	var p := AudioStreamPlayer.new()
 	p.set_meta("context", _context)
 	p.stream = stream
+	p.set_meta("base_db", MUSIC_DB)
 	p.volume_db = MUSIC_DB if instant else -80.0
 	p.finished.connect(_on_music_finished.bind(p))
 	add_child(p)
@@ -269,7 +287,7 @@ func _fade_out(p: AudioStreamPlayer, seconds: float) -> void:
 	if not p.playing or p.stream_paused:
 		_free_player(p)
 		return
-	var g0: float = clampf(db_to_linear(p.volume_db - MUSIC_DB), 0.0, 1.0)
+	var g0: float = clampf(db_to_linear(p.volume_db - float(p.get_meta("base_db", MUSIC_DB))), 0.0, 1.0)
 	_tween_gain(p, g0, 0.0, seconds, true)
 
 
@@ -280,10 +298,11 @@ func _tween_gain(p: AudioStreamPlayer, from: float, to: float, seconds: float, f
 	var tw: Tween = create_tween()
 	p.set_meta("tween", tw)
 	var rising: bool = to > from
+	var base: float = float(p.get_meta("base_db", MUSIC_DB))
 	tw.tween_method(func(f: float) -> void:
 		var curve: float = sin(f * PI * 0.5) if rising else cos(f * PI * 0.5)
 		var g: float = to * curve if rising else from * curve
-		p.volume_db = MUSIC_DB + linear_to_db(maxf(g, 0.0001)),
+		p.volume_db = base + linear_to_db(maxf(g, 0.0001)),
 		0.0, 1.0, seconds)
 	if free_after:
 		tw.tween_callback(_on_faded_out.bind(p))
@@ -319,6 +338,44 @@ func _stop_music() -> void:
 	if _context in ONE_SHOT_MUSIC:
 		# Don't replay a one-shot from the top when music is switched back on.
 		_context = _return_context
+
+
+## Crossfades the ambience bed to the current context's (or to silence when
+## music is off, paused for an ad, or the context has no bed file).
+func _sync_ambience() -> void:
+	if _headless or _paused:
+		return
+	var want: String = ""
+	if _started and Game.meta.music_on:
+		want = _amb_id if _context in ONE_SHOT_MUSIC else str(AMBIENCE.get(_context, ""))
+	var stream: AudioStream = _file_or(AMBIENCE_DIR, want, null) if want != "" else null
+	if stream == null:
+		want = ""
+	if want == _amb_id:
+		return
+	if _amb != null:
+		_fade_out(_amb, FADE_SECONDS)
+		_amb = null
+	_amb_id = want
+	if stream == null:
+		return
+	if stream is AudioStreamOggVorbis:
+		(stream as AudioStreamOggVorbis).loop = true
+	elif stream is AudioStreamMP3:
+		(stream as AudioStreamMP3).loop = true
+	elif stream is AudioStreamWAV and (stream as AudioStreamWAV).loop_mode == AudioStreamWAV.LOOP_DISABLED:
+		var w := stream as AudioStreamWAV
+		w.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		w.loop_begin = 0
+		w.loop_end = int(w.get_length() * w.mix_rate)
+	_amb = AudioStreamPlayer.new()
+	_amb.stream = stream
+	_amb.set_meta("base_db", AMBIENCE_DB)
+	_amb.volume_db = -80.0
+	add_child(_amb)
+	# A random start, so the bed doesn't open on the same waves every time.
+	_amb.play(randf() * stream.get_length())
+	_tween_gain(_amb, 0.0, 1.0, FADE_SECONDS * 2.0, false)
 
 
 func _on_music_finished(p: AudioStreamPlayer) -> void:
@@ -421,6 +478,7 @@ func _file_or(dir: String, id: String, fallback: AudioStream) -> AudioStream:
 func _load_sfx() -> void:
 	var synth: Dictionary = {
 		"click": func() -> AudioStream: return _tone([[1400.0, 0.025]], "square", 0.18),
+		"quill": func() -> AudioStream: return _tone([[2600.0, 0.02], [2200.0, 0.03]], "pulse", 0.08),
 		"tab": func() -> AudioStream: return _tone([[900.0, 0.03], [1350.0, 0.04]], "square", 0.16),
 		"buy": func() -> AudioStream: return _tone([[1318.5, 0.05], [1975.5, 0.09]], "square", 0.22),
 		"coin": func() -> AudioStream: return _tone([[1760.0, 0.04], [2637.0, 0.08]], "triangle", 0.3),

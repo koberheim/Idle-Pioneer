@@ -16,6 +16,9 @@ replacement only has to hit the same number:
   # music: normalise to -16 LUFS integrated and write assets/audio/music/<id>.ogg
   python tools/music/sfx_tools.py normalize my_tune.wav --id theme_5 --music
 
+  # ambience loop: -26 LUFS integrated, gain only, written as assets/audio/ambience/<id>.ogg
+  python tools/music/sfx_tools.py normalize waves.mp3 --id amb_newworld --ambience
+
   # rebuild the shipped set from the Kenney CC0 packs + FluidSynth stings
   python tools/music/sfx_tools.py build --kenney DIR --fluidsynth EXE --soundfont SF2
 
@@ -49,6 +52,7 @@ from loudness import SR  # noqa: E402
 ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
 SFX_DIR = os.path.join(ROOT, "assets", "audio", "sfx")
 MUSIC_DIR = os.path.join(ROOT, "assets", "audio", "music")
+AMBIENCE_DIR = os.path.join(ROOT, "assets", "audio", "ambience")
 
 UI = -24.0
 REWARD = -20.0
@@ -62,9 +66,14 @@ TARGETS = {
 	"relic": REWARD, "research": REWARD, "charter": REWARD, "unlock": REWARD,
 	"consult": REWARD,
 	"liberty": CEREMONY, "fanfare": CEREMONY, "purchase": CEREMONY,
+	# Added with the ElevenLabs pass (docs/AUDIO_PLAN.md).
+	"quill": UI, "sheet_up": UI, "sheet_down": UI,
+	"treasure": REWARD, "page": REWARD, "workshop": REWARD, "governor": REWARD, "welcome": REWARD,
+	"salute": CEREMONY,
 }
 DEFAULT_TARGET = REWARD
 MUSIC_LUFS = -16.0  # integrated; must match compose.MUSIC_LUFS
+AMBIENCE_LUFS = -26.0  # integrated; ambience beds sit about 10 LU under the music
 PEAK_CEILING = -1.0  # dBTP
 FADE_IN_S = 0.0015
 
@@ -185,16 +194,22 @@ def cmd_measure(a) -> int:
 		t = TARGETS.get(i, DEFAULT_TARGET)
 		print("%-12s %7.1f %7.1f %+7.1f %6.1f %7.2f %5.1fms" % (i, m, t, m - t, loudness.true_peak_db(x),
 			len(x) / SR, lead_ms(x)))
+	for title, d in (("Music (integrated; in game add Sfx.MUSIC_DB)", MUSIC_DIR),
+			("Ambience (integrated; in game add Sfx.AMBIENCE_DB)", AMBIENCE_DIR)):
+		_measure_long(title, d, a.ffmpeg)
+	return 0
+
+
+def _measure_long(title: str, d: str, ffmpeg: str) -> None:
 	print()
-	print("Music (integrated; in game add Sfx.MUSIC_DB)")
-	for f in sorted(glob.glob(os.path.join(MUSIC_DIR, "*.*"))):
+	print(title)
+	for f in sorted(glob.glob(os.path.join(d, "*.*"))):
 		if f.endswith((".import", ".md")):
 			continue
-		x = loudness.load(f, a.ffmpeg)
+		x = loudness.load(f, ffmpeg)
 		print("%-14s I %6.1f  M max %6.1f  peak %5.1f  %6.1f s  %5d KB" % (os.path.basename(f),
 			loudness.integrated(x), loudness.momentary_max(x), loudness.peak_db(x), len(x) / SR,
 			os.path.getsize(f) // 1024))
-	return 0
 
 
 def cmd_normalize(a) -> int:
@@ -202,6 +217,20 @@ def cmd_normalize(a) -> int:
 		i = a.id or os.path.splitext(os.path.basename(src))[0]
 		x = loudness.load(src, a.ffmpeg)
 		mono = bool(np.allclose(x[:, 0], x[:, 1]))
+		if a.ambience:
+			# A seamless loop: gain plus a latency-compensated peak limiter (up to
+			# MAX_LIMIT_DB, for the odd gull or axe blow), no trim, fades or
+			# resampling, so the loop point stays where the source put it.
+			lufs = loudness.integrated(x)
+			gain = min(AMBIENCE_LUFS - lufs, PEAK_CEILING - 0.5 + MAX_LIMIT_DB - loudness.true_peak_db(x))
+			out = os.path.join(AMBIENCE_DIR, i + ".ogg")
+			af = "volume=%.2fdB,alimiter=limit=%.4f:level=false:latency=true" % (gain, 10 ** ((PEAK_CEILING - 0.5) / 20))
+			subprocess.run([a.ffmpeg, "-y", "-v", "error", "-i", src, "-af", af,
+				"-c:a", "libvorbis", "-q:a", "3", out], check=True)
+			y = loudness.load(out, a.ffmpeg)
+			print("%s: %.1f -> %.1f LUFS integrated, %.1f dBTP -> %s" % (i, lufs, loudness.integrated(y),
+				loudness.true_peak_db(y), out))
+			continue
 		if a.music:
 			lufs = loudness.integrated(x)
 			gain = min(MUSIC_LUFS - lufs, -1.5 - loudness.true_peak_db(x))
@@ -301,6 +330,7 @@ def main() -> int:
 	n.add_argument("files", nargs="+")
 	n.add_argument("--id", default="", help="sound id to write (default: the file name)")
 	n.add_argument("--music", action="store_true", help="normalise as music (integrated loudness)")
+	n.add_argument("--ambience", action="store_true", help="normalise a seamless ambience loop (gain only)")
 	n.add_argument("--keep-silence", action="store_true", help="don't trim leading/trailing silence")
 	b = sub.add_parser("build")
 	b.add_argument("--kenney", required=True, help="folder holding the unzipped kenney_* packs")

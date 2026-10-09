@@ -23,3 +23,6 @@ __pycache__/
 *.pyc
 
 build/
+
+# ElevenLabs candidates (tools/music/eleven.py)
+tools/music/out/

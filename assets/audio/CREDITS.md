@@ -45,7 +45,6 @@ not required but given gladly.
 | `found.ogg` | Music Jingles | `jingles_PIZZI10.ogg` | https://kenney.nl/assets/music-jingles |
 | `discover.ogg` | Music Jingles | `jingles_PIZZI04.ogg` | https://kenney.nl/assets/music-jingles |
 | `father.ogg` | Impact Sounds | `impactBell_heavy_000.ogg` | https://kenney.nl/assets/impact-sounds |
-| `liberty.ogg` | Impact Sounds | `impactBell_heavy_001.ogg` | https://kenney.nl/assets/impact-sounds |
 | `market.ogg` | Impact Sounds | `impactBell_heavy_003.ogg`, struck twice | https://kenney.nl/assets/impact-sounds |
 | `charter.ogg` | Impact Sounds; RPG Audio | `impactWood_heavy_002.ogg` + `dropLeather.ogg` | https://kenney.nl/assets/impact-sounds, https://kenney.nl/assets/rpg-audio |
 | `research.ogg` | RPG Audio (+ rendered) | `bookFlip1.ogg` + an original harpsichord figure (see below) | https://kenney.nl/assets/rpg-audio |
@@ -70,6 +69,19 @@ the music. No existing tune is quoted.
 | `purchase.ogg` | church-bell peal over strings, harpsichord and kettledrums |
 | (in `research.ogg`) | harpsichord figure |
 | (in `consult.ogg`) | two-note glockenspiel chime |
+
+### Generated with ElevenLabs
+
+Made with the ElevenLabs Sound Effects model (`eleven_text_to_sound_v2`) on a
+paid Creator plan, which grants commercial use of the output. Prompts are in
+`tools/music/eleven_manifest.json`; generation details (date, request id) are
+logged by `tools/music/eleven.py` in `tools/music/out/log.jsonl`.
+
+| file | generated | what |
+|---|---|---|
+| `sfx/liberty.ogg` | 9 Oct 2026 | a great bronze bell, single strike, open air |
+| `sfx/quill.ogg` | 9 Oct 2026 | a quill stroke on parchment |
+| `ambience/amb_newworld.ogg` | 9 Oct 2026 | coastal wilderness loop: waves, gulls, songbirds, distant axe |
 
 ## Tools (not shipped, not in the repo)
 
