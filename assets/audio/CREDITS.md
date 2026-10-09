@@ -17,12 +17,23 @@ instrumentation and form are original. Every track is normalised to -16 LUFS.
 | `theme_4.ogg` | Lilliburlero | English, 1688; tune attributed to Henry Purcell (1659-1695) |
 | `europe.ogg` | Greensleeves; Drunken Sailor | trad. English, 16th c.; trad. sea song, tune 18th c. or older |
 | `congress.ogg` | Minuet in G (BWV Anh. 114); Old Hundredth | Christian Petzold, 1725; Louis Bourgeois, Genevan Psalter, 1551 |
-| `independence.ogg` | Yankee Doodle (fife-and-drum march with brass fanfare) | trad., c. 1755-75 |
 
 Instruments are period ones: recorder, flute played as a fife, fiddle,
 harpsichord, cello, strings, natural-style brass, kettledrums, hand and side
 drums. (`theme` and `europe` were re-rendered without the nylon guitar,
 accordion and acoustic bass of the first version.)
+
+### Generated with ElevenLabs Music
+
+| file | generated | what |
+|---|---|---|
+| `independence.ogg` | 9 Oct 2026 | original fife-and-drum march into brass, timpani and bells (prompt in `tools/music/eleven_manifest.json`) |
+
+Made with Eleven Music (`music_v2_5`) on a paid Creator plan. Its terms allow
+use in an "Indie Game" (under $500k lifetime revenue for the game and under
+$1M a year in game revenue for the developer); a game past those limits needs
+an ElevenLabs Enterprise music licence for these tracks, or the tracks
+replaced. The previous rendered Yankee Doodle version is in git history.
 
 ## Sound effects (`sfx/`) and ambience (`ambience/`)
 

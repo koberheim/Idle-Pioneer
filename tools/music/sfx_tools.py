@@ -238,6 +238,14 @@ def cmd_normalize(a) -> int:
 				loudness.true_peak_db(y), out))
 			continue
 		if a.music:
+			if a.trim_lead:
+				# Generated tracks can open with silence; a one-shot should start at once.
+				env = np.abs(x).max(axis=1)
+				on = int(np.nonzero(env > env.max() * 10 ** (-50 / 20))[0][0])
+				x = x[max(0, on - int(0.02 * SR)):].copy()
+				fi = int(FADE_IN_S * SR)
+				x[:fi] *= np.linspace(0.0, 1.0, fi)[:, None]
+				print("%s: trimmed %.2f s of leading silence" % (i, on / SR))
 			lufs = loudness.integrated(x)
 			gain = min(MUSIC_LUFS - lufs, -1.5 - loudness.true_peak_db(x))
 			out = os.path.join(MUSIC_DIR, i + ".ogg")
@@ -340,6 +348,7 @@ def main() -> int:
 	n.add_argument("--max-limit", type=float, default=MAX_LIMIT_DB,
 		help="dB of peak limiting allowed to reach the target (default %.0f; more for one sharp transient)" % MAX_LIMIT_DB)
 	n.add_argument("--keep-silence", action="store_true", help="don't trim leading/trailing silence")
+	n.add_argument("--trim-lead", action="store_true", help="music: cut leading silence (not for seamless loops)")
 	b = sub.add_parser("build")
 	b.add_argument("--kenney", required=True, help="folder holding the unzipped kenney_* packs")
 	b.add_argument("--fluidsynth", required=True)

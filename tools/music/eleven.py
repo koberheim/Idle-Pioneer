@@ -182,7 +182,7 @@ def cmd_promote(a) -> int:
 			if "max_limit" in it:
 				cmd += ["--max-limit", str(it["max_limit"])]
 			if it["kind"] in ("music", "amb"):
-				cmd.append("--music" if it["kind"] == "music" else "--ambience")
+				cmd += ["--music", "--trim-lead"] if it["kind"] == "music" else ["--ambience"]
 			subprocess.run(cmd, check=True)
 	return 0
 
