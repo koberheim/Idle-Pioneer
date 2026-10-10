@@ -15,6 +15,18 @@ Values in the presets that you must confirm before the first upload:
 
 ## 1. One-time editor setup
 
+**Done on this PC (10 Oct 2026):** JDK 17 is in `E:\Android\jdk-17` and the Android SDK in `E:\Android\Sdk`. The standard 4.7.2 templates are installed, Editor Settings point at all of them, and the debug keystore exists. Use the standard editor (`E:\Godot\Godot_v4.7.2-stable_win64.exe`) for exports.
+
+**C: has only about 4 GB free.** Gradle's cache would fill it, so set the user environment variable `GRADLE_USER_HOME=E:\Android\gradle` before exporting from the editor. Command-line export:
+
+```
+set GRADLE_USER_HOME=E:\Android\gradle
+set JAVA_HOME=E:\Android\jdk-17
+E:\Godot\Godot_v4.7.2-stable_win64.exe --headless --path . --install-android-build-template --export-release "Android" buildndroid\IdlePioneer.aab
+```
+
+The steps below are for setting up another machine.
+
 1. **Use the standard Godot 4.7.2 editor, not the .NET build.** The game has no C# scripts. The standard export templates are smaller and avoid a known 16 KB page-alignment problem in the .NET Android templates.
    - Download the standard Godot 4.7.2 editor from https://godotengine.org/download.
    - Open **Editor > Manage Export Templates** and click **Download and Install** for 4.7.2.

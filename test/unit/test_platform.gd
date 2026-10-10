@@ -74,3 +74,12 @@ func test_the_storeless_base_backend_sells_nothing() -> void:
 	assert_signal_emitted_with_parameters(b, "purchase_result", ["ad_free", false, "The store isn't available right now. You haven't been charged."])
 	assert_false(b.ads_allowed())
 	b.free()
+
+
+func test_the_phone_backend_compiles_against_the_plugins() -> void:
+	# It only runs on a phone, so at least make sure it builds here.
+	var s: GDScript = load("res://scripts/core/mobile_backend.gd")
+	assert_not_null(s)
+	assert_true(s.can_instantiate())
+	# On desktop the stand-in is used, never the phone backend.
+	assert_true(Platform.backend is DesktopBackend)

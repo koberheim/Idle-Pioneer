@@ -41,8 +41,10 @@ func _ready() -> void:
 
 
 func _make_backend() -> PlatformBackend:
-	# Native backends are added here when their plugins are installed:
-	#   if Engine.has_singleton("<AdMob/Billing plugin>"): return AndroidBackend.new()
+	# On a phone with the AdMob plugin built in, the real ads and store.
+	# Loaded by path so desktop play and the tests never load the native SDKs.
+	if OS.has_feature("mobile") and Engine.has_singleton("PoingGodotAdMob"):
+		return load("res://scripts/core/mobile_backend.gd").new()
 	if OS.has_feature("mobile"):
 		# A phone build without the native plugins must never fall back to
 		# the desktop stand-in: that would hand out Ad-Free for nothing and

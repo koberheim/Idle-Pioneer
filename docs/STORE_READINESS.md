@@ -4,14 +4,14 @@ Audit of 9 Oct 2026, on `main` after 316b126. It supersedes the open lists in `F
 
 ## 1. Verdict
 
-**The game is ready. The store plumbing is not.**
+**The game and its store plumbing are built. What's left is your accounts, the real IDs, and a test on real devices.**
 
 The game itself is ready:
 - Content, balance, art, audio, saves, offline play and lifecycle handling are finished.
 - 76 of 76 tests pass.
 - Every Must and Should item in `FINAL_AUDIT.md` was fixed in 8ee79fc and the commits after it.
 
-The real ad and purchase code is the remaining engineering work. It can't be built or tested until the Android toolchain and the plugins are installed. Everything else that's left is accounts, forms and uploads, which only the owner can do.
+On 10 Oct 2026 the Android toolchain and the ad/purchase plugins were installed, and the real backend was written. A debug AAB now builds with AdMob, consent and Play Billing inside (target SDK 36, `AD_ID` declared). It hasn't run on a phone yet. Everything else that's left is accounts, forms and uploads, which only the owner can do.
 
 ## 2. Audit results
 
@@ -43,19 +43,19 @@ Tests were added for items 1 and 2.
 ### Still open
 | # | Item | Who | Blocks |
 |---|---|---|---|
-| O1 | **Native ads and billing backends.** See section 3. | Claude, once the toolchain and plugins are installed | Any release that has ads or the purchase |
-| O2 | **Android toolchain.** This PC has no JDK 17 and no Android SDK, and only the .NET export templates. The standard 4.7.2 editor is at `E:\Godot\Godot_v4.7.2-stable_win64.exe`, but its templates aren't installed. | Owner approves the installs (Claude can run them) | Any Android build |
+| O1 | ~~Native ads and billing backends.~~ **Done:** `scripts/core/mobile_backend.gd`; see `MONETIZATION.md`. Still needs a run on a real phone: consent form, test ads, a licence-tester purchase, Restore. | Owner (device) and Claude (fixes) | Closed test |
+| O2 | ~~Android toolchain.~~ **Done:** Temurin JDK 17.0.20.1 in `E:\Android\jdk-17`, the SDK in `E:\Android\Sdk` (platform 36, build-tools 36.1.0, NDK 29.0.14206865), and the standard 4.7.2 export templates. Editor Settings point at all three. **C: has only about 4 GB free,** so export with `GRADLE_USER_HOME=E:\Android\gradle` (see `EXPORT_SETUP.md`). | — | — |
+| O8 | **Real AdMob IDs.** The app IDs go in Project Settings > AdMob, and the rewarded and interstitial unit IDs in `idle_pioneer/ads/*`. Release builds show no ads until they're set. | Owner creates them in AdMob; Claude fills them in | Release with ads |
+| O9 | **Upload keystore.** Create it with the `keytool` command in section 4B, then enter it in the Android preset's Keystore > Release. | Owner | Release AAB |
 | O3 | **Package ID.** `com.idlepioneer.game` is a placeholder and becomes permanent at the first upload. Suggest `com.<yourname>.idlepioneer`. | Owner | First upload |
 | O4 | **Developer name.** The credits say "the Idle Pioneer team", and the site has placeholders (`{{DEVELOPER_NAME}}`, `{{CONTACT_EMAIL}}`, `{{WEBSITE}}`, `{{DEVELOPER_COUNTRY}}`, `{{EFFECTIVE_DATE}}`, `{{ADMOB_PUBLISHER_ID}}`). | Owner supplies the values; Claude fills them in | Privacy policy URL |
 | O5 | **Host `docs/site`** with `app-ads.txt` at the domain root. See `docs/site/README.md`. | Owner | Both listings, AdMob |
 | O6 | **Real-device check.** At least one older Android phone and one iPhone. | Owner and testers | Production |
 | O7 | **Licence watch.** ElevenLabs Music only covers games under US$500k lifetime revenue. | Owner | Nothing today |
 
-**Option: ship 1.0 without ads.** The game is complete and fully playable without ads. A 1.0 with the storeless backend can enter the 14-day Play closed test right away, with the simple "no data collected" privacy forms. Ads and Ad-Free would then arrive in 1.1, with the forms updated at that point. This takes the native-plugin work off the critical path. The cost is that the first players never see the purchase.
+## 3. Native backends (O1): the plugins in use
 
-## 3. Native backends (O1): the chosen plugins
-
-These are pinned for Godot 4.7.2 as of 9 Oct 2026:
+These are installed and pinned for Godot 4.7.2:
 
 | Need | Plugin | Version |
 |---|---|---|
@@ -63,12 +63,7 @@ These are pinned for Godot 4.7.2 as of 9 Oct 2026:
 | Android billing | `godot-sdk-integrations/godot-google-play-billing` (Play Billing 9.1) | 3.3.0 |
 | iOS StoreKit 2 | `hrk4649/godot_ios_plugin_iap` (singleton `IOSInAppPurchase`) | latest; tested with 4.7 and Xcode 26.5 |
 
-Work plan:
-1. Write `AndroidBackend` and `IosBackend`, both extending `PlatformBackend`.
-2. Select between them in `Platform._make_backend()` with `Engine.has_singleton` or `ClassDB.class_exists` checks, so the project still opens and the tests still pass without the plugins.
-3. On Android, acknowledge `ad_free` within 3 days or Google refunds it, and never consume it.
-4. On iOS, Restore calls `appStoreSync`.
-5. Use test ad units until release. Put the real unit IDs in the export configuration, not in the repo.
+All three are in the repo and enabled. Note that the AdMob plugin's own skill and docs files describe an older API; `mobile_backend.gd` follows the plugin's actual source.
 
 ## 4. Step by step: the Google Play listing
 
@@ -82,13 +77,13 @@ Work plan:
 3. Payments profile: Play Console > Setup > Payments profile. This is needed to sell Ad-Free.
 
 **B. Build (Claude with the owner)**
-1. Install JDK 17 (Temurin), the Android SDK (platform 36, build-tools 36.1.0, NDK 29.0.14206865) and the standard 4.7.2 export templates. Set the paths in Editor Settings. (O2)
+1. ~~Toolchain~~ (done, O2).
 2. Set the final package ID in the Android preset. (O3)
 3. Create the upload keystore and back it up offline:
    ```
    keytool -genkeypair -v -keystore idlepioneer-upload.jks -alias upload -keyalg RSA -keysize 4096 -validity 10000
    ```
-4. Install the plugins and write the native backends. (O1)
+4. ~~Plugins and native backends~~ (done, O1). Put the real AdMob IDs in Project Settings. (O8)
 5. Export the AAB. Check that the version code goes up with every upload.
 
 **C. Create the app (Play Console > Create app)**
@@ -205,10 +200,9 @@ Work plan:
    - Approve the toolchain installs.
    - Open the Play Console, AdMob and Apple accounts (they verify in parallel).
 2. **Claude:**
-   - Install the toolchain and plugins.
-   - Write the native backends.
-   - Fill in the site placeholders.
-   - Produce the first signed AAB.
+   - ~~Install the toolchain and plugins, and write the native backends~~ (done).
+   - Fill in the site placeholders and the package ID once chosen.
+   - Produce the first signed AAB once the keystore exists.
 3. **Owner:**
    - Host the site.
    - Upload to closed testing.
