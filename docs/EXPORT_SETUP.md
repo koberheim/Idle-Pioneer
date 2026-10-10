@@ -2,14 +2,14 @@
 
 This guide takes the project from the editor to a signed Android App Bundle (AAB) and an iOS build in TestFlight.
 
-`export_presets.cfg` at the repo root already holds two presets, **Android** and **iOS**. The file is gitignored because the editor can write signing details into it, so keep a private backup.
+`export_presets.cfg` at the repo root holds two presets, **Android** and **iOS**. It is committed: Godot 4 keeps keystore paths and passwords in `.godot/export_credentials.cfg`, which is not. Never type a password into a preset field that isn't a keystore field.
 
 Values in the presets that you must confirm before the first upload:
 
 | Setting | Current value | Notes |
 |---|---|---|
 | Package name / bundle id | `com.idlepioneer.game` | **Placeholder.** Choose your own, e.g. `com.<yourname>.idlepioneer`. It can't be changed after the first upload to either store. |
-| Version name / short version | `0.9.0` | Visible to players. |
+| Version name / short version | `1.0.0` | Visible to players. |
 | Version code / build number | `1` | Must increase with every upload. |
 | Export paths | `build/android/IdlePioneer.aab`, `build/ios/IdlePioneer.ipa` | Add `build/` to `.gitignore`, or point these outside the repo. |
 

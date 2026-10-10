@@ -43,6 +43,11 @@ func _ready() -> void:
 func _make_backend() -> PlatformBackend:
 	# Native backends are added here when their plugins are installed:
 	#   if Engine.has_singleton("<AdMob/Billing plugin>"): return AndroidBackend.new()
+	if OS.has_feature("mobile"):
+		# A phone build without the native plugins must never fall back to
+		# the desktop stand-in: that would hand out Ad-Free for nothing and
+		# show fake ads. With no store here, nothing is sold and no ads run.
+		return PlatformBackend.new()
 	return DesktopBackend.new()
 
 
@@ -50,6 +55,12 @@ func _make_backend() -> PlatformBackend:
 
 func is_ad_free() -> bool:
 	return _ad_free
+
+
+## False where there's no store (a phone build without the native plugins):
+## the Remove ads and Restore buttons are then hidden.
+func store_available() -> bool:
+	return backend.store_available()
 
 
 ## The store's localized price, or "" while unknown.
@@ -71,7 +82,10 @@ func _on_purchase_result(product: String, owned: bool, reason: String) -> void:
 	if product != AD_FREE:
 		return
 	if reason != "":
+		# A failure is never a definite "not owned": a declined payment or an
+		# unreachable store must not take away a purchase already made.
 		purchase_failed.emit(reason)
+		return
 	if owned != _ad_free:
 		_ad_free = owned
 		_save_entitlement()

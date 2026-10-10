@@ -2,8 +2,8 @@
 .godot/
 /android/
 
-# Godot-specific export presets may contain keystore paths / passwords
-export_presets.cfg
+# export_presets.cfg is committed: Godot 4 keeps keystore paths and passwords
+# in .godot/export_credentials.cfg instead, and a cloud iOS build needs the presets.
 
 # Imported assets cache
 .import/

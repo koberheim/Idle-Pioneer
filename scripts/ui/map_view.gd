@@ -184,8 +184,10 @@ static func build_relief_image(w: WorldMap) -> Image:
 	return img
 
 
-## Lighter map shading for low-end phones: no animated water or extra noise.
+## Lighter map shading for low-end phones: no animated water or extra noise,
+## and 30 frames a second instead of 60 to spare the battery.
 func apply_lite() -> void:
+	Engine.max_fps = 30 if Game.meta.lite_map else 60
 	if _terrain.material != null:
 		(_terrain.material as ShaderMaterial).set_shader_parameter("lite", Game.meta.lite_map)
 
@@ -200,8 +202,8 @@ func _build_textures(w: WorldMap) -> void:
 	mat.set_shader_parameter("data_l", _data_tex)
 	mat.set_shader_parameter("relief", _relief_tex)
 	mat.set_shader_parameter("grid", Vector2(WorldMap.W, WorldMap.H))
-	mat.set_shader_parameter("lite", Game.meta.lite_map)
 	_terrain.material = mat
+	apply_lite()
 	_terrain.texture = _data_tex
 	_terrain.scale = Vector2(TILE, TILE)
 

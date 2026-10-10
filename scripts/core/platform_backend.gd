@@ -13,12 +13,18 @@ func start() -> void:
 	pass
 
 
+## Whether there is a store to buy from or restore with on this device.
+func store_available() -> bool:
+	return false
+
+
 func price(_product: String) -> String:
 	return ""
 
 
-func buy(_product: String) -> void:
-	pass
+## The base backend has no store: buying reports that plainly.
+func buy(product: String) -> void:
+	purchase_result.emit(product, false, "The store isn't available right now. You haven't been charged.")
 
 
 func restore() -> void:

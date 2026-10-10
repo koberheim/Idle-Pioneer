@@ -23,6 +23,10 @@ func start() -> void:
 	purchase_result.emit("ad_free", _owned, "")
 
 
+func store_available() -> bool:
+	return true
+
+
 func price(_product: String) -> String:
 	return "$4.99"
 

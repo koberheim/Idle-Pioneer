@@ -57,3 +57,20 @@ func test_no_interstitial_for_ad_free_owners() -> void:
 	Platform._on_purchase_result("ad_free", true, "")
 	assert_false(Platform.show_interstitial("between_expeditions"))
 	Platform._on_purchase_result("ad_free", was, "")
+
+
+func test_a_failed_store_answer_never_removes_ad_free() -> void:
+	var was: bool = Platform.is_ad_free()
+	Platform._on_purchase_result("ad_free", true, "")
+	Platform._on_purchase_result("ad_free", false, "The store couldn't be reached.")
+	assert_true(Platform.is_ad_free(), "an error is not a definite 'not owned'")
+	Platform._on_purchase_result("ad_free", was, "")
+
+
+func test_the_storeless_base_backend_sells_nothing() -> void:
+	var b := PlatformBackend.new()
+	watch_signals(b)
+	b.buy("ad_free")
+	assert_signal_emitted_with_parameters(b, "purchase_result", ["ad_free", false, "The store isn't available right now. You haven't been charged."])
+	assert_false(b.ads_allowed())
+	b.free()

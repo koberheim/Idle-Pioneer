@@ -817,7 +817,10 @@ func _show_settings() -> void:
 		_toasts.push("Checking with the store...", "scroll", 2.0))
 	store_row.add_child(ad_free)
 	store_row.add_child(restore)
-	m.body.add_child(store_row)
+	if Platform.store_available() or Platform.is_ad_free():
+		m.body.add_child(store_row)
+	else:
+		store_row.queue_free()
 	if Platform.privacy_options_required():
 		var privacy := UI.button("Privacy choices", "button", 56)
 		privacy.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
