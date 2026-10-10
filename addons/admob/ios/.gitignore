@@ -1,2 +1,1 @@
-# Remove /bin folder line if you want to commit
-/bin
+# Native binaries are committed so cloud (iOS) builds have them.
