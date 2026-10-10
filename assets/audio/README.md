@@ -108,15 +108,16 @@ to resumes where it left off.
 
 | id | plays | how |
 |---|---|---|
-| `theme`, `theme_2` … `theme_9` | New World map, Workshops, Ledger | a **playlist**: every `theme*` file that exists, shuffled, each played once, with 20–40 s of silence between tracks |
-| `europe` | Europe tab | looped |
-| `congress` | Congress tab | looped |
+| `theme`, `theme_2` … `theme_9` | New World map, Workshops, Ledger | a **playlist**: every `theme*` file that exists, shuffled, each played once, with 20–40 s between tracks |
+| `europe`, `europe_2` … `europe_9` | Europe tab | a playlist, 5–10 s between tracks |
+| `congress`, `congress_2` … `congress_9` | Congress tab | a playlist, 5–10 s between tracks |
 | `independence` | once, when the Declaration is signed, then back to the previous context | one-shot |
 
-To add a theme track, add `theme_5.ogg` (and so on, up to `theme_9`): it joins
-the playlist automatically. Playlist tracks should end, not loop. Looping
-tracks should be seamless at the loop point (loops are set in code, not in the
-import settings).
+To add a track, add e.g. `theme_6.ogg` or `europe_4.ogg` (up to `_9`): it
+joins its playlist automatically. Playlist tracks should end, not loop; the
+ambience bed fills the gaps between them (`Sfx.PLAYLIST_GAP`). A context that
+isn't a playlist loops its one file, which must then be seamless at the loop
+point (loops are set in code, not in the import settings).
 
 ## Ambience ids
 

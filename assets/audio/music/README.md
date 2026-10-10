@@ -2,8 +2,8 @@
 
 One file per music id, named `<id>.ogg` (or `.wav` / `.mp3`), every track
 normalised to -16 LUFS integrated. `theme`, `theme_2` … `theme_9` form the
-shuffled map playlist (tracks end, with silence between them); `europe` and
-`congress` loop; `independence` plays once.
+shuffled map playlist, and `europe*` and `congress*` the playlists of those
+tabs (tracks end, with a gap between them); `independence` plays once.
 
 The full context list, playback rules and how to normalise a replacement are
 in `../README.md`; tunes and licenses are in `../CREDITS.md`. The shipped

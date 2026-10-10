@@ -247,9 +247,13 @@ def cmd_normalize(a) -> int:
 				x[:fi] *= np.linspace(0.0, 1.0, fi)[:, None]
 				print("%s: trimmed %.2f s of leading silence" % (i, on / SR))
 			lufs = loudness.integrated(x)
-			gain = min(MUSIC_LUFS - lufs, -1.5 - loudness.true_peak_db(x))
+			# Up to MAX_LIMIT_DB of peaks are limited to reach the target; beyond
+			# that the track is left as loud as the -1.5 dBTP ceiling allows.
+			gain = min(MUSIC_LUFS - lufs, -1.5 + MAX_LIMIT_DB - loudness.true_peak_db(x))
 			out = os.path.join(MUSIC_DIR, i + ".ogg")
 			y = x * 10 ** (gain / 20)
+			if loudness.true_peak_db(y) > -1.5:
+				y = limit(y, -2.0)
 			write_ogg(y, out, a.ffmpeg, 3)
 			print("%s: %.1f -> %.1f LUFS integrated -> %s" % (i, lufs, lufs + gain, out))
 			continue

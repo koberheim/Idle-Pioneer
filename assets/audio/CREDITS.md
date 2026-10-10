@@ -2,7 +2,7 @@
 
 ## Music (`music/`)
 
-All tracks are original arrangements made for this game by
+`theme` to `theme_4` are original arrangements made for this game by
 `tools/music/compose.py` (MIDI written in Python, rendered with FluidSynth). The
 melodies are public-domain tunes, written out from the traditional tunes (the
 newer theme tunes checked against traditional session settings of the tune),
@@ -15,19 +15,31 @@ instrumentation and form are original. Every track is normalised to -16 LUFS.
 | `theme_2.ogg` | Haste to the Wedding | trad. jig, England/Ireland, first printed 1767 |
 | `theme_3.ogg` | The White Cockade | trad. Scottish march, 18th c. (a fife tune of the American Revolution) |
 | `theme_4.ogg` | Lilliburlero | English, 1688; tune attributed to Henry Purcell (1659-1695) |
-| `europe.ogg` | Greensleeves; Drunken Sailor | trad. English, 16th c.; trad. sea song, tune 18th c. or older |
-| `congress.ogg` | Minuet in G (BWV Anh. 114); Old Hundredth | Christian Petzold, 1725; Louis Bourgeois, Genevan Psalter, 1551 |
 
 Instruments are period ones: recorder, flute played as a fife, fiddle,
 harpsichord, cello, strings, natural-style brass, kettledrums, hand and side
-drums. (`theme` and `europe` were re-rendered without the nylon guitar,
-accordion and acoustic bass of the first version.)
+drums. (The earlier rendered `europe` and `congress` tracks, on Greensleeves,
+Drunken Sailor, Petzold's Minuet in G and Old Hundredth, were replaced by the
+generated tracks below and are in git history.)
 
 ### Generated with ElevenLabs Music
 
 | file | generated | what |
 |---|---|---|
-| `independence.ogg` | 9 Oct 2026 | original fife-and-drum march into brass, timpani and bells (prompt in `tools/music/eleven_manifest.json`) |
+| `theme_5.ogg` | 9 Oct 2026 | fife and snare march joined by fiddle |
+| `theme_6.ogg` | 9 Oct 2026 | slow fiddle air over a cello drone |
+| `theme_7.ogg` | 9 Oct 2026 | jig on fiddle, wooden flute and hand drum |
+| `theme_8.ogg` | 9 Oct 2026 | harpsichord and recorder duet |
+| `theme_9.ogg` | 9 Oct 2026 | hammered dulcimer and fiddle |
+| `europe.ogg` | 9 Oct 2026 | harbour tune on fiddle, wooden flute and hand drum |
+| `europe_2.ogg` | 9 Oct 2026 | baroque string quartet |
+| `europe_3.ogg` | 9 Oct 2026 | sailor's hornpipe on fiddle and flute |
+| `congress.ogg` | 9 Oct 2026 | harpsichord-and-strings minuet |
+| `congress_2.ogg` | 9 Oct 2026 | slow processional for chamber organ and strings |
+| `congress_3.ogg` | 9 Oct 2026 | baroque string trio |
+| `independence.ogg` | 9 Oct 2026 | fife-and-drum march into brass, timpani and bells |
+
+All original compositions; prompts are in `tools/music/eleven_manifest.json`.
 
 Made with Eleven Music (`music_v2_5`) on a paid Creator plan. Its terms allow
 use in an "Indie Game" (under $500k lifetime revenue for the game and under

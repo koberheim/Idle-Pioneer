@@ -5,9 +5,10 @@
 ## assets/audio/README.md for the id list and the loudness each file should have.
 ##
 ## Music follows a context (set_music_context): it crossfades between contexts
-## and resumes each one where it left off. Playlist contexts (the "theme") play
-## <id>, <id>_2, <id>_3 ... shuffled, with a pause between tracks; the others
-## loop, and one-shots (independence) play once and hand back. Under the music,
+## and resumes each one where it left off. Playlist contexts (theme, europe,
+## congress) play <id>, <id>_2, <id>_3 ... shuffled, with a pause between
+## tracks; any other context loops, and one-shots (independence) play once and
+## hand back. Under the music,
 ## an ambience bed (assets/audio/ambience/<id>.*) loops per context and keeps
 ## going through the gaps between playlist tracks; it follows the Music setting.
 extends Node
@@ -36,13 +37,15 @@ const AMBIENCE: Dictionary = {"theme": "amb_newworld", "europe": "amb_europe", "
 const FADE_SECONDS := 1.5
 ## Fade used instead of a hard stop, so a cut-off never clicks.
 const QUICK_FADE := 0.05
-## Silence between playlist tracks, in seconds (min, max).
-const PLAYLIST_GAP := Vector2(20.0, 40.0)
+## Silence between playlist tracks, in seconds (min, max), per context; the
+## ambience bed keeps playing through it. The map gets long rests; the tabs a
+## short breath, since a visit there is brief.
+const PLAYLIST_GAP: Dictionary = {"theme": Vector2(20.0, 40.0), "europe": Vector2(5.0, 10.0), "congress": Vector2(5.0, 10.0)}
 const PLAYLIST_MAX := 9
 ## Music contexts that play once and then return to the previous context.
 const ONE_SHOT_MUSIC: Array[String] = ["independence"]
 ## Music contexts that are playlists of <id>, <id>_2 ... <id>_9.
-const PLAYLIST_MUSIC: Array[String] = ["theme"]
+const PLAYLIST_MUSIC: Array[String] = ["theme", "europe", "congress"]
 ## Played on their own players so a burst of UI sounds can't cut them off.
 const CEREMONIAL: Array[String] = ["liberty", "fanfare", "purchase", "salute"]
 ## Played with a little random pitch so repeats don't sound mechanical.
@@ -394,7 +397,8 @@ func _on_music_finished(p: AudioStreamPlayer) -> void:
 		set_music_context(_return_context)
 	elif _context in PLAYLIST_MUSIC:
 		_free_player(p)
-		_gap.start(randf_range(PLAYLIST_GAP.x, PLAYLIST_GAP.y))
+		var gap: Vector2 = PLAYLIST_GAP.get(_context, Vector2(20.0, 40.0))
+		_gap.start(randf_range(gap.x, gap.y))
 	else:
 		# Looping tracks don't finish; if a replacement file can't loop, restart it.
 		p.play()
