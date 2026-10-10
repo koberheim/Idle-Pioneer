@@ -8,7 +8,7 @@ Values in the presets that you must confirm before the first upload:
 
 | Setting | Current value | Notes |
 |---|---|---|
-| Package name / bundle id | `com.idlepioneer.game` | **Placeholder.** Choose your own, e.g. `com.<yourname>.idlepioneer`. It can't be changed after the first upload to either store. |
+| Package name / bundle id | `com.koberheim.idlepioneer` | Chosen by the owner. It can't be changed after the first upload to either store. |
 | Version name / short version | `1.0.0` | Visible to players. |
 | Version code / build number | `1` | Must increase with every upload. |
 | Export paths | `build/android/IdlePioneer.aab`, `build/ios/IdlePioneer.ipa` | Add `build/` to `.gitignore`, or point these outside the repo. |

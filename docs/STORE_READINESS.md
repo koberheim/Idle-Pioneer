@@ -47,8 +47,8 @@ Tests were added for items 1 and 2.
 | O2 | ~~Android toolchain.~~ **Done:** Temurin JDK 17.0.20.1 in `E:\Android\jdk-17`, the SDK in `E:\Android\Sdk` (platform 36, build-tools 36.1.0, NDK 29.0.14206865), and the standard 4.7.2 export templates. Editor Settings point at all three. **C: has only about 4 GB free,** so export with `GRADLE_USER_HOME=E:\Android\gradle` (see `EXPORT_SETUP.md`). | — | — |
 | O8 | **Real AdMob IDs.** The app IDs go in Project Settings > AdMob, and the rewarded and interstitial unit IDs in `idle_pioneer/ads/*`. Release builds show no ads until they're set. | Owner creates them in AdMob; Claude fills them in | Release with ads |
 | O9 | **Upload keystore.** Create it with the `keytool` command in section 4B, then enter it in the Android preset's Keystore > Release. | Owner | Release AAB |
-| O3 | **Package ID.** `com.idlepioneer.game` is a placeholder and becomes permanent at the first upload. Suggest `com.<yourname>.idlepioneer`. | Owner | First upload |
-| O4 | **Developer name.** The credits say "the Idle Pioneer team", and the site has placeholders (`{{DEVELOPER_NAME}}`, `{{CONTACT_EMAIL}}`, `{{WEBSITE}}`, `{{DEVELOPER_COUNTRY}}`, `{{EFFECTIVE_DATE}}`, `{{ADMOB_PUBLISHER_ID}}`). | Owner supplies the values; Claude fills them in | Privacy policy URL |
+| O3 | ~~Package ID.~~ **Done:** `com.koberheim.idlepioneer` on both platforms (10 Oct 2026). It becomes permanent at the first upload. | — | — |
+| O4 | **Developer name: Skeemer Games** (done in the credits and the site). The site still has placeholders for the contact email, website, country, effective date and AdMob publisher ID. | Owner supplies them; Claude fills them in | Privacy policy URL |
 | O5 | **Host `docs/site`** with `app-ads.txt` at the domain root. See `docs/site/README.md`. | Owner | Both listings, AdMob |
 | O6 | **Real-device check.** At least one older Android phone and one iPhone. | Owner and testers | Production |
 | O7 | **Licence watch.** ElevenLabs Music only covers games under US$500k lifetime revenue. | Owner | Nothing today |
