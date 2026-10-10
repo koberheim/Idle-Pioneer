@@ -79,6 +79,9 @@ def target_of(i: str) -> float:
 	base, _, n = i.rpartition("_")
 	return TARGETS.get(i, TARGETS.get(base, DEFAULT_TARGET) if n.isdigit() else DEFAULT_TARGET)
 MUSIC_LUFS = -16.0  # integrated; must match compose.MUSIC_LUFS
+# Vorbis quality for music: q0 is ~64 kbps stereo, about 1 MB a minute, which
+# keeps the music folder small on phones at no audible cost on their speakers.
+MUSIC_QUALITY = 0
 AMBIENCE_LUFS = -26.0  # integrated; ambience beds sit about 10 LU under the music
 PEAK_CEILING = -1.0  # dBTP
 FADE_IN_S = 0.0015
@@ -254,7 +257,7 @@ def cmd_normalize(a) -> int:
 			y = x * 10 ** (gain / 20)
 			if loudness.true_peak_db(y) > -1.5:
 				y = limit(y, -2.0)
-			write_ogg(y, out, a.ffmpeg, 3)
+			write_ogg(y, out, a.ffmpeg, MUSIC_QUALITY)
 			print("%s: %.1f -> %.1f LUFS integrated -> %s" % (i, lufs, lufs + gain, out))
 			continue
 		target = target_of(i)

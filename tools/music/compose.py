@@ -1000,7 +1000,7 @@ def finish(wav_in: str, wav_out: str, beats: float, bpm: float, loop: bool) -> d
 
 
 def encode(ffmpeg: str, wav: str, ogg: str) -> None:
-	subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-i", wav, "-c:a", "libvorbis", "-q:a", "3",
+	subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-i", wav, "-c:a", "libvorbis", "-q:a", "0",
 		"-ar", str(SR), "-ac", "2", ogg], check=True)
 
 
