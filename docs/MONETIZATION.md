@@ -59,10 +59,14 @@ A phone build **without** the plugins falls back to the base `PlatformBackend`. 
 
 ### Configuration at release time
 
+All of these live in `project.godot`, in the `[idle_pioneer]` section:
+
 - **Debug builds** always use Google's test ad units.
 - **Release builds** read the real units from Project Settings, and show no ads if they're empty:
   - `idle_pioneer/ads/android_rewarded` and `idle_pioneer/ads/android_interstitial`
   - `idle_pioneer/ads/ios_rewarded` and `idle_pioneer/ads/ios_interstitial`
+- **Builds for testers** set `idle_pioneer/ads/force_test_ads=true`. A release build then serves Google's test ads instead of real ones, so testers can't click a live ad (AdMob suspends accounts for that). Settings shows "test ads" next to the version. Set it back to `false` for the production build; `check_aab.py` warns while it's on.
+- **`idle_pioneer/urls/privacy_policy`** is the page the "Privacy policy" button in Settings opens. The button is hidden while it's empty.
 - **The AdMob app IDs** go in `admob/general/android/app_id` and `admob/general/ios/app_id` (Project Settings > AdMob). Until they're set, Google's sample app IDs are used, which are only valid with test ads.
 - **The product ID is `ad_free`** in both Play Console and App Store Connect: a one-time, non-consumable product.
 

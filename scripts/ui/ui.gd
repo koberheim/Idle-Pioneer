@@ -14,6 +14,17 @@ const BLUE := Color("3b6db0")
 
 const FONT_BODY := preload("res://assets/fonts/LibreBaskerville-Regular.ttf")
 const FONT_TITLE := preload("res://assets/fonts/Almendra-Regular.ttf")
+## The marks, stars and arrows neither game font contains. Without this each
+## phone would substitute its own symbol font (tools/gen_symbols_font.py).
+const FONT_SYMBOLS := preload("res://assets/fonts/IdlePioneerSymbols.ttf")
+
+
+static func _static_init() -> void:
+	for f: FontFile in [FONT_BODY, FONT_TITLE]:
+		if not FONT_SYMBOLS in f.fallbacks:
+			var list: Array[Font] = f.fallbacks.duplicate()
+			list.append(FONT_SYMBOLS)
+			f.fallbacks = list
 
 const SIZE_SMALL := 21
 const SIZE_BODY := 24

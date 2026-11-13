@@ -83,3 +83,26 @@ func test_the_phone_backend_compiles_against_the_plugins() -> void:
 	assert_true(s.can_instantiate())
 	# On desktop the stand-in is used, never the phone backend.
 	assert_true(Platform.backend is DesktopBackend)
+
+
+func test_the_privacy_link_needs_a_real_https_address() -> void:
+	var before: Variant = ProjectSettings.get_setting(Platform.PRIVACY_URL_SETTING, "")
+	ProjectSettings.set_setting(Platform.PRIVACY_URL_SETTING, "")
+	assert_eq(Platform.privacy_policy_url(), "", "no link until the site is hosted")
+	ProjectSettings.set_setting(Platform.PRIVACY_URL_SETTING, "file:///etc/passwd")
+	assert_eq(Platform.privacy_policy_url(), "", "only https links are opened")
+	ProjectSettings.set_setting(Platform.PRIVACY_URL_SETTING, " https://example.com/privacy.html ")
+	assert_eq(Platform.privacy_policy_url(), "https://example.com/privacy.html")
+	ProjectSettings.set_setting(Platform.PRIVACY_URL_SETTING, before)
+
+
+func test_every_license_listed_in_the_credits_has_its_text() -> void:
+	var data: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/credits.json"))
+	var checked: int = 0
+	for l: Dictionary in data.get("licenses", []):
+		var file: String = str(l.get("file", ""))
+		if file == "engine":
+			continue
+		assert_true(FileAccess.file_exists(file), "%s is missing" % file)
+		checked += 1
+	assert_gt(checked, 4, "fonts and the three store plugins")

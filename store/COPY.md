@@ -110,8 +110,9 @@ Base these answers on Google's current AdMob and Play Billing disclosure guides,
   - *Device or other IDs: advertising ID / app set ID.* Used for advertising, analytics and fraud prevention.
   - All of it is collected automatically, it is required for the ads to work (not optional), and it isn't linked to an account (the game has none).
 - **Purchases:** Google Play handles payment and purchase history. Follow the Play Billing Library's current data-safety note for whether anything needs declaring; at the time of writing Google says billing data handled by Play itself doesn't. **The owner must confirm this.**
-- **Advertising ID declaration** (Policy › App content): Yes, the app uses the advertising ID, through AdMob. With `targetSdk` 33+ the AdMob SDK adds the `AD_ID` permission. MONETIZATION.md and the README say "no permissions": that holds for the game's own manifest, but the merged manifest will contain `AD_ID` and `INTERNET` once the AdMob plugin is in.
-- **Privacy policy URL:** host `docs/site/privacy.html` first. It already describes AdMob, Play Billing and the StoreKit purchase.
+- **Advertising ID declaration** (Policy › App content): Yes, the app uses the advertising ID, through AdMob. The game asks for no permissions itself; the ads and billing libraries add `AD_ID`, `INTERNET` and a few others to the built app (the full list is in `docs/EXPORT_SETUP.md`).
+- **Device backup:** Android's own backup is on, so saves return on a new phone. That copy sits in the player's Google account, not with the developer, so it isn't "collected" data and needs no Data safety entry.
+- **Privacy policy URL:** `https://koberheim.github.io/privacy.html` (also opened by the Privacy policy button in Settings). **Website:** `https://koberheim.github.io`. **Support URL:** `https://koberheim.github.io/support.html`.
 
 ---
 

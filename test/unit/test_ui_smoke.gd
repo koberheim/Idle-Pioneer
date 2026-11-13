@@ -180,3 +180,30 @@ func test_congress_shows_every_offered_figure() -> void:
 	var page: Node = main.get("_pages")[3]
 	var cards: Dictionary = page.get("_father_cards")
 	assert_eq(cards.size(), Balance.fathers_offered(Game.run).size())
+
+
+func _files_under(dir: String, ext: String) -> Array[String]:
+	var out: Array[String] = []
+	for f in DirAccess.get_files_at(dir):
+		if f.ends_with(ext):
+			out.append(dir.path_join(f))
+	for d in DirAccess.get_directories_at(dir):
+		out.append_array(_files_under(dir.path_join(d), ext))
+	return out
+
+
+func test_every_symbol_in_the_game_text_is_in_a_bundled_font() -> void:
+	# A character missing from the game's fonts is drawn by whatever font the
+	# phone has, so it looks different on every device (or shows as a box).
+	var seen: Dictionary = {}
+	for path in _files_under("res://scripts", ".gd") + _files_under("res://data", ".json"):
+		var text: String = FileAccess.get_file_as_string(path)
+		for i in text.length():
+			var c: int = text.unicode_at(i)
+			if c > 126 and not seen.has(c):
+				seen[c] = path
+	assert_gt(seen.size(), 5, "the scan found the game's text")
+	for c: int in seen:
+		for font: FontFile in [UI.FONT_BODY, UI.FONT_TITLE]:
+			var ok: bool = font.has_char(c) or UI.FONT_SYMBOLS.has_char(c)
+			assert_true(ok, "U+%04X (%s, first seen in %s) is in no bundled font" % [c, String.chr(c), seen[c]])

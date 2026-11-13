@@ -4,6 +4,7 @@
   python tools/store/build_store.py --skip-render   # recompose from existing raw shots
   python tools/store/build_store.py --only 01_map,05_congress
   python tools/store/build_store.py --ipad     # also iPad 13" (the iOS preset is iPhone-only today)
+  python tools/store/build_store.py --targets iphone_6.1   # only these store sizes
 
 For every shot and every target size it:
   1. renders the game itself at the exact pixel size (tools/shot.gd, scenario
@@ -45,6 +46,9 @@ TARGETS = {
     "google_play_phone": (1080, 1920, "Google Play phone screenshots (9:16)"),
     "iphone_6.9": (1290, 2796, "App Store iPhone 6.9\" / 6.7\" display"),
     "iphone_6.5": (1242, 2688, "App Store iPhone 6.5\" display"),
+    # The one iPhone set Apple marks as required ("iPhone with Dynamic Island,
+    # medium display").
+    "iphone_6.1": (1179, 2556, "App Store iPhone 6.1\" display (required)"),
 }
 IPAD = {"ipad_13": (2064, 2752, "App Store iPad 13\" display")}
 
@@ -211,10 +215,17 @@ def main():
     ap.add_argument("--skip-render", action="store_true")
     ap.add_argument("--only", default="")
     ap.add_argument("--ipad", action="store_true")
+    ap.add_argument("--targets", default="")
     a = ap.parse_args()
     targets = dict(TARGETS)
     if a.ipad:
         targets.update(IPAD)
+    if a.targets:
+        wanted = set(filter(None, a.targets.split(",")))
+        unknown = wanted - set(targets)
+        if unknown:
+            raise SystemExit("unknown target(s): %s (have: %s)" % (", ".join(sorted(unknown)), ", ".join(targets)))
+        targets = {k: v for k, v in targets.items() if k in wanted}
     only = set(filter(None, a.only.split(",")))
     shots = [s for s in SHOTS if not only or s[0] in only]
     os.makedirs(OUT, exist_ok=True)

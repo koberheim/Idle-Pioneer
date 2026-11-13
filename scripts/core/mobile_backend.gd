@@ -10,7 +10,8 @@
 ## and the tests never touch the native SDKs. See docs/MONETIZATION.md.
 extends PlatformBackend
 
-## Google's published test units, used by every debug build.
+## Google's published test units, used by every debug build, and by a release
+## build made for testers (idle_pioneer/ads/force_test_ads).
 const TEST_UNITS := {
 	"Android": {"rewarded": "ca-app-pub-3940256099942544/5224354917", "interstitial": "ca-app-pub-3940256099942544/1033173712"},
 	"iOS": {"rewarded": "ca-app-pub-3940256099942544/1712485313", "interstitial": "ca-app-pub-3940256099942544/4411468910"},
@@ -94,7 +95,7 @@ func _init_ads() -> void:
 
 
 func _unit(kind: String) -> String:
-	if OS.is_debug_build():
+	if OS.is_debug_build() or Platform.test_ads_forced():
 		return TEST_UNITS.get(_os, {}).get(kind, "")
 	return str(ProjectSettings.get_setting(UNIT_SETTING % [_os.to_lower(), kind], ""))
 

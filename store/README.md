@@ -7,6 +7,7 @@ python tools/store/build_store.py                 # renders, composes, copies ic
 python tools/store/build_store.py --skip-render   # recompose captions only (needs a previous render)
 python tools/store/build_store.py --only 01_map,08_ledger
 python tools/store/build_store.py --ipad          # also adds ipad_13/ (2064x2752); see "iPad" below
+python tools/store/build_store.py --targets iphone_6.1   # only the named store sizes
 ```
 
 The script needs Python 3 with Pillow, and the Godot 4.7.2 console exe. The path is set at the top of the script; override it with the `GODOT` environment variable. Godot opens a borderless window for a few seconds per shot. Don't click into it.
@@ -30,6 +31,7 @@ All PNGs are 24-bit RGB with no alpha channel. Each screenshot is 0.5 to 1.3 MB,
 | `google_play_phone/01_map.png` … `08_ledger.png` (8 files) | 1080 × 1920 | Google Play › Phone screenshots (2–8 allowed; 9:16) |
 | `iphone_6.9/01_map.png` … `08_ledger.png` (8 files) | 1290 × 2796 | App Store › iPhone 6.9" display (also accepted for 6.7") |
 | `iphone_6.5/01_map.png` … `08_ledger.png` (8 files) | 1242 × 2688 | App Store › iPhone 6.5" display (only needed if 6.9" isn't supplied; Apple scales 6.9" down otherwise) |
+| `iphone_6.1/01_map.png` … `08_ledger.png` (8 files) | 1179 × 2556 | App Store › iPhone 6.1" display. **The one set Apple marks as required** (checked 13 Nov 2026) |
 
 ### Screenshots: raw game, no caption (the same shots full-bleed, at true device resolution)
 
@@ -38,6 +40,7 @@ All PNGs are 24-bit RGB with no alpha channel. Each screenshot is 0.5 to 1.3 MB,
 | `raw/google_play_phone/*.png` (8) | 1080 × 1920 | Play phone screenshots, if you prefer uncaptioned shots; press kit |
 | `raw/iphone_6.9/*.png` (8) | 1290 × 2796 | App Store 6.9", uncaptioned alternative |
 | `raw/iphone_6.5/*.png` (8) | 1242 × 2688 | App Store 6.5", uncaptioned alternative |
+| `raw/iphone_6.1/*.png` (8) | 1179 × 2556 | App Store 6.1", uncaptioned alternative |
 
 ### The eight shots, in story order
 
@@ -71,7 +74,7 @@ The feature graphic already has the "Idle Pioneer" wordmark. Its flags are plain
 
 ## iPad
 
-The iOS export preset (`export_presets.cfg`, local and git-ignored) has `application/targeted_device_family=0`, which means **iPhone only**. As things stand, the App Store needs no iPad screenshots, so none are included. If the owner switches the preset to iPhone & iPad, run the build with `--ipad` to add `ipad_13/` and `raw/ipad_13/` at 2064 × 2752. A test render at that size lays out correctly: the game widens to 960 logical units, and everything fits.
+The iOS export preset (`export_presets.cfg`) has `application/targeted_device_family=0`, which means **iPhone only**. As things stand, the App Store needs no iPad screenshots, so none are included. If the owner switches the preset to iPhone & iPad, run the build with `--ipad` to add `ipad_13/` and `raw/ipad_13/` at 2064 × 2752. A test render at that size lays out correctly: the game widens to 960 logical units, and everything fits.
 
 Google Play: the game isn't restricted to phones. Tablet screenshots (7" and 10") are optional, and Play falls back to the phone shots.
 

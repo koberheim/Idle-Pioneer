@@ -59,6 +59,15 @@ enabled=PackedStringArray("res://addons/GodotGooglePlayBilling/plugin.cfg", "res
 
 common/drop_mouse_on_gui_input_disabled=true
 
+[idle_pioneer]
+
+urls/privacy_policy="https://koberheim.github.io/privacy.html"
+ads/force_test_ads=false
+ads/android_rewarded=""
+ads/android_interstitial=""
+ads/ios_rewarded=""
+ads/ios_interstitial=""
+
 [rendering]
 
 textures/canvas_textures/default_texture_filter=0

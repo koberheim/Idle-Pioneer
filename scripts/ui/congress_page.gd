@@ -57,7 +57,7 @@ func refresh() -> void:
 	_gold_label.text = "Gold earned this expedition: %s / %s" % [Format.num(run.lifetime_gold), Format.num(gate)]
 	var muskets: int = int(run.stock_of("muskets"))
 	var need: int = int(Balance.v("independence_muskets"))
-	_musket_label.text = ("✔ " if muskets >= need else "✘ ") + "Arm the militia: %d musket%s kept in the warehouse (%d)" % [need, "" if need == 1 else "s", muskets]
+	_musket_label.text = ("✓ " if muskets >= need else "✕ ") + "Arm the militia: %d musket%s kept in the warehouse (%d)" % [need, "" if need == 1 else "s", muskets]
 	_musket_label.add_theme_color_override("font_color", UI.GREEN if muskets >= need else UI.RED)
 	var payout: int = Balance.liberty_payout(run)
 	# Liberty grows with gold earned (a power below 1), so carrying on past

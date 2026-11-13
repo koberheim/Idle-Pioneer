@@ -1,213 +1,277 @@
 # Store readiness: Google Play and the App Store
 
-Audit of 9 Oct 2026, on `main` after 316b126. It supersedes the open lists in `FINAL_AUDIT.md` and `LAUNCH_PLAN.md`. Store rules were re-checked online the same day; items marked *(verify)* could not be confirmed from a primary source.
+Audit of 13 Nov 2026. It replaces the audit of 9 Oct and the open lists in `FINAL_AUDIT.md` and `LAUNCH_PLAN.md`. Store rules were re-checked online the same day; section 7 lists what was checked and where.
 
-## 1. Verdict
+Some words used below:
 
-**The game and its store plumbing are built. What's left is your accounts, the real IDs, and a test on real devices.**
+- **App ID:** the app's permanent internal name, `com.koberheim.idlepioneer`. Google calls it the "package name", Apple the "bundle ID".
+- **Bundle (AAB):** the single `.aab` file you upload to Google Play.
+- **Upload key:** a small file plus a password that proves an upload comes from you.
+- **Version code:** a counter (1, 2, 3…) Play uses to tell uploads apart. Players never see it.
+- **Closed test:** a private release on Google Play that only people you invite can install.
 
-The game itself is ready:
-- Content, balance, art, audio, saves, offline play and lifecycle handling are finished.
-- 76 of 76 tests pass.
-- Every Must and Should item in `FINAL_AUDIT.md` was fixed in 8ee79fc and the commits after it.
+## 1. Where things stand
 
-On 10 Oct 2026 the Android toolchain and the ad/purchase plugins were installed, and the real backend was written. A debug AAB now builds with AdMob, consent and Play Billing inside (target SDK 36, `AD_ID` declared). It hasn't run on a phone yet. Everything else that's left is accounts, forms and uploads, which only the owner can do.
+**The game is finished and a release build passes every automated check. Nothing has been uploaded anywhere, and nothing has run on a real phone yet.** What's left is almost all yours: accounts, a few IDs, and people to test.
+
+- 80 of 80 tests pass.
+- A practice release bundle builds in about 4 minutes (`tools\store\build_android.cmd -Trial`): release mode, target SDK 36, 16 KB aligned, 51 MB.
+- Google Play is the priority. The earliest possible public release is about **4 weeks** after the Play account is verified, because Google makes new personal accounts run a 14-day closed test first.
 
 ## 2. Audit results
 
-### Fixed in this pass
-| # | Was | Now |
-|---|---|---|
-| 1 | **Blocker:** a phone build had no native backend, so it fell back to the desktop stand-in. Tapping "Remove ads · $4.99" granted Ad-Free for free, and Consult and the between-expedition break showed "test ad" cards. | Mobile builds without the plugins use a storeless backend. It shows no ads and sells nothing, and the Remove ads and Restore buttons are hidden (`platform.gd`, `platform_backend.gd`, `main.gd`). |
-| 2 | A store error reported as "not owned" would take away a purchase the player already owned. | Errors never revoke Ad-Free. Only a definite answer from the store does, such as a refund. |
-| 3 | The game rendered at a constant 60 fps, which is hard on batteries. | **Map effects: Light** now also caps the game at 30 fps. |
-| 4 | The version was 0.9.0. | 1.0.0 in `project.godot` and both presets. |
-| 5 | The 61 KB feature graphic shipped inside the app. | Excluded, along with `store/`. |
-| 6 | The iOS export compliance question was asked on every upload. | `ITSAppUsesNonExemptEncryption = NO` is in the iOS plist. |
-| 7 | `export_presets.cfg` was gitignored, so a cloud Mac build couldn't see it. | Now committed. It holds no secrets: Godot 4 keeps keystore passwords in `.godot/export_credentials.cfg`. |
+### Fixed in this pass (13 Nov)
 
-Tests were added for items 1 and 2.
+| # | Found | Now |
+|---|---|---|
+| 1 | **No privacy policy link inside the game.** Both stores expect one in the app as well as on the listing. | Settings has a **Privacy policy** button that opens `https://koberheim.github.io/privacy.html` (`idle_pioneer/urls/privacy_policy`). It is hidden while that setting is empty. |
+| 2 | **The licenses of the three store plugins weren't shipped.** Their MIT license asks for the notice to travel with the app. | Credits & Licenses lists all three, and the texts are in both export presets. A test checks every listed license file exists. |
+| 3 | **No way to build the release bundle** short of clicking through the editor, and no check of the result. | `tools\store\make_keystore.cmd`, `build_android.cmd` and `check_aab.py` (see `EXPORT_SETUP.md`). |
+| 4 | **Testers would have seen live ads.** A release build could only use real ad units, and AdMob suspends accounts when friends click live ads. | `idle_pioneer/ads/force_test_ads` makes a release build serve Google's test ads. Settings shows "test ads" beside the version, and the checker warns while it's on. |
+| 5 | **Saves were lost on a new phone or a reinstall** unless the player had copied a save code. | Android device backup is on. The privacy policy and support page describe it. |
+| 6 | Site placeholders for the website and country. | Filled: `https://koberheim.github.io`, United States. `tools\store\fill_site.py` fills the rest and `publish_site.cmd` publishes. |
+| 7 | **No iOS build recipe.** | `codemagic.yaml` builds on a rented Mac and uploads to TestFlight. Not run yet: it needs the Apple account. |
+| 8 | **Apple's one required iPhone screenshot size was missing** (6.1″, 1179×2556). | `store/iphone_6.1/` and `store/raw/iphone_6.1/`. |
+| 9 | Stale docs: `EXPORT_SETUP.md` said the app requests no permissions, that iOS needs your own Mac, and that App Privacy is "Data Not Collected". | Rewritten. |
+| 10 | The export script would hang after finishing, waiting on Gradle's background process. | Fixed in `build_android.ps1`. |
+| 11 | **Nine symbols (✓ ✕ ★ → ▲ ▼ ∞ and two heavier marks) weren't in the game's fonts,** so every phone would have drawn them with a font of its own. On Windows the tick on the Congress screen came out as a purple emoji, and it was in the store screenshots. | `assets/fonts/IdlePioneerSymbols.ttf` (made by `tools/gen_symbols_font.py`) is the fallback for both game fonts. A test checks every special character in the game's text has a bundled font. All store screenshots were re-rendered. |
 
 ### Checked and fine
-- **Lifecycle:**
-  - The game saves on pause, focus-out and quit.
-  - Offline catch-up runs on resume.
-  - Back closes the topmost sheet first, and asks "press again to leave" at the root.
-- **Content:** no cheat keys, no dev menus, no `print()` spam and no TODOs in shipped code. The export filters keep `tools/`, `test/`, `docs/`, `addons/gut` and `store/` out of the app.
-- **Size:** about 17 MB of assets (music is 14 MB), so roughly a 30 MB download.
-- **Data:** no network code, links or user-generated content. The finger-drawn signature stays in the local save.
-- **Settings:** music, sound, tips, map effects, Large text, number style, save code copy/restore, Credits & Licenses, Remove ads, Restore purchases, version and reset are all present. "Privacy choices" appears once the ads backend reports that it's required.
-- **Android 16 large screens:** Android 16 ignores orientation locks on tablets, but games are exempt. The preset declares the app category as Game.
-- **Store package** (`store/`): 8 captioned screenshots at Play 1080×1920, iPhone 6.9″ and 6.5″, plus the icons, the feature graphic and every listing field (`store/COPY.md`).
+
+- **Android build:** target SDK 36, minimum Android 7, arm64 only, both native libraries aligned for 16 KB pages, not debuggable, Play Billing library 9.1 (accepted until Aug 2028), Google's current ads SDK with the consent form.
+- **Size:** 51 MB bundle. Players download roughly 50 MB: 25 MB engine, 8 MB Google libraries, 18 MB game (14 MB of that is music).
+- **Permissions:** the game asks for none itself and the player sees no permission prompt. The ad and billing libraries add internet access, the advertising ID and billing (full list in `EXPORT_SETUP.md`).
+- **Contents:** no tests, tools, docs or store art in the bundle.
+- **Ads and purchase code:** consent is requested before any ad; nothing is requested without it. Failures never remove Ad-Free. Purchases are acknowledged. Covered by tests, but **not yet seen on a phone**.
+- **Lifecycle:** saves on pause, focus-out and quit; offline catch-up on resume; Back closes the top sheet and asks before leaving.
+- **Store package** (`store/`): 8 captioned screenshots per size, all the right dimensions and without transparency; 512 px and 1024 px icons; feature graphic; every listing field in `store/COPY.md`.
+- **iOS preset:** iPhone only, iOS 15+, StoreKit plugin on, encryption question pre-answered. The AdMob plugin adds its own app ID key and ad-network list at export.
 
 ### Still open
-| # | Item | Who | Blocks |
+
+| # | Item | Who | Needed for |
 |---|---|---|---|
-| O1 | ~~Native ads and billing backends.~~ **Done:** `scripts/core/mobile_backend.gd`; see `MONETIZATION.md`. Still needs a run on a real phone: consent form, test ads, a licence-tester purchase, Restore. | Owner (device) and Claude (fixes) | Closed test |
-| O2 | ~~Android toolchain.~~ **Done:** Temurin JDK 17.0.20.1 in `E:\Android\jdk-17`, the SDK in `E:\Android\Sdk` (platform 36, build-tools 36.1.0, NDK 29.0.14206865), and the standard 4.7.2 export templates. Editor Settings point at all three. **C: has only about 4 GB free,** so export with `GRADLE_USER_HOME=E:\Android\gradle` (see `EXPORT_SETUP.md`). | — | — |
-| O8 | **Real AdMob IDs.** The app IDs go in Project Settings > AdMob, and the rewarded and interstitial unit IDs in `idle_pioneer/ads/*`. Release builds show no ads until they're set. | Owner creates them in AdMob; Claude fills them in | Release with ads |
-| O9 | **Upload keystore.** Create it with the `keytool` command in section 4B, then enter it in the Android preset's Keystore > Release. | Owner | Release AAB |
-| O3 | ~~Package ID.~~ **Done:** `com.koberheim.idlepioneer` on both platforms (10 Oct 2026). It becomes permanent at the first upload. | — | — |
-| O4 | **Developer name: Skeemer Games** (done in the credits and the site). The site still has placeholders for the contact email, website, country, effective date and AdMob publisher ID. | Owner supplies them; Claude fills them in | Privacy policy URL |
-| O5 | **Host `docs/site`** with `app-ads.txt` at the domain root. See `docs/site/README.md`. | Owner | Both listings, AdMob |
-| O6 | **Real-device check.** At least one older Android phone and one iPhone. | Owner and testers | Production |
-| O7 | **Licence watch.** ElevenLabs Music only covers games under US$500k lifetime revenue. | Owner | Nothing today |
+| O1 | **Support email address.** Then `python tools/store/fill_site.py --email …`. | You, then Claude | Privacy policy, both listings |
+| O2 | **Google Play Console account** (US$25, identity check). | You | Everything on Play |
+| O3 | **AdMob account**, the app, two ad units and the consent messages. Send Claude the four IDs. | You, then Claude | Ads; `app-ads.txt` |
+| O4 | **Upload key:** run `tools\store\make_keystore.cmd` once and back it up. | You | The first upload |
+| O5 | **Website:** create the public repo `koberheim.github.io`, then run `tools\store\publish_site.cmd`. | You | Privacy policy URL |
+| O6 | **Push to GitHub.** `main` is ahead of GitHub by the October store work plus this pass. | You (say the word and Claude does it) | iOS cloud build; backup |
+| O7 | **A run on a real Android phone:** consent form, test ads, a test purchase, Restore. | You | Closed test |
+| O8 | **12 testers** with Google accounts, opted in for 14 days. | You | Production on Play |
+| O9 | **Apple Developer account** (US$99 a year) and Codemagic. | You | Everything on iOS |
+| O10 | **Your address becomes public.** Because the game earns money, Google and Apple show the developer's name, address, phone and email on listings in the EU (the "trader" rule). Decide what address to use before you fill in the account forms. | You | Both accounts |
+| O11 | **US state age laws** (Texas, Utah, Louisiana). Google and Apple say it's the developer's job to decide how these apply. See section 6. | You | Nothing blocks on it |
+| O12 | **License watch.** ElevenLabs Music only covers games under US$500k lifetime revenue. | You | Nothing today |
 
-## 3. Native backends (O1): the plugins in use
-
-These are installed and pinned for Godot 4.7.2:
+## 3. Plugins in use
 
 | Need | Plugin | Version |
 |---|---|---|
-| Ads and UMP consent, Android and iOS | Poing Studios `godot-admob-plugin` (AssetLib "AdMob"). Install the native parts from Project > Tools > AdMob Manager. | 5.1.0 (tested with 4.7.2) |
-| Android billing | `godot-sdk-integrations/godot-google-play-billing` (Play Billing 9.1) | 3.3.0 |
-| iOS StoreKit 2 | `hrk4649/godot_ios_plugin_iap` (singleton `IOSInAppPurchase`) | latest; tested with 4.7 and Xcode 26.5 |
+| Ads and consent, Android and iOS | Poing Studios `godot-admob-plugin` | 5.1.0 |
+| Android purchase | `godot-google-play-billing` (Play Billing 9.1) | 3.3.0 |
+| iOS purchase (StoreKit 2) | `hrk4649/godot_ios_plugin_iap` | 0.4.0 |
 
-All three are in the repo and enabled. Note that the AdMob plugin's own skill and docs files describe an older API; `mobile_backend.gd` follows the plugin's actual source.
+All three are committed, with their native parts, and pinned for Godot 4.7.2.
 
-## 4. Step by step: the Google Play listing
+## 4. Google Play, step by step
 
-**A. Accounts (owner, about 1–3 days of verification)**
-1. Create a Google Play Console personal developer account (US$25) and complete identity verification.
-2. Create an AdMob account (free).
-   - Add the app: Android, "not yet published".
-   - Create one **Rewarded** unit ("almanac") and one **Interstitial** unit ("between_expeditions").
-   - Note the App ID and the publisher ID.
-   - Under Privacy & messaging, create the **GDPR** and **US states** messages.
-3. Payments profile: Play Console > Setup > Payments profile. This is needed to sell Ad-Free.
+### A. Day 1: accounts and IDs (you, 1–2 hours, then Google's checks)
 
-**B. Build (Claude with the owner)**
-1. ~~Toolchain~~ (done, O2).
-2. Set the final package ID in the Android preset. (O3)
-3. Create the upload keystore and back it up offline:
-   ```
-   keytool -genkeypair -v -keystore idlepioneer-upload.jks -alias upload -keyalg RSA -keysize 4096 -validity 10000
-   ```
-4. ~~Plugins and native backends~~ (done, O1). Put the real AdMob IDs in Project Settings. (O8)
-5. Export the AAB. Check that the version code goes up with every upload.
+1. **Create the support email address.** Tell Claude; the site gets filled in.
+2. **Open a Google Play Console account** at play.google.com/console.
+   - Choose **Personal**. Pay the US$25 one-time fee.
+   - Complete identity verification (ID document). Google may also ask you to confirm you own an Android phone through the Play Console app. This usually takes 1–3 days.
+   - Read O10 first: the address you enter is shown publicly in the EU once the app earns money.
+3. **Open an AdMob account** at admob.google.com (free), with the same Google account.
+   - **Apps > Add app:** Android, "not listed on a store yet", name `Idle Pioneer`.
+   - **Ad units > Add ad unit:** one **Rewarded** named `almanac`, one **Interstitial** named `between_expeditions`.
+   - **Privacy & messaging:** create and publish the **European regulations** message and the **US state regulations** message for this app.
+   - Send Claude these four values. None is a secret:
+     - publisher ID (`pub-` and 16 digits, under Settings > Account information)
+     - app ID (`ca-app-pub-…~…`)
+     - the two ad unit IDs (`ca-app-pub-…/…`)
+4. **Create the upload key:** run `tools\store\make_keystore.cmd`, choose a password, and back up `E:\Android\keys\idlepioneer-upload.jks` and the password.
+5. **Create the website repo:** on github.com, New repository, name `koberheim.github.io`, **Public**.
 
-**C. Create the app (Play Console > Create app)**
-1. Name `Idle Pioneer: Colonial Tycoon`, default language English (US), type **Game**, **Free**.
+### B. Day 1: the first real build (Claude, 15 minutes once A is done)
+
+1. Fill in the site (`fill_site.py`) and publish it (`publish_site.cmd`). Check `https://koberheim.github.io/privacy.html` opens.
+2. Put the AdMob app ID and unit IDs in `project.godot`, with `force_test_ads=true` for the testers' build.
+3. Run `tools\store\build_android.cmd`. You type the key password. The result is `build\android\IdlePioneer.aab`, and the checker must say "Ready to upload".
+
+### C. Create the app (Play Console > Create app)
+
+1. Name `Idle Pioneer: Colonial Tycoon`, default language English (United States), **Game**, **Free**.
 2. Accept the declarations.
 
-**D. App content (Policy > App content). Answers are in `store/COPY.md`.**
-1. **Privacy policy:** the hosted `privacy.html` URL. (O4, O5)
+### D. App content (Policy > App content). Answers are in `store/COPY.md`.
+
+1. **Privacy policy:** `https://koberheim.github.io/privacy.html`
 2. **Ads:** Yes, the app contains ads.
 3. **App access:** all functionality is available without special access.
-4. **Content rating:** IARC questionnaire, category Game.
+4. **Content rating:** start the questionnaire, category Game.
    - Alcohol and tobacco: references only.
-   - Violence, gambling and user-generated content: No.
+   - Violence, gambling, user-generated content: No.
    - Digital purchases: Yes.
-   - Expect E10+ / PEGI 7–12.
-5. **Target audience:** 13–15, 16–17 and 18+ only. Never include under-13 age groups; that would bring in the Families policy.
-6. **Data safety:** the data is collected and shared through the AdMob SDK and encrypted in transit:
-   - approximate location (IP)
+   - Expect Everyone 10+ / PEGI 7–12.
+5. **Target audience:** 13–15, 16–17 and 18+. Never tick an under-13 group: that brings in the Families policy and its ad restrictions.
+6. **Data safety:** data is collected and shared through the ads SDK, encrypted in transit:
+   - approximate location (from the IP address)
    - app interactions
    - diagnostics
    - device and advertising IDs
 
-   No account and no deletion request apply.
+   No account exists, so no account-deletion URL applies.
 7. **Advertising ID:** Yes, for advertising and analytics.
-8. **Government, financial features, health, news:** No or None.
+8. **Government, financial features, health, news:** No.
 
-**E. Monetize > Products > In-app products**
-1. Create `ad_free`, a one-time product called "Ad-Free", priced at US$4.99.
-2. Activate it. The ID must match `Platform.AD_FREE`.
+### E. Store listing (Grow > Store presence > Main store listing)
 
-**F. Store listing (Grow > Store presence > Main store listing)**
-1. **Short and full descriptions:** from `store/COPY.md`.
+1. **Short and full description:** from `store/COPY.md`.
 2. **Graphics:**
    - App icon: `store/icon_512.png`
    - Feature graphic: `store/feature_graphic_1024x500.png`
    - Phone screenshots: `store/google_play_phone/01–08`
-3. **Category and contact:** category Games › Simulation, the tags from COPY.md, and the contact email and website. The website must be the domain that serves `app-ads.txt`.
+3. **Store settings:** category Games > Simulation, the tags from `COPY.md`, your support email, and website `https://koberheim.github.io` (it must be exactly this, for `app-ads.txt`).
 
-**G. Closed test (required for new personal accounts)**
-1. Go to Testing > Closed testing > Create track.
-2. Upload the AAB and enroll in **Play App Signing**.
-3. In App bundle explorer, check that the **16 KB page size** shows as compliant and that target SDK is 36.
-4. Add 12 or more testers (a Google Group is easiest). They opt in from the link, and then **all 12 must stay opted in for 14 days in a row**.
-5. Use AdMob test ads in this build, or the owner's device registered as an AdMob test device. Test the purchase with Play **licence testers**: Setup > License testing.
+### F. Internal test: your own phone first (same day, no review)
 
-**H. Production**
-1. Dashboard > Apply for production, and answer the closed-test questionnaire.
-2. Once approved, create a production release:
-   - choose the countries;
-   - remember the first release can't be a percentage rollout;
-   - consider a few countries first.
-3. Submit for review, which usually takes 1–7 days.
-4. After launch, link the app in AdMob, switch to the real ad unit IDs (a new build), and check that AdMob shows `app-ads.txt` as verified.
+1. **Testing > Internal testing > Create new release.** Upload the bundle. Accept **Play App Signing** when asked.
+2. Add your own Google account as a tester, open the opt-in link on your phone and install from Play.
+3. In **App bundle explorer**, confirm the bundle shows 16 KB support and target SDK 36.
+4. **Set up the purchase.** Play only lets you create products after a bundle is uploaded.
+   - **Setup > Payments profile:** create it (name, address, bank account for payouts).
+   - **Monetize > Products > In-app products > Create:** product ID `ad_free` (exactly), name "Ad-Free", US$4.99, then **Activate**.
+   - **Setup > License testing:** add your Google account, so your test purchases cost nothing.
+5. **Check on the phone (O7):**
+   - A new game starts; Settings shows "Version 1.0.0 · test ads".
+   - Play to "Consult the Almanac": a test ad plays, the game pauses and goes quiet, and the reward arrives.
+   - Settings > **Remove ads** shows the price; buy it with the license-test card; ads stop.
+   - Reinstall, tap **Restore purchases**: Ad-Free returns.
+   - **Privacy policy** opens the page.
+   - Back button, a long break (offline catch-up), and a force-quit (save survives).
+6. Report anything odd to Claude; fixes go out as a new bundle (`build_android.cmd -Bump`).
 
-## 5. Step by step: the App Store listing
+### G. Closed test: the 14-day clock
 
-**A. Accounts (owner)**
-1. Join the Apple Developer Program (US$99/yr). Enrol as an individual unless you have a company.
-2. Sign the **Paid Apps Agreement**, and complete tax and banking in App Store Connect > Business. Ad-Free can't be sold until this is done.
-3. **EU Digital Services Act:** declare yourself a **trader**, since the app earns money. Your address, phone and email will be shown on EU listings.
-4. In AdMob, add the iOS app and create its own Rewarded and Interstitial units.
+1. **Testing > Closed testing > Create track.** Promote the tested release, or upload the newest bundle.
+2. **Testers:** create an email list (or a Google Group) with at least **12** people. Ask 15–20: all 12 must stay opted in **for 14 days in a row**, and anyone who leaves and rejoins starts again.
+3. Send the release for review. When it's approved, send testers the opt-in link.
+4. Ask testers to actually play and to send feedback. Google asks what testers did and said when you apply for production, and can send you back for more testing if they barely used the app.
+5. Use the 14 days for fixes and for the iOS build.
 
-**B. Build without a Mac (Codemagic is the recommended route)**
-1. Certificates, IDs & Profiles > Identifiers: register the bundle ID. Use the same ID as Android.
-2. App Store Connect > Users and Access > Integrations: create an API key with the App Manager role. Keep the `.p8`, the Key ID and the Issuer ID.
-3. Set the Team ID in the iOS preset. Use the AdMob Manager to commit the iOS plugin files. Then Claude adds:
-   - the SKAdNetwork IDs and the `GADApplicationIdentifier`;
-   - `codemagic.yaml`, which downloads Godot 4.7.2 for macOS and its templates, runs `--export-release "iOS"`, then `xcode-project build-ipa` and `app-store-connect publish`.
-4. Codemagic's free personal tier has 500 macOS minutes a month, which is plenty. It handles signing through the API key, so you never need a Mac.
-5. The build goes to **TestFlight**. Install it on a real iPhone and test the ads, the purchase (with a Sandbox tester) and Restore.
+### H. Production
 
-**C. Create the app (App Store Connect > Apps > +)**
-1. Platform iOS, name `Idle Pioneer`, primary language English (U.S.), the bundle ID, and an SKU such as `idlepioneer`.
+1. **Dashboard > Apply for production.** Answer the questions about the closed test, the app and its readiness. Review usually takes 7 days or less.
+2. **Build the production bundle:** set `force_test_ads=false`, then `tools\store\build_android.cmd -Bump`. The checker must show no test-ads warning.
+3. **Production > Create new release:** upload, add the release notes from `COPY.md`, choose countries, and submit. The first review usually takes a few days.
+4. **After it's live:**
+   - In AdMob, link the app to its Play listing (Apps > App settings > App stores).
+   - Check AdMob > Apps > app-ads.txt shows "Authorized". Ads are limited until it does.
+   - Real ads can take a day or two to start filling.
 
-**D. App information**
-1. **Subtitle:** `Colonial Trade Tycoon`.
-2. **Category:** Games, with subcategories Simulation and Strategy.
-3. **Age rating:** the 2026 questionnaire.
+## 5. The App Store, step by step
+
+Start this during the Play closed test.
+
+### A. Accounts (you)
+
+1. **Apple Developer Program:** developer.apple.com/programs, US$99 a year, enrol as an individual. Approval takes a day or two.
+2. **App Store Connect > Business:** sign the **Paid Apps Agreement** and complete tax and banking. Ad-Free can't be sold until this is done.
+3. **Trader status** (EU Digital Services Act): declare yourself a trader, since the app earns money. See O10.
+4. **AdMob:** add the iOS app (same account) and create its own Rewarded and Interstitial units. Send Claude the iOS app ID and unit IDs.
+
+### B. The cloud build (you set up, Claude runs and fixes)
+
+1. **Push the project to GitHub** (O6).
+2. **developer.apple.com > Certificates, IDs & Profiles > Identifiers:** register the App ID `com.koberheim.idlepioneer`. Tick **In-App Purchase**.
+3. **App Store Connect > Users and Access > Integrations > App Store Connect API:** create a key with the **App Manager** role. Download the `.p8` file (one chance only) and note the Key ID and Issuer ID.
+4. **codemagic.io:** sign up with GitHub and add the Idle-Pioneer repository. Then, as the header of `codemagic.yaml` describes:
+   - add the API key under Integrations, named `idle-pioneer`;
+   - generate the distribution certificate and the App Store provisioning profile under Code signing identities;
+   - add `APPLE_TEAM_ID` (10 characters, from developer.apple.com > Membership) to a variable group named `apple`.
+5. **Create the app record first** (step C), then **Start new build > iOS to TestFlight**.
+6. The first run will probably need a fix or two. Send Claude the failing step's log. The likeliest places:
+   - the Godot download address;
+   - signing (profile and certificate names);
+   - the ad SDK being fetched by Xcode (the plugin adds it as a Swift package).
+7. The build appears under **TestFlight**. Install it on an iPhone with the TestFlight app and repeat the checks in 4F, using a **Sandbox** tester account for the purchase.
+
+### C. Create the app (App Store Connect > Apps > +)
+
+1. Platform iOS, name `Idle Pioneer`, primary language English (U.S.), the App ID, SKU `idlepioneer`.
+
+### D. App information
+
+1. **Subtitle:** `Colonial Trade Tycoon`
+2. **Category:** Games, subcategories Simulation and Strategy.
+3. **Age rating questionnaire:**
    - Alcohol, tobacco or drug references: Infrequent/Mild.
    - Everything else: None.
-   - In-app purchases and ads: Yes.
-   - Expect 9+, or possibly 13+.
-4. **Content rights:** no third-party content you don't hold rights to.
+   - In-app purchases and advertising: Yes.
+   - Expect 9+ or 13+.
+4. **Content rights:** no third-party content you lack rights to.
 
-**E. App Privacy**
-1. Privacy policy URL.
-2. Data types (from Google's iOS disclosure page for the SDK version that ships):
+### E. App Privacy
+
+1. **Privacy policy URL:** `https://koberheim.github.io/privacy.html`
+2. **Data collected** (by the ads SDK; full notes in `store/COPY.md`):
    - Coarse Location
    - Device ID
-   - Product Interaction
-   - Advertising Data
-   - Crash, Performance and Other Diagnostic data
-3. All of it is **not linked** to the user, and the purposes are Third-Party Advertising and Analytics.
-4. "Used for tracking": **No**, as long as no ATT prompt is shown.
+   - Product Interaction and Advertising Data
+   - Crash, Performance and Other Diagnostic Data
+3. All of it **not linked** to the user; purposes Third-Party Advertising and Analytics.
+4. **Used for tracking: No.** The game shows no tracking prompt.
 
-**F. Monetization > In-App Purchases**
-1. Create a **Non-Consumable** with product ID `ad_free` and reference name "Ad-Free", price tier US$4.99.
-2. Add a display name and description, and a review screenshot of the Settings screen.
-3. Attach it to version 1.0. The first IAP must be submitted together with a build.
+### F. The purchase (Monetization > In-App Purchases)
 
-**G. Version 1.0 page**
-1. **Screenshots:** `store/iphone_6.9/01–08` (1290×2796). *(verify)* Apple's help page now lists the 6.1″ "Dynamic Island" size as the required iPhone set. If App Store Connect asks for it, run `build_store.py` with a 1179×2556 size. Claude can add it.
-2. **Promotional text, description, keywords and support URL:** from `store/COPY.md`. The support URL is `support.html`.
+1. Create a **Non-Consumable**: product ID `ad_free`, reference name "Ad-Free", US$4.99.
+2. Add the display name, a description, and a review screenshot of the Settings screen.
+3. Attach it to version 1.0. The first purchase product must be submitted together with a build.
+
+### G. The version 1.0 page
+
+1. **Screenshots:**
+   - 6.1″ slot (the required one): `store/iphone_6.1/01–08`
+   - 6.9″ slot: `store/iphone_6.9/01–08`
+   - `store/iphone_6.5/` is only needed if App Store Connect asks for it.
+2. **Promotional text, description, keywords:** from `store/COPY.md`. **Support URL:** `https://koberheim.github.io/support.html`.
 3. **Build:** pick the TestFlight build.
-4. **App Review information:**
-   - no sign-in needed;
-   - notes: "Single-player idle game. Ad-Free (non-consumable) is in Settings, and Restore purchases is next to it. Ads appear only between expeditions from the second independence onward, and as an optional rewarded 'Consult the Almanac'."
-5. Submit for review, which usually takes 1–2 days.
+4. **App Review information:** no sign-in needed. Notes: "Single-player idle game. Ad-Free (non-consumable) is in Settings, with Restore purchases beside it. Ads appear only between expeditions from the second independence onward, and as an optional rewarded 'Consult the Almanac'."
+5. Submit for review, usually 1–2 days.
 
-## 6. Order of work
+## 6. US state age laws (O11)
 
-1. **Now (owner):**
-   - Choose the package ID and developer name.
-   - Approve the toolchain installs.
-   - Open the Play Console, AdMob and Apple accounts (they verify in parallel).
-2. **Claude:**
-   - ~~Install the toolchain and plugins, and write the native backends~~ (done).
-   - Fill in the site placeholders and the package ID once chosen.
-   - Produce the first signed AAB once the keystore exists.
-3. **Owner:**
-   - Host the site.
-   - Upload to closed testing.
-   - Start the 14-day clock with 12+ testers.
-4. **In parallel:** the Codemagic iOS build, then TestFlight.
-5. **After 14 days:** Play production. Submit the App Store build once TestFlight checks out.
+Texas, Utah and Louisiana now have laws that make app stores check users' ages and pass an age range to apps. Texas's is in force after an appeals court lifted the block on it in May 2026.
 
-**Estimate:** about 3 weeks to both stores, mostly waiting on the closed-test clock.
+- **Google** offers a "Play Age Signals" tool (still in beta) and says it does not require developers to use it. It also says it's each developer's responsibility to work out how the laws apply to their app. Texas's law may ask for an age rating on in-app products; Play Console has a field for it.
+- **Apple** says developers are responsible for their own age restrictions "where legally required", and points to its Declared Age Range tool.
+- **Neither store blocks a submission over this.** The game doesn't use either tool today, and neither has a ready-made Godot plugin.
+- **What already helps:** no accounts, no chat, no user content, ads marked as not directed at children, and the stores handle parental approval of downloads and purchases themselves.
+- **Your call:** this is a legal question, not a technical one. If you want certainty, ask a lawyer whether a single-player game with ads and one purchase has duties under these laws. If the answer is yes, Claude can add the age check.
+
+## 7. Timeline
+
+| When | What |
+|---|---|
+| Day 1 | Section 4A: email, Play and AdMob accounts, upload key, website repo. Claude fills in the IDs and builds. |
+| Days 2–4 | Play verifies your identity. Then 4C–4F: create the app, fill in the forms, internal test on your phone. |
+| Days 4–6 | Closed test reviewed; testers opt in. **The 14-day clock starts.** |
+| Days 6–20 | Closed test. In parallel: Apple account, Codemagic, TestFlight (section 5). |
+| Day 20 | Apply for production on Play (up to 7 days). |
+| Days 24–30 | Production release on Play. Submit the App Store version once TestFlight checks out. |
+
+## 8. Rules checked on 13 Nov 2026
+
+| Rule | Status | Source |
+|---|---|---|
+| New apps must target Android 16 (API 36) | In force since 31 Aug 2026. The preset targets 36. | [Play Console Help](https://support.google.com/googleplay/android-developer/answer/11926878) |
+| New personal accounts: closed test, 12 testers, 14 days in a row | In force. Review of the production application "usually seven days or less". | [Play Console Help](https://support.google.com/googleplay/android-developer/answer/14151465) |
+| Play Billing library version | Version 9 is accepted until 31 Aug 2028. The game uses 9.1. | [Android Developers](https://developer.android.com/google/play/billing/deprecation-faq) |
+| Apple uploads must be built with Xcode 26 | In force since 28 Apr 2026. `codemagic.yaml` uses the latest Xcode. | [Apple](https://developer.apple.com/news/upcoming-requirements/) |
+| Apple minimum iOS target 13 | In force since 9 Sep 2026. The preset targets 15. | [Apple](https://developer.apple.com/news/upcoming-requirements/) |
+| iPhone screenshots | One set is required, at 1179×2556 or 1206×2622. Larger sizes are optional. | [App Store Connect Help](https://developer.apple.com/help/app-store-connect/reference/screenshot-specifications/) |
+| Age laws | See section 6. | [Play Console Help](https://support.google.com/googleplay/android-developer/answer/16569691), [Apple](https://developer.apple.com/support/age-assurance/) |
+
+The Apple screenshot table was read through a summary of the page, so confirm the required slot in App Store Connect when you upload.

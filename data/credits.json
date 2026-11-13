@@ -43,6 +43,9 @@
 	"licenses": [
 		{"name": "Godot Engine (MIT) and third-party notices", "file": "engine"},
 		{"name": "Libre Baskerville (SIL OFL 1.1)", "file": "res://assets/fonts/LibreBaskerville-OFL.txt"},
-		{"name": "Almendra (SIL OFL 1.1)", "file": "res://assets/fonts/Almendra-OFL.txt"}
+		{"name": "Almendra (SIL OFL 1.1)", "file": "res://assets/fonts/Almendra-OFL.txt"},
+		{"name": "Godot AdMob Plugin by Poing Studios (MIT)", "file": "res://addons/admob/LICENSE"},
+		{"name": "Godot Google Play Billing (MIT)", "file": "res://addons/GodotGooglePlayBilling/LICENSE"},
+		{"name": "Godot iOS In-App Purchase by Hiroki Taira (MIT)", "file": "res://ios/plugins/ios-in-app-purchase/LICENSE"}
 	]
 }

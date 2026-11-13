@@ -821,12 +821,31 @@ func _show_settings() -> void:
 		m.body.add_child(store_row)
 	else:
 		store_row.queue_free()
+	# Both stores want the privacy policy reachable from inside the game.
+	var privacy_row := UI.hbox(10)
+	var policy_url: String = Platform.privacy_policy_url()
+	if policy_url != "":
+		var policy := UI.button("Privacy policy", "button", 56)
+		policy.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
+		policy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		policy.pressed.connect(func() -> void:
+			Sfx.play("click")
+			OS.shell_open(policy_url))
+		privacy_row.add_child(policy)
 	if Platform.privacy_options_required():
 		var privacy := UI.button("Privacy choices", "button", 56)
 		privacy.add_theme_font_size_override("font_size", UI.SIZE_SMALL)
+		privacy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		privacy.pressed.connect(func() -> void: Platform.show_privacy_options())
-		m.body.add_child(privacy)
-	var version := UI.label("Version %s" % str(ProjectSettings.get_setting("application/config/version", "dev")), UI.SIZE_MIN, UI.INK_SOFT)
+		privacy_row.add_child(privacy)
+	if privacy_row.get_child_count() > 0:
+		m.body.add_child(privacy_row)
+	else:
+		privacy_row.queue_free()
+	var version_text: String = "Version %s" % str(ProjectSettings.get_setting("application/config/version", "dev"))
+	if Platform.test_ads_forced():
+		version_text += "  ·  test ads"
+	var version := UI.label(version_text, UI.SIZE_MIN, UI.INK_SOFT)
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	m.body.add_child(version)
 	var meta: MetaState = Game.meta

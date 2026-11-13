@@ -20,6 +20,9 @@ signal interstitial_closed(placement: String)
 
 const AD_FREE := "ad_free"
 const ENTITLEMENT_PATH := "user://entitlements.cfg"
+## Project Settings, filled in at release time (see docs/MONETIZATION.md).
+const PRIVACY_URL_SETTING := "idle_pioneer/urls/privacy_policy"
+const TEST_ADS_SETTING := "idle_pioneer/ads/force_test_ads"
 
 var backend: PlatformBackend
 var _ad_free: bool = false
@@ -162,3 +165,17 @@ func privacy_options_required() -> bool:
 
 func show_privacy_options() -> void:
 	backend.show_privacy_options()
+
+
+## The public privacy policy page, or "" until the site is hosted (Settings
+## then shows no link).
+func privacy_policy_url() -> String:
+	var url: String = str(ProjectSettings.get_setting(PRIVACY_URL_SETTING, "")).strip_edges()
+	return url if url.begins_with("https://") else ""
+
+
+## True in a build made for testers: release builds then serve Google's test
+## ads instead of real ones, so nobody can click a live ad by accident.
+## Must be off in the build that goes to production.
+func test_ads_forced() -> bool:
+	return bool(ProjectSettings.get_setting(TEST_ADS_SETTING, false))

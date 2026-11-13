@@ -1,0 +1,92 @@
+# Builds the iPhone version on a rented Mac (codemagic.io) and sends it to
+# TestFlight, so no Mac is needed at home. Start it by hand from the Codemagic
+# dashboard: Start new build > workflow "iOS to TestFlight".
+#
+# NOT YET RUN: it was written before the Apple Developer account existed.
+# Expect to fix a detail or two on the first build; docs/STORE_READINESS.md
+# section 5 lists what to check if a step fails.
+#
+# One-time setup in Codemagic (see docs/STORE_READINESS.md, section 5B):
+#   1. Team settings > Integrations > Developer Portal: add the App Store
+#      Connect API key and name it exactly  idle-pioneer
+#   2. Team settings > Code signing identities > iOS certificates: "Generate
+#      certificate" (Apple Distribution). Then iOS provisioning profiles:
+#      fetch or create the App Store profile for com.koberheim.idlepioneer.
+#   3. Environment variables, group  apple :
+#        APPLE_TEAM_ID   the 10-character Team ID from developer.apple.com > Membership
+
+workflows:
+  ios-testflight:
+    name: iOS to TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: idle-pioneer
+    environment:
+      groups:
+        - apple
+      vars:
+        GODOT_VERSION: "4.7.2"
+        BUNDLE_ID: "com.koberheim.idlepioneer"
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.koberheim.idlepioneer
+      # Apple only accepts uploads built with Xcode 26 or later.
+      xcode: latest
+    scripts:
+      - name: Install Godot and its export templates
+        script: |
+          set -euo pipefail
+          BASE="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          curl -fsSL -o godot.zip "$BASE/Godot_v${GODOT_VERSION}-stable_macos.universal.zip"
+          unzip -q godot.zip -d "$HOME/godot"
+          curl -fsSL -o templates.tpz "$BASE/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q templates.tpz -d "$HOME/godot_templates"
+          DEST="$HOME/Library/Application Support/Godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "$DEST"
+          mv "$HOME/godot_templates/templates/"* "$DEST/"
+          echo "GODOT=$HOME/godot/Godot.app/Contents/MacOS/Godot" >> "$CM_ENV"
+
+      - name: Set the team and the build number
+        script: |
+          set -euo pipefail
+          test -n "${APPLE_TEAM_ID:-}" || { echo "APPLE_TEAM_ID is not set (group 'apple')"; exit 1; }
+          # The preset's iOS section holds the only application/* keys in the file.
+          sed -i '' "s|^application/app_store_team_id=.*|application/app_store_team_id=\"${APPLE_TEAM_ID}\"|" export_presets.cfg
+          # Every upload needs a higher build number; Codemagic's counter gives one.
+          sed -i '' "s|^application/version=.*|application/version=\"${BUILD_NUMBER}\"|" export_presets.cfg
+          grep -E "^application/(app_store_team_id|version|short_version|bundle_identifier)=" export_presets.cfg
+
+      - name: Import the project
+        script: |
+          set -euo pipefail
+          # .godot/ is not in git, so build the import cache first. The first
+          # pass can exit non-zero while scripts still reference unimported
+          # assets; the second pass must succeed.
+          "$GODOT" --headless --path . --import || true
+          "$GODOT" --headless --path . --import
+
+      - name: Export the Xcode project
+        script: |
+          set -euo pipefail
+          mkdir -p build/ios
+          "$GODOT" --headless --path . --export-release "iOS" build/ios/IdlePioneer.ipa
+          test -d build/ios/IdlePioneer.xcodeproj || { echo "Godot did not write the Xcode project"; exit 1; }
+
+      - name: Sign and build
+        script: |
+          set -euo pipefail
+          xcode-project use-profiles
+          xcode-project build-ipa \
+            --project "build/ios/IdlePioneer.xcodeproj" \
+            --scheme "IdlePioneer"
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        # Uploads the build; it then appears under TestFlight in App Store
+        # Connect. Submitting for App Review stays a manual step.
+        submit_to_testflight: false
