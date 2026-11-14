@@ -197,6 +197,7 @@ def mayflower_compact():
     ic.circle(sx, sy, 3.6, WAX, light=0.35, dark=0.4)
     ic.circle(sx + 0.2, sy + 0.2, 2.0, mul(WAX, 0.78), shade=False)
     ic.dot(sx - 1.4, sy - 1.5, mix(WAX, CREAM, 0.55), 0.6)
+    glint(ic, 40.5, 5.5)
     ic.save("relic_mayflower_compact")
 
 
@@ -344,6 +345,7 @@ def new_england_primer():
             n += 1
     # ribbon marker hanging from the spine
     ic.poly([(23.2, 42), (25.2, 42), (26, 47.5), (24.4, 46.4), (23, 47.5)], RED, light=0.2, dark=0.2)
+    glint(ic, 43, 6.5)
     ic.save("relic_new_england_primer")
 
 
@@ -388,6 +390,7 @@ def coquina_stone():
     punch_poly(ic, [(44, 13), (46, 13), (46, 18), (43.2, 16.2)])
     punch_poly(ic, [(2, 36), (5, 37.6), (3.5, 40), (2, 40)])
     punch_poly(ic, [(22, 45), (24, 43), (26.5, 45)])
+    glint(ic, 41.5, 10.5)
     ic.save("relic_coquina_stone", colors=40)
 
 
@@ -526,6 +529,7 @@ def point_blanket():
     # blanket-stitched edge on the right of the top layer
     for y in (19.5, 22, 24.5):
         ic.line([(42.4, y), (44.2, y)], mul(WOOL, 0.6), 0.5)
+    glint(ic, 43.5, 6)
     ic.save("relic_point_blanket", colors=40)
 
 
@@ -717,10 +721,16 @@ def letter_of_marque():
     """Landscape commission: engraved border, navy anchor stamp, big seal on blue ribbons."""
     ic = Icon(seed=113)
     ic.shadow(24, 45.5, 18, 2)
-    ic.rect((2.5, 5, 45.5, 35), PAPER, light=0.12, dark=0.22)
-    ic.line([(3, 34.5), (45, 34.5)], mul(PAPER, 0.8), 0.6)
+    paper = mix(PARCH, (214, 184, 128), 0.2)     # the aged sheet of the other documents
+    ic.rect((2.5, 5, 45.5, 35), paper, light=0.16, dark=0.22)
+    edge = mix(PARCH_D, TOBACCO, 0.3)
+    ic.line([(2.9, 5.4), (45.1, 5.4)], edge, 0.9)
+    ic.line([(2.9, 34.6), (45.1, 34.6)], mul(edge, 0.9), 0.9)
+    ic.line([(2.9, 5.4), (2.9, 34.6)], edge, 0.9)
+    ic.line([(45.1, 5.4), (45.1, 34.6)], mul(edge, 0.85), 0.9)
+    ic.speckle((3, 5, 45, 35), mix(PARCH_D, TOBACCO, 0.2), 10, 0.5)
     # engraved double border with corner rosettes
-    frame = mix(INK_SOFT, PAPER, 0.15)
+    frame = mix(INK_SOFT, paper, 0.15)
     for m, w in ((1.6, 0.8), (3.0, 0.45)):
         x0, y0, x1, y1 = 2.5 + m, 5 + m, 45.5 - m, 35 - m
         ic.line([(x0, y0), (x1, y0), (x1, y1), (x0, y1), (x0, y0)], frame, w)
@@ -734,7 +744,7 @@ def letter_of_marque():
             continue
         ic.line([(x, 10.2), (x, 12.4)], INK, 0.9)
         x += 1.45
-    ic.line([(16, 13.7), (37.6, 13.7)], mix(INK, PAPER, 0.5), 0.4)
+    ic.line([(16, 13.7), (37.6, 13.7)], mix(INK, paper, 0.5), 0.4)
     # navy anchor stamp inside a ring
     acx, acy = 10.8, 21
     ic.arc((acx - 5.6, acy - 6.2, acx + 5.6, acy + 6.2), 0, 360, NAVY, 0.7)

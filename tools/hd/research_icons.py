@@ -208,33 +208,38 @@ def branch_navigation():
 
 
 def branch_roads():
-    """A road running off to the horizon with a wagon wheel in front."""
+    """A wagon wheel leaning on a milestone, on a strip of rutted road."""
     ic = Icon()
-    # sky band and hills
-    ic.rect((3, 4, 45, 26), mix(SKY, CREAM, 0.35), radius=3, light=0.1, dark=0.15)
-    ic.poly([(3, 22), (12, 15), (20, 19), (30, 13), (45, 20), (45, 27), (3, 27)], mix(LEAF, LEAF_D, 0.4), light=0.2, dark=0.3)
-    # field
-    ic.rect((3, 24, 45, 44), LEAF, radius=3, light=0.2, dark=0.3)
-    # road receding
-    ic.poly([(5, 44), (22.5, 24), (25.5, 24), (43, 44)], mix(PARCH_D, WOOD_L, 0.35), light=0.25, dark=0.25)
-    for t in (0.2, 0.45, 0.72):
-        y = 24 + 20 * t
-        ic.line([(24, y - 1.5 * t), (24, y + 2.5 * t)], PARCH, 0.4 + 0.9 * t)
-    ic.line([(8, 44), (23, 24.5)], mix(PARCH_D, WOOD, 0.5), 0.5)
-    ic.line([(40, 44), (25, 24.5)], mix(PARCH_D, WOOD, 0.5), 0.5)
-    # milepost
-    ic.rect((36, 20, 39, 33), WOOD, light=0.3, dark=0.35)
-    ic.poly([(33, 21), (43, 21), (45.5, 23.5), (43, 26), (33, 26)], PINE, light=0.3, dark=0.35)
-    ic.line([(35, 23.5), (41.5, 23.5)], WOOD_D, 0.7)
-    # wagon wheel, bottom-left, overlapping
-    cx, cy, r = 14, 33, 11
-    for i in range(10):
-        a = math.radians(i * 36)
-        ic.line([(cx, cy), (cx + math.cos(a) * (r - 1), cy + math.sin(a) * (r - 1))], WOOD_L, 1.3, shade=False)
-    ring(ic, (cx - r, cy - r, cx + r, cy + r), (cx - r + 2.6, cy - r + 2.6, cx + r - 2.6, cy + r - 2.6), WOOD, light=0.3, dark=0.4)
-    ring(ic, (cx - r, cy - r, cx + r, cy + r), (cx - r + 1, cy - r + 1, cx + r - 1, cy + r - 1), IRON, light=0.35, dark=0.35)
-    ic.circle(cx, cy, 3, WOOD_D, light=0.3, dark=0.3)
-    ic.circle(cx, cy, 1.2, IRON_D, shade=False)
+    road = mix(PARCH_D, WOOD_L, 0.35)
+    # milestone behind, on the right
+    ic.rect((30.5, 14, 45.5, 44), STONE, radius=5.5, light=0.3, dark=0.32)
+    ic.line([(34, 18.2), (42, 18.2)], mix(STONE, WHITE, 0.45), 0.6)
+    ic.line([(34.6, 22.5), (41.4, 22.5)], mul(STONE, 0.62), 0.8)
+    for a, b in (((35.6, 26.2), (40.6, 32.6)), ((40.6, 26.2), (35.6, 32.6))):   # the mile numeral
+        ic.line([a, b], mul(STONE, 0.58), 1.0)
+    ic.speckle((31, 15, 45, 40), mul(STONE, 0.8), 9, 0.45)
+    # the road it stands on
+    ic.poly([(1, 41.5), (47, 39.5), (47, 46.5), (1, 46.5)], road, light=0.2, dark=0.28)
+    for x in (4, 13, 23, 33, 41):
+        ic.line([(x, 46), (x + 5, 42)], mul(road, 0.72), 0.6)
+    for x, y in ((9, 43.4), (28, 44.6), (38, 41.8)):
+        ic.dot(x, y, mix(road, CREAM, 0.5), 0.6)
+    # grass at the foot of the stone
+    for x, h in ((43.5, 5), (45.2, 3.6), (41.8, 3.2)):
+        ic.line([(x, 41.2), (x + 0.8, 41.2 - h)], LEAF_D, 0.9)
+    # wagon wheel in front
+    cx, cy, r = 18, 25.5, 16.5
+    ic.shadow(cx + 1, 43.2, 13, 1.8, 70)
+    for i in range(12):
+        a = math.radians(i * 30 + 15)
+        ic.line([(cx, cy), (cx + math.cos(a) * (r - 1.5), cy + math.sin(a) * (r - 1.5))], WOOD_L, 1.5, shade=False)
+    ring(ic, (cx - r, cy - r, cx + r, cy + r), (cx - r + 3.6, cy - r + 3.6, cx + r - 3.6, cy + r - 3.6), WOOD, light=0.3, dark=0.4)
+    ring(ic, (cx - r, cy - r, cx + r, cy + r), (cx - r + 1.2, cy - r + 1.2, cx + r - 1.2, cy + r - 1.2), IRON, light=0.4, dark=0.35)
+    ring(ic, (cx - r + 3.6, cy - r + 3.6, cx + r - 3.6, cy + r - 3.6),
+         (cx - r + 4.2, cy - r + 4.2, cx + r - 4.2, cy + r - 4.2), WOOD_D, shade=False)
+    ic.circle(cx, cy, 4.0, WOOD_D, light=0.35, dark=0.3)
+    ic.circle(cx, cy, 2.0, IRON, light=0.4, dark=0.3)
+    ic.dot(cx - 0.7, cy - 0.7, SILVER, 0.6)
     ic.save("branch_roads")
 
 

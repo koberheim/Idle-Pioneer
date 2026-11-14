@@ -12,7 +12,7 @@ Writes
     assets/icons/feature_graphic_1024x500.png   1024x500 opaque RGB
     assets/sprites/app_icon.png                 256 RGBA (Godot project icon)
 
-The icon is designed on a 128 px grid: a bastioned star fort on a green
+The icon is designed on a 128 px grid and drawn at 256: a bastioned star fort on a green
 headland, a gold crowned coin rising as the sun behind it, and a three-masted
 ship on the sea. Background (sky, sea) and foreground (land, fort, ship, coin)
 are rendered separately so the foreground gets the tinted outline and the
@@ -338,14 +338,17 @@ def flatten(bg, fg):
 
 
 def make_icon():
-    n = 128
+    # Designed on the 128 grid, drawn at twice that: 256 art pixels, so the
+    # 512 px store icon shows 2x pixels like the feature graphic and the
+    # adaptive layers, not the 4x blocks it had.
+    n, k = 256, 2.0
     bg = Canvas(n, n, seed=3)
-    d = X(bg)
-    draw_bg(d, bg.rnd, 0, n, 0, n, 60)
+    d = X(bg, 0, 0, k)
+    draw_bg(d, bg.rnd, 0, n / k, 0, n / k, 60)
     cloud(d, 16, 18, 1.0)
     cloud(d, 52, 9, 0.7)
     fg = Canvas(n, n)
-    draw_fg(X(fg))
+    draw_fg(X(fg, 0, 0, k))
     return flatten(bg.render(40, None), fg.render(80))
 
 
@@ -569,7 +572,7 @@ def make_feature():
 
 def main():
     os.makedirs(ICONS, exist_ok=True)
-    icon = make_icon()                                          # 128 RGB
+    icon = make_icon()                                          # 256 RGB
     icon.resize((1024, 1024), Image.NEAREST).save(os.path.join(ICONS, "app_icon_1024.png"))
     icon.resize((512, 512), Image.NEAREST).save(os.path.join(ICONS, "app_icon_512.png"))
     icon.resize((256, 256), Image.NEAREST).convert("RGBA").save(os.path.join(SPRITES, "app_icon.png"))
